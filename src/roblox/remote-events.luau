@@ -1,22 +1,6 @@
 --!strict
 
-local Channels = require("../core/chat/channels")
-
 local Events = {}
-
-function Events.limiter(budget: Channels.Budget)
-	local buckets: { [string]: Channels.Bucket } = {}
-	return {
-		admit = function(key: string, now: number): boolean
-			local allowed, nextBucket = Channels.consume(buckets[key], budget, now)
-			buckets[key] = nextBucket
-			return allowed
-		end,
-		forget = function(key: string)
-			buckets[key] = nil
-		end,
-	}
-end
 
 function Events.transport<Event, Player, Handler, Options>(host: {
 	register: (string, Handler, Options?) -> () -> (),
