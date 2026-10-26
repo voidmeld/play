@@ -1,4 +1,5 @@
 --!strict
+--!native
 
 export type Config = { meleeTakeover: number, rangedTakeover: number, tauntLead: number }
 export type State = { threat: { [string]: number }, targetActorId: string }
