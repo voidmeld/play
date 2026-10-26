@@ -91,6 +91,18 @@ cannot be replayed against the resulting state. `now` is supplied by the host.
 lute run tools/gate.luau
 ```
 
+Use `lute run tools/gate.luau --tier fast` while editing. Its command producers include
+`type-policy`, `types`, `test-manifest`, `spec-style`, `boundary`, `provenance`, `leakage`,
+`public-surface`, `comments`, `format`, `lint` and `verify-check`; `specs` runs the test manifest.
+The full gate also runs `clean-clone` on a clean committed HEAD.
+
+Run `lute run tools/check-spec-style.luau` or `lute run tools/gate.luau --only spec-style`
+to check spec syntax. Specs use `Bdd.create` and declare `local describe, it, expect` once.
+The check rejects colon case registration, context expectations and dotted `Test.it`,
+`Test.expect` and `Test.describe` calls in `*.verify.luau`, including untracked specs.
+Any spec whose subject is Verify's raw harness API belongs in the path-based
+`specStyle.exclude` selection in `tools/checks-config.luau`.
+
 `cast.queue.rules(config)` captures `windowSec`, `maxRequeues` and `minRetrySec`.
 `enqueue(state, payload, requeues, reason, remainingSec, now)` accepts only `on_gcd`
 inside the positive inclusive queue window and below the retry bound. It replaces the
