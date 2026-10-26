@@ -1,4 +1,5 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./tracking")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
@@ -11,19 +12,8 @@ local Policy = Module.tracking({
 	},
 })
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(context)
-			current = context
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("quest tracking authority", function()
 		it("allows accepted and completed authored progress", function()

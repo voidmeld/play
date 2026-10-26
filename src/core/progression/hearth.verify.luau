@@ -1,4 +1,5 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./hearth")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
@@ -13,19 +14,8 @@ local Core = Module.hearth({
 	},
 })
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(context)
-			current = context
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("bind and hearth law", function()
 		it("keeps the saved Dewmere keeper and names its actual shore", function()
@@ -55,7 +45,7 @@ return function(suite: Verify.Harness)
 				end
 			end
 			expect(Core.destination("zone_b", "missing")):toBeNil()
-			expect(Core.bind(nil, "zone_b", nil, 1, true)):toBeNil()
+			expect((Core.bind(nil, "zone_b", nil, 1, true))):toBeNil()
 			expect(Core.normalize({ bind = { zoneId = "zone_b", npcId = "missing" } }).bind):toBeNil()
 		end)
 
@@ -64,8 +54,8 @@ return function(suite: Verify.Harness)
 			local bound, bindReason = Core.bind(nil, "zone_a", "keeper_a", 8, true)
 			expect(bindReason):toBeNil()
 			expect(assert(bound).bind.zoneId):toBe("zone_a")
-			expect(Core.bind(bound, "zone_a", "keeper_a", 20, true)):toBeNil()
-			expect(Core.bind(bound, "zone_b", "keeper_a", 2, true)):toBeNil()
+			expect((Core.bind(bound, "zone_a", "keeper_a", 20, true))):toBeNil()
+			expect((Core.bind(bound, "zone_b", "keeper_a", 2, true))):toBeNil()
 			local blocked, combatReason = Core.hearth(bound, 100, true, true)
 			expect(blocked):toBeNil()
 			expect(combatReason):toBe("in_combat")
@@ -91,7 +81,7 @@ return function(suite: Verify.Harness)
 			expect(rejoined.hearthReadyAt):toBe(1600)
 			local substituted = table.clone(used)
 			substituted.returningTo = { zoneId = "zone_a", npcId = "keeper_a" }
-			expect(pcall(Core.normalize, substituted)):toBe(false)
+			expect((pcall(Core.normalize, substituted))):toBe(false)
 			expect(Core.arrived(rejoined).returningTo):toBeNil()
 			expect(Core.arrived(rejoined).hearthReadyAt):toBe(1600)
 		end)

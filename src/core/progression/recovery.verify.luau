@@ -1,22 +1,12 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./recovery")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 local Core = Module.recovery({ coordinateLimit = 1000000, lowHealthRatio = 0.25, defaultCause = "defeat" })
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(context)
-			current = context
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	local corpse = { x = 22, y = 4, z = 30 }
 	local anchor = { x = 2, y = 5, z = 3 }
@@ -27,7 +17,7 @@ return function(suite: Verify.Harness)
 			expect(Core.decodeEcho("nan,0,0")):toBe(nil)
 			expect(Core.decodeEcho("1,2,3,4")):toBe(nil)
 			expect(Core.decodeEcho({ x = 1, y = 2, z = 3 })):toBe(nil)
-			expect(pcall(Core.encodeEcho, { x = math.huge, y = 0, z = 0 })):toBe(false)
+			expect((pcall(Core.encodeEcho, { x = math.huge, y = 0, z = 0 }))):toBe(false)
 		end)
 		it("warns before defeat and keeps the echo distance tied to the place the player fell", function()
 			expect(Core.lowHealth(25, 100)):toBe(true)

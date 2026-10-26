@@ -1,5 +1,6 @@
 --!strict
 
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Exchange = require("./exchange")
 local Receipts = require("./receipt")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
@@ -31,55 +32,57 @@ local function receipt(): Receipts.Projected
 end
 
 return function(suite: Verify.Harness)
-	suite:case("projects numeric and wire maps, copies records and preserves grant markers", function(context)
-		local source = receipt()
-		local projected = assert(receipts.project(source))
-		context:expect(projected):toEqual(source)
-		context:expect(projected == source):toBe(false)
-		context:expect(projected.players == source.players):toBe(false)
-		local wire = assert(receipts.wire(projected))
-		context:expect(wire.characters["10"]):toBe("ten")
-		context:expect(wire.grants["1"]):toBe(true)
-		context:expect(receipts.project(wire)):toEqual(source)
-		context:expect(table.isfrozen(wire.offers["1"])):toBe(true)
-	end)
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
-	suite:case("uses configured trade, character, user, revision, time and offer bounds", function(context)
-		local cases: { Receipts.Projected } = {}
-		local value = receipt()
-		value.tradeId = "abc"
-		table.insert(cases, value)
-		value = receipt()
-		value.characters[1] = "long"
-		table.insert(cases, value)
-		value = receipt()
-		value.players[2] = 11
-		table.insert(cases, value)
-		value = receipt()
-		value.revision = 3
-		table.insert(cases, value)
-		value = receipt()
-		value.expiresAt = 21
-		table.insert(cases, value)
-		value = receipt()
-		value.expiresAt = 0
-		table.insert(cases, value)
-		value = receipt()
-		value.offers[1].coin = 5
-		table.insert(cases, value)
-		for _, candidate in cases do
-			context:expect(receipts.project(candidate)):toBeNil()
-		end
-		local cfg = table.clone(settings)
-		cfg.offer = function(_value: unknown): Exchange.Offer?
-			return nil
-		end
-		context:expect(Receipts.receipts(cfg).project(receipt())):toBeNil()
-	end)
+	describe("receipt", function()
+		it("projects numeric and wire maps, copies records and preserves grant markers", function()
+			local source = receipt()
+			local projected = assert(receipts.project(source))
+			expect(projected):toEqual(source)
+			expect(projected == source):toBe(false)
+			expect(projected.players == source.players):toBe(false)
+			local wire = assert(receipts.wire(projected))
+			expect(wire.characters["10"]):toBe("ten")
+			expect(wire.grants["1"]):toBe(true)
+			expect(receipts.project(wire)):toEqual(source)
+			expect(table.isfrozen(wire.offers["1"])):toBe(true)
+		end)
 
-	suite:case(
-		"rejects mixed aliases, extra participants, bad phases, false grants and unknown fields",
-		function(context)
+		it("uses configured trade, character, user, revision, time and offer bounds", function()
+			local cases: { Receipts.Projected } = {}
+			local value = receipt()
+			value.tradeId = "abc"
+			table.insert(cases, value)
+			value = receipt()
+			value.characters[1] = "long"
+			table.insert(cases, value)
+			value = receipt()
+			value.players[2] = 11
+			table.insert(cases, value)
+			value = receipt()
+			value.revision = 3
+			table.insert(cases, value)
+			value = receipt()
+			value.expiresAt = 21
+			table.insert(cases, value)
+			value = receipt()
+			value.expiresAt = 0
+			table.insert(cases, value)
+			value = receipt()
+			value.offers[1].coin = 5
+			table.insert(cases, value)
+			for _, candidate in cases do
+				expect(receipts.project(candidate)):toBeNil()
+			end
+			local cfg = table.clone(settings)
+			cfg.offer = function(_value: unknown): Exchange.Offer?
+				return nil
+			end
+			expect(Receipts.receipts(cfg).project(receipt())):toBeNil()
+		end)
+
+		it("rejects mixed aliases, extra participants, bad phases, false grants and unknown fields", function(own)
 			local wire = assert(receipts.wire(receipt()))
 			local offers: { [unknown]: unknown } =
 				{ ["1"] = wire.offers["1"], ["10"] = wire.offers["10"], [1] = wire.offers["1"] }
@@ -93,35 +96,35 @@ return function(suite: Verify.Harness)
 				revision = wire.revision,
 				expiresAt = wire.expiresAt,
 			}
-			context:expect(receipts.project(malformed)):toBeNil()
+			expect(receipts.project(malformed)):toBeNil()
 			malformed.offers = wire.offers
 			malformed.phase = "open"
-			context:expect(receipts.project(malformed)):toBeNil()
+			expect(receipts.project(malformed)):toBeNil()
 			malformed.phase = "committed"
 			malformed.grants = { ["1"] = false }
-			context:expect(receipts.project(malformed)):toBeNil()
+			expect(receipts.project(malformed)):toBeNil()
 			malformed.grants = { ["9"] = true }
-			context:expect(receipts.project(malformed)):toBeNil()
+			expect(receipts.project(malformed)):toBeNil()
 			malformed.grants = wire.grants
 			malformed.extra = true
-			context:expect(receipts.project(malformed)):toBeNil()
-			context:expect(receipts.project(setmetatable(receipt(), {}))):toBeNil()
-		end
-	)
+			expect(receipts.project(malformed)):toBeNil()
+			expect(receipts.project(setmetatable(receipt(), {}))):toBeNil()
+		end)
 
-	suite:case("uses configured pointer capacity and validates receipt identity", function(context)
-		context:expect(receipts.pointers(nil)):toEqual({})
-		local first = receipt()
-		local second = receipt()
-		second.tradeId = "cd"
-		local pointers = { ab = { tradeId = "ab", receipt = first }, cd = { tradeId = "cd", receipt = second } }
-		context:expect(receipts.pointers({ ab = pointers.ab }) ~= nil):toBe(true)
-		context:expect(receipts.pointers(pointers)):toBeNil()
-		local cfg = table.clone(settings)
-		cfg.maxPointers = 2
-		context:expect(Receipts.receipts(cfg).pointers(pointers) ~= nil):toBe(true)
-		context:expect(receipts.pointers({ ab = pointers.cd })):toBeNil()
-		context:expect(receipts.pointers({ ab = { tradeId = "ab", receipt = second } })):toBeNil()
-		context:expect(receipts.pointers({ ab = { tradeId = "ab", receipt = first, extra = true } })):toBeNil()
+		it("uses configured pointer capacity and validates receipt identity", function()
+			expect(receipts.pointers(nil)):toEqual({})
+			local first = receipt()
+			local second = receipt()
+			second.tradeId = "cd"
+			local pointers = { ab = { tradeId = "ab", receipt = first }, cd = { tradeId = "cd", receipt = second } }
+			expect(receipts.pointers({ ab = pointers.ab }) ~= nil):toBe(true)
+			expect(receipts.pointers(pointers)):toBeNil()
+			local cfg = table.clone(settings)
+			cfg.maxPointers = 2
+			expect(Receipts.receipts(cfg).pointers(pointers) ~= nil):toBe(true)
+			expect(receipts.pointers({ ab = pointers.cd })):toBeNil()
+			expect(receipts.pointers({ ab = { tradeId = "ab", receipt = second } })):toBeNil()
+			expect(receipts.pointers({ ab = { tradeId = "ab", receipt = first, extra = true } })):toBeNil()
+		end)
 	end)
 end

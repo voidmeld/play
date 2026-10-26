@@ -1,23 +1,13 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./actionbar")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 local ActionBarCore =
 	Module.actionbar({ barSize = 5, barCount = 2, maxActionId = 128, maxLevel = 100, itemPrefix = "item:" })
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(context)
-			current = context
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	local LOADOUT = {
 		slots = {
@@ -240,7 +230,7 @@ return function(suite: Verify.Harness)
 		expect(law.itemAction("food")):toBe("use:food")
 		expect(law.itemId("use:food")):toBe("food")
 		expect(law.itemId("item:food")):toBeNil()
-		expect(pcall(law.itemAction, "longitem")):toBe(false)
+		expect((pcall(law.itemAction, "longitem"))):toBe(false)
 		expect(law.shapeValid({ custom = true, level = 5, slots = {} })):toBe(false)
 		expect(law.shapeValid({ custom = true, level = 4, slots = { ["6"] = "use:food" } })):toBe(true)
 		expect(law.encodeWire({ [6] = "food" })):toBe("-|-|-|-|-|food")

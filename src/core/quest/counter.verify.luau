@@ -1,22 +1,12 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./counter")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 local QuestCompletionCounter =
 	Module.counter({ markerPrefix = "Quest_", completedStatus = "TurnedIn", labelFormat = "%d of %d at your level" })
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(t)
-			current = t
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("QuestCompletionCounter", function()
 		local bands = {
