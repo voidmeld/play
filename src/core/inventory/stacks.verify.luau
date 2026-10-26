@@ -1,21 +1,11 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./stacks")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 local InventoryRules = Module.stacks({ maxStack = 9999, baseCapacity = 24, permanentItems = {}, bagBonus = {} })
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(t)
-			current = t
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("InventoryRules", function()
 		describe("isValidCount", function()
@@ -187,7 +177,7 @@ return function(suite: Verify.Harness)
 		expect(law.fits({ a = 1, b = 1, c = 1 }, { a = 1, b = 1 }, 1)):toBe(true)
 		expect(law.fits({ a = 1, b = 1 }, { a = 1, b = 1, c = 1 }, 1)):toBe(false)
 		local bag = { key = 1 }
-		expect(pcall(law.addToBag, bag, "key", 1)):toBe(false)
+		expect((pcall(law.addToBag, bag, "key", 1))):toBe(false)
 		local rejected, ok = law.removeFromBag(bag, "key", 1)
 		expect(ok):toBe(false)
 		expect(rejected):toBe(bag)
@@ -208,10 +198,10 @@ return function(suite: Verify.Harness)
 		expect(bindings.item):toBe(99)
 		expect(holdings.inventory.item):toBe(4)
 		for _, raw in { false, { item = 0 }, { item = 1.5 }, { [1] = 2 } } do
-			expect(pcall(law.normalizeBindings, raw, holdings)):toBe(false)
+			expect((pcall(law.normalizeBindings, raw, holdings))):toBe(false)
 		end
 		local invalid: Module.Holdings = { inventory = { key = 2 }, equipment = {}, bank = nil }
-		expect(pcall(law.normalizeBindings, nil, invalid)):toBe(false)
+		expect((pcall(law.normalizeBindings, nil, invalid))):toBe(false)
 	end)
 	it("excludes bindings and worn bag copies while retaining bank-backed tradeable copies", function()
 		local law = Module.stacks({ maxStack = 20, baseCapacity = 2, permanentItems = {}, bagBonus = {} })

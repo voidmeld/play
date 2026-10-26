@@ -1,4 +1,5 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./season")
 local Shape = require("../social/shape")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
@@ -76,19 +77,8 @@ for tier = 1, 20 do
 end
 
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(context)
-			current = context
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	local WEEK = Core.WEEK_SEC
 	local DAY = 24 * 60 * 60
@@ -169,7 +159,7 @@ return function(suite: Verify.Harness)
 					missing[key] = value
 				end
 			end
-			expect(Core.definition(missing)):toBeNil()
+			expect((Core.definition(missing))):toBeNil()
 		end)
 
 		it("rejects missing current allowance fields without synthesizing counters", function()
@@ -391,7 +381,7 @@ return function(suite: Verify.Harness)
 			})
 			expect(assert(closed)["track-a"].xp):toBe(80)
 			expect(closedResult.ok):toBe(true)
-			expect(Core.claimIn(recorded, track(), 1)):toBeNil()
+			expect((Core.claimIn(recorded, track(), 1))):toBeNil()
 			expect(assert(Core.projectionIn(recorded, track(), START + 5)).xp):toBe(40)
 			expect(assert(Core.projectionIn({}, track(), START + 5)).rewards[1].earned):toBe(false)
 		end)

@@ -1,5 +1,6 @@
 --!strict
 
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Books = require("./book")
 local Conservation = require("./conservation")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
@@ -42,16 +43,16 @@ local wallet = Wallets.wallet({
 local audit = Conservation.conservation({ projectBook = book.projectState, projectWallet = wallet.projectState })
 
 return function(suite: Verify.Harness)
-	suite:case(
-		"conserves goods and coin through holds, listings, settlement, claims and acknowledgement",
-		function(context)
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
+
+	describe("conservation", function()
+		it("conserves goods and coin through holds, listings, settlement, claims and acknowledgement", function(own)
 			local seller = assert(wallet.emptyState(1, 0, { ore = 3 }))
 			local buyer = assert(wallet.emptyState(2, 20, {}))
 			local state = assert(book.emptyState("zone", "ore", nil))
 			local function conserved()
-				context
-					:expect(audit.audit({ seller, buyer }, { state }, { coin = 20, goods = { ore = 3 } }).ok)
-					:toBe(true)
+				expect(audit.audit({ seller, buyer }, { state }, { coin = 20, goods = { ore = 3 } }).ok):toBe(true)
 			end
 			conserved()
 			seller = assert(wallet.beginConsign(seller, "l", "zone", "ore", 2, 0).state)
@@ -92,41 +93,41 @@ return function(suite: Verify.Harness)
 				book.apply(state, { kind = "ack", opId = "a2", actorId = 2, receiptIds = { "b:purchase" } }, 0).state
 			)
 			conserved()
-		end
-	)
+		end)
 
-	suite:case("counts expired returns once before and after their owner claims them", function(context)
-		local seller = assert(wallet.emptyState(1, 0, {}))
-		local state = assert(
-			book.apply(
-				book.emptyState("zone", "ore", nil),
-				{ kind = "list", opId = "l", actorId = 1, actorRealmId = "zone", count = 1, unitPrice = 1 },
-				0
-			).state
-		)
-		state = assert(book.apply(state, { kind = "sweep", opId = "s" }, 10).state)
-		context:expect(audit.audit({ seller }, { state }, { coin = 0, goods = { ore = 1 } }).ok):toBe(true)
-		seller = assert(wallet.claim(seller, state.receipts[1], "ore").state)
-		context:expect(audit.audit({ seller }, { state }, { coin = 0, goods = { ore = 1 } }).ok):toBe(true)
-	end)
+		it("counts expired returns once before and after their owner claims them", function()
+			local seller = assert(wallet.emptyState(1, 0, {}))
+			local state = assert(
+				book.apply(
+					book.emptyState("zone", "ore", nil),
+					{ kind = "list", opId = "l", actorId = 1, actorRealmId = "zone", count = 1, unitPrice = 1 },
+					0
+				).state
+			)
+			state = assert(book.apply(state, { kind = "sweep", opId = "s" }, 10).state)
+			expect(audit.audit({ seller }, { state }, { coin = 0, goods = { ore = 1 } }).ok):toBe(true)
+			seller = assert(wallet.claim(seller, state.receipts[1], "ore").state)
+			expect(audit.audit({ seller }, { state }, { coin = 0, goods = { ore = 1 } }).ok):toBe(true)
+		end)
 
-	suite:case("reports malformed inputs, invalid projected values and imbalance reasons", function(context)
-		local _, reason = audit.measure(false, {})
-		context:expect(reason):toBe("input_invalid")
-		_, reason = audit.measure({ false }, {})
-		context:expect(reason):toBe("wallet_invalid")
-		_, reason = audit.measure({}, { false })
-		context:expect(reason):toBe("book_invalid")
-		context:expect(audit.audit({}, {}, { coin = 1, goods = {} }).reason):toBe("coin_unbalanced")
-		context:expect(audit.audit({}, {}, { coin = 0, goods = { ore = 1 } }).reason):toBe("goods_unbalanced:ore")
-		context:expect(audit.audit(false, {}, { coin = 0, goods = {} }).reason):toBe("input_invalid")
-		local custom = Conservation.conservation({
-			projectBook = function(_value: unknown): Books.State?
-				return nil
-			end,
-			projectWallet = wallet.projectState,
-		})
-		_, reason = custom.measure({}, { book.emptyState("zone", "ore", nil) })
-		context:expect(reason):toBe("book_invalid")
+		it("reports malformed inputs, invalid projected values and imbalance reasons", function()
+			local _, reason = audit.measure(false, {})
+			expect(reason):toBe("input_invalid")
+			_, reason = audit.measure({ false }, {})
+			expect(reason):toBe("wallet_invalid")
+			_, reason = audit.measure({}, { false })
+			expect(reason):toBe("book_invalid")
+			expect(audit.audit({}, {}, { coin = 1, goods = {} }).reason):toBe("coin_unbalanced")
+			expect(audit.audit({}, {}, { coin = 0, goods = { ore = 1 } }).reason):toBe("goods_unbalanced:ore")
+			expect(audit.audit(false, {}, { coin = 0, goods = {} }).reason):toBe("input_invalid")
+			local custom = Conservation.conservation({
+				projectBook = function(_value: unknown): Books.State?
+					return nil
+				end,
+				projectWallet = wallet.projectState,
+			})
+			_, reason = custom.measure({}, { book.emptyState("zone", "ore", nil) })
+			expect(reason):toBe("book_invalid")
+		end)
 	end)
 end

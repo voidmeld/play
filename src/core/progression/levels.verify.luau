@@ -1,4 +1,5 @@
 --!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Module = require("./levels")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
@@ -9,19 +10,8 @@ end
 local ProfileProgression =
 	Module.levels({ curve = { id = "curve", maxLevel = 10, rows = rows }, curveId = "curve", maxLevel = 10 })
 return function(suite: Verify.Harness)
-	local current: Verify.Context? = nil
-	local function expect(value: unknown): Verify.Expectation
-		return assert(current):expect(value)
-	end
-	local function it(name: string, body: () -> ())
-		suite:case(name, function(context)
-			current = context
-			body()
-		end)
-	end
-	local function describe(_name: string, body: () -> ())
-		body()
-	end
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
 
 	local function curve(maxLevel: number, rows: unknown)
 		return { id = "curve", maxLevel = maxLevel, rows = rows }
@@ -173,8 +163,8 @@ return function(suite: Verify.Harness)
 		expect(law.xpForLevel(99)):toBe(25)
 		expect(law.rewardProjection(25, 1).leveledUp):toBe(true)
 		local wrongId: Module.Config = { curve = supplied, curveId = "missing", maxLevel = 3 }
-		expect(pcall(Module.levels, wrongId)):toBe(false)
+		expect((pcall(Module.levels, wrongId))):toBe(false)
 		local wrongLength: Module.Config = { curve = supplied, curveId = "small", maxLevel = 2 }
-		expect(pcall(Module.levels, wrongLength)):toBe(false)
+		expect((pcall(Module.levels, wrongLength))):toBe(false)
 	end)
 end
