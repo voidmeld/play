@@ -74,6 +74,17 @@ return function(suite: Verify.Harness)
 	end
 
 	describe("FellowshipCore fixed identity and invitation lifecycle", function()
+		it("rejects an invalid scalar before reading nested records", function()
+			local state = assert(Shape.raw(created()))
+			state.schemaVersion = false
+			state.members = setmetatable({}, {
+				__iter = function(): never
+					error("nested records must not be read after an invalid scalar")
+				end,
+			})
+			expect(Core.projectState(state)):toBe(nil)
+		end)
+
 		it("creates only a fixed-vocabulary same-realm identity", function()
 			expect(created().nameId):toBe("sentry")
 			expect(Core.create({
