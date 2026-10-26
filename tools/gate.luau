@@ -62,6 +62,13 @@ local function script(id: string, path: string): Gate.ProducerDraft
 end
 
 local producers: { Gate.ProducerDraft } = {
+	{
+		id = "war-benchmark",
+		kind = "benchmark",
+		benchmark = require("./war-benchmark"),
+		tier = "profile",
+		why = "measured-only synthetic 200-player war tick module costs",
+	},
 	script("type-policy", "tools/check-no-any.luau"),
 	command("types", analyze),
 	script("test-manifest", "tools/check-test-manifest.luau"),
