@@ -73,6 +73,7 @@ local config: {
 	publicSurface: Surface.Config,
 	cleanClone: Clone.Config,
 	noAny: Repository.Selection,
+	specStyle: Repository.Selection,
 } =
 	{
 		boundary = {
@@ -133,6 +134,7 @@ local config: {
 			requiredPaths = { ".lute/dependencies" },
 		},
 		noAny = { untracked = true },
+		specStyle = { untracked = true },
 	}
 
 return config

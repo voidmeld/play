@@ -65,6 +65,7 @@ local producers: { Gate.ProducerDraft } = {
 	script("type-policy", "tools/check-no-any.luau"),
 	command("types", analyze),
 	script("test-manifest", "tools/check-test-manifest.luau"),
+	script("spec-style", "tools/check-spec-style.luau"),
 	script("boundary", "tools/check-boundary.luau"),
 	script("provenance", "tools/check-provenance.luau"),
 	script("leakage", "tools/check-leakage.luau"),
