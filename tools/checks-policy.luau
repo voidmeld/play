@@ -1,10 +1,7 @@
 --!strict
 
-export type Rule = {
-	pattern: string,
-	why: string,
-	exempt: { [string]: string }?,
-}
+local Denylist = require("../.lute/dependencies/verify/src/checks/denylist")
+export type Rule = Denylist.Rule
 
 local function identifier(name: string): string
 	return "%f[%w_]" .. name .. "%f[^%w_]"
@@ -116,5 +113,5 @@ local productMaterial: { Rule } = {
 return {
 	boundary = boundary,
 	leakage = productMaterial,
-	selfPath = "tools/lib/denylist.luau",
+	selfPath = "tools/checks-policy.luau",
 }
