@@ -1,5 +1,11 @@
 # Systems
 
+## Roblox rig lifetime
+
+`roblox/equipment-queue` serializes and fences asynchronous equipment application per character owner.
+`roblox/contact-markers` coordinates ref-counted native animation contacts with stamped actions.
+Games retain rigs, equipment fitting and attachment, clip selection, marker admission and playback policy.
+
 ## Roblox world labels
 
 `roblox/screen-labels` supplies anchored nameplate admission and floating-text reserve avoidance.

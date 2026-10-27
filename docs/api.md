@@ -1,5 +1,19 @@
 # Public API
 
+### `roblox.equipment-queue.create`
+
+Takes Deps<P, C> with spawn, active, current, perform and warn. Returns Queue<P, C> with request,
+invalidate, forget, generation, running and dispose. Applications drain serially per player,
+coalesce to the newest pending body and receive a generation fence across yielding host work.
+The caller owns service lifetime, body identity, equipment policy and attachment operations.
+
+### `roblox.contact-markers.create`
+
+Takes stamp, listen, marker and admit operations. Returns watch, onContact, confirmed and retrigger.
+Ref-counted watchers bind tracks once, reject a marker from an old action stamp, present one contact
+per admitted stamp, cancel older waiters and release the final watcher. The caller owns native
+track discovery, marker names, clip identity, health and world admission, and playback.
+
 ### `roblox.screen-labels.create`
 
 Takes maximum, farDistance, farCount, focusPriority and defaultPriority. Returns placementForScreen,
