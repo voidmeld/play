@@ -1,5 +1,10 @@
 # Systems
 
+## Roblox world labels
+
+`roblox/screen-labels` supplies anchored nameplate admission and floating-text reserve avoidance.
+Games own text, appearance, health policy, ranges, crowd limits, projection and rendering.
+
 ## Roblox targeting
 
 `roblox/target-selection` supplies caller-ordered cycling, projected pointer selection and timed

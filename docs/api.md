@@ -1,5 +1,28 @@
 # Public API
 
+### `roblox.screen-labels.create`
+
+Takes maximum, farDistance, farCount, focusPriority and defaultPriority. Returns placementForScreen,
+which admits priority-ordered anchored labels against caller reserves, topbar and screen bounds.
+Overlapping or overflow labels collapse without moving their anchors. Exports ScreenRect,
+ScreenPlate and ScreenPlacement.
+
+### `roblox.screen-labels.rect`
+
+Builds left/top/right/bottom bounds from a position and nonnegative-clamped dimensions.
+
+### `roblox.screen-labels.rectsOverlap`
+
+Tests strict overlap. Touching edges are clear.
+
+### `roblox.screen-labels.contains`
+
+Tests inclusive containment of an inner rectangle in an outer rectangle.
+
+### `roblox.screen-labels.horizontalAvoidance`
+
+Returns the shorter horizontal escape for overlapping label and reserved band, with a caller gap.
+
 ### `roblox.target-selection.pickNext`
 
 Cycles a caller-ordered list, wrapping and recovering from an absent current identifier.
