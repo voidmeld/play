@@ -17,13 +17,16 @@ export type Profile = {
 	actions: { Action },
 }
 
-export type Session = {
-	read phase: string,
-	read reason: string?,
-	read press: ((string, Device) -> boolean)?,
-	read move: ((unknown, Device) -> boolean)?,
-	read stop: (() -> ())?,
-}
+local function session(
+	phase: string,
+	reason: string?,
+	press: ((string, Device) -> boolean)?,
+	move: ((unknown, Device) -> boolean)?,
+	stop: (() -> ())?
+)
+	return table.freeze({ phase = phase, reason = reason, press = press, move = move, stop = stop })
+end
+export type Session = typeof(session("", nil, nil, nil, nil))
 
 local DEVICES: { Device } = { "keyboard", "gamepad", "touch" }
 table.freeze(DEVICES)
@@ -162,8 +165,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 	Input.deviceOfInputName = deviceOfInputName
 
 	local function refusal(reason: string): Session
-		local result: Session = { phase = phases.refused, reason = reason }
-		return table.freeze(result)
+		return session(phases.refused, reason, nil, nil, nil)
 	end
 
 	type Dependencies = {
@@ -276,13 +278,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 			end
 		end
 
-		local result: Session = {
-			phase = phases.mounted,
-			press = dispatch,
-			move = move,
-			stop = stop,
-		}
-		return table.freeze(result)
+		return session(phases.mounted, nil, dispatch, move, stop)
 	end
 
 	return table.freeze(Input)

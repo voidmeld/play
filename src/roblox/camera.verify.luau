@@ -21,7 +21,7 @@ local dynamics = Camera.create({
 	SPRINT_LEAD = 0.1,
 	SPRINT_SPAN = 0.3,
 })
-local core = Conversation.create(dynamics, {
+local core = Conversation.create({ newSpring = dynamics.newSpring, springStep = dynamics.springStep }, {
 	gap = 20,
 	minimumSpace = 100,
 	omega = 7,
