@@ -1,5 +1,24 @@
 # Public API
 
+### `roblox.cue-mixer.new`
+
+Takes a CueSource and clock. Returns Mixer with admit, gate, activeVoices, duckGain and
+setVoiceActive. Exports MixSpec, DuckSpec, CueSource and Mixer. Per-cue retrigger intervals and
+per-family voice caps use caller specs. Unknown cues refuse admit and pass gate; ducking follows
+the caller's active families and voice policy.
+
+### `roblox.cue-playback.make`
+
+Takes Deps<N, V> with catalog, admission, native mount/play, scheduler, home and tailSec.
+Returns a boolean cue-id player, using a spatial target when supplied and retiring the voice after
+its configured lifetime and tail. Exports VoiceProps, PlaySpec, Source and Deps.
+
+### `roblox.cue-playback.animator`
+
+Takes clock and render-connect operations. Returns a duration/step/finish driver that starts at
+zero, clamps progress, disconnects and finishes at completion. Effect recipes and cue catalogs
+belong to the caller.
+
 ### `roblox.npc-motion.projection`
 
 Takes epsilon, facingEpsilon and minimumDt. Returns plan, groundedPivotY and anchoredSurfaceY.
