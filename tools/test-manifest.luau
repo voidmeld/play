@@ -67,6 +67,7 @@ return table.freeze {
 	"src/core/vendors/exchange.verify.luau",
 	"src/roblox/chat.verify.luau",
 	"src/roblox/data-store.verify.luau",
+	"src/roblox/input-profile.verify.luau",
 	"src/roblox/messaging.verify.luau",
 	"src/roblox/party.verify.luau",
 	"src/roblox/profile-sessions.verify.luau",

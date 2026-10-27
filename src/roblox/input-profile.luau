@@ -1,0 +1,291 @@
+--!strict
+
+local Value = require("../core/internal/value")
+
+export type Device = "keyboard" | "gamepad" | "touch"
+export type TouchAffordance = "thumbstick" | "button" | "screen"
+
+export type Action = {
+	id: string,
+	keyboard: string,
+	gamepad: string,
+	touch: TouchAffordance,
+}
+
+export type Profile = {
+	id: string,
+	actions: { Action },
+}
+
+export type Session = {
+	read phase: string,
+	read reason: string?,
+	read press: ((string, Device) -> boolean)?,
+	read move: ((unknown, Device) -> boolean)?,
+	read stop: (() -> ())?,
+}
+
+local DEVICES: { Device } = { "keyboard", "gamepad", "touch" }
+table.freeze(DEVICES)
+local TOUCH_AFFORDANCES: { [string]: boolean } = { thumbstick = true, button = true, screen = true }
+local DEPENDENCY_FIELDS: { [string]: boolean } = {
+	profile = true,
+	owns = true,
+	bind = true,
+	thumbstick = true,
+	dispatch = true,
+	intent = true,
+}
+
+local function nonempty(value: unknown): boolean
+	return type(value) == "string" and value ~= ""
+end
+
+local function validAction(value: unknown): boolean
+	if type(value) ~= "table" then
+		return false
+	end
+	local row = value :: { [string]: unknown }
+	return nonempty(row.id)
+		and nonempty(row.keyboard)
+		and nonempty(row.gamepad)
+		and type(row.touch) == "string"
+		and TOUCH_AFFORDANCES[row.touch] == true
+end
+
+local Module = {}
+
+function Module.create(profiles: { [string]: Profile }, phases: { mounted: string, refused: string })
+	local Input = { DEVICES = DEVICES }
+	function Input.profile(name: unknown): Profile?
+		return if type(name) == "string" then profiles[name] else nil
+	end
+
+	function Input.reach(profile: unknown, device: unknown): { string }
+		local reached: { string } = {}
+		if type(profile) ~= "table" or (device ~= "keyboard" and device ~= "gamepad" and device ~= "touch") then
+			return reached
+		end
+		local fields = profile :: { [string]: unknown }
+		if type(fields.actions) ~= "table" then
+			return reached
+		end
+		for _, value in fields.actions :: { unknown } do
+			if type(value) == "table" then
+				local action = value :: { [string]: unknown }
+				local binding = action[if device == "keyboard"
+					then "keyboard"
+					elseif device == "gamepad" then "gamepad"
+					else "touch"]
+				if
+					nonempty(action.id)
+					and nonempty(binding)
+					and (device ~= "touch" or TOUCH_AFFORDANCES[binding :: string])
+				then
+					table.insert(reached, action.id :: string)
+				end
+			end
+		end
+		table.sort(reached)
+		return reached
+	end
+
+	function Input.parity(profile: unknown): boolean
+		if type(profile) ~= "table" then
+			return false
+		end
+		local actions = (profile :: { [string]: unknown }).actions
+		if type(actions) ~= "table" or #actions == 0 then
+			return false
+		end
+		for _, action in actions do
+			if not validAction(action) then
+				return false
+			end
+		end
+		return true
+	end
+
+	function Input.coverage(profile: unknown, hosts: unknown): boolean
+		if type(profile) ~= "table" or type(hosts) ~= "table" then
+			return false
+		end
+		local fields = profile :: { [string]: unknown }
+		if type(fields.actions) ~= "table" then
+			return false
+		end
+		local remaining: { [string]: boolean } = {}
+		local count = 0
+		for _, value in fields.actions :: { unknown } do
+			if not validAction(value) then
+				return false
+			end
+			local action = value :: Action
+			if remaining[action.id] ~= nil then
+				return false
+			end
+			remaining[action.id] = true
+			count += 1
+		end
+		local claimed = 0
+		for _, owned in hosts :: { unknown } do
+			if type(owned) ~= "table" then
+				return false
+			end
+			for _, id in owned :: { unknown } do
+				if type(id) ~= "string" or id == "" or remaining[id] ~= true then
+					return false
+				end
+				remaining[id] = false
+				claimed += 1
+			end
+		end
+		return claimed == count
+	end
+
+	local function deviceOfInputName(name: unknown): Device?
+		if type(name) ~= "string" or name == "" then
+			return nil
+		end
+		if string.sub(name, 1, 7) == "Gamepad" then
+			return "gamepad"
+		end
+		if string.sub(name, 1, 5) == "Touch" then
+			return "touch"
+		end
+		if name == "Keyboard" or string.sub(name, 1, 5) == "Mouse" then
+			return "keyboard"
+		end
+		return nil
+	end
+
+	Input.deviceOfInputName = deviceOfInputName
+
+	local function refusal(reason: string): Session
+		local result: Session = { phase = phases.refused, reason = reason }
+		return table.freeze(result)
+	end
+
+	type Dependencies = {
+		profile: unknown,
+		owns: { unknown },
+		bind: (Action, boolean, (Device) -> ()) -> () -> (),
+		thumbstick: (({ x: number, y: number }) -> ()) -> () -> (),
+		dispatch: (string, Device) -> (),
+		intent: ({ x: number, y: number }, Device) -> (),
+	}
+
+	function Input.start(rawDependencies: unknown): Session
+		local fields = Value.record(rawDependencies, DEPENDENCY_FIELDS, true)
+		if fields == nil then
+			return refusal("dependencies_invalid")
+		end
+		local profile = Input.profile(fields.profile)
+		if profile == nil then
+			return refusal("profile_unknown")
+		end
+		if not Input.parity(profile) then
+			return refusal("device_parity_broken")
+		end
+		if
+			type(fields.owns) ~= "table"
+			or type(fields.bind) ~= "function"
+			or type(fields.thumbstick) ~= "function"
+			or type(fields.dispatch) ~= "function"
+			or type(fields.intent) ~= "function"
+		then
+			return refusal("dependencies_invalid")
+		end
+		local dependencies = (fields :: unknown) :: Dependencies
+		local owned: { Action } = {}
+		local byId: { [string]: Action } = {}
+		for _, id in dependencies.owns do
+			if type(id) ~= "string" or id == "" or byId[id] ~= nil then
+				return refusal("owned_actions_invalid")
+			end
+			local found: Action? = nil
+			for _, action in profile.actions do
+				if action.id == id then
+					found = action
+				end
+			end
+			if found == nil then
+				return refusal("owned_actions_invalid")
+			end
+			byId[id] = found
+			table.insert(owned, found)
+		end
+		if #owned == 0 then
+			return refusal("owned_actions_invalid")
+		end
+
+		local stopped = false
+		local releases: { () -> () } = {}
+
+		local function dispatch(id: string, device: Device): boolean
+			if stopped or byId[id] == nil or table.find(DEVICES, device) == nil then
+				return false
+			end
+			return (pcall(dependencies.dispatch, id, device))
+		end
+
+		local function move(vector: unknown, device: Device): boolean
+			if stopped or byId.move == nil or table.find(DEVICES, device) == nil then
+				return false
+			end
+			if type(vector) ~= "table" then
+				return false
+			end
+			local fields = vector :: { [unknown]: unknown }
+			if type(fields.x) ~= "number" or type(fields.y) ~= "number" then
+				return false
+			end
+			return (pcall(dependencies.intent, { x = fields.x, y = fields.y }, device))
+		end
+
+		local function stop()
+			if stopped then
+				return
+			end
+			stopped = true
+			for index = #releases, 1, -1 do
+				pcall(releases[index])
+			end
+			table.clear(releases)
+		end
+
+		for _, action in owned do
+			if action.touch == "thumbstick" then
+				local mounted, release = pcall(dependencies.thumbstick, function(vector: unknown)
+					move(vector, "touch")
+				end)
+				if not mounted or type(release) ~= "function" then
+					stop()
+					return refusal("thumbstick_mount_failed")
+				end
+				table.insert(releases, release)
+			elseif action.touch == "button" then
+				local bound, release = pcall(dependencies.bind, action, true, function(device: Device)
+					dispatch(action.id, device)
+				end)
+				if not bound or type(release) ~= "function" then
+					stop()
+					return refusal("action_bind_failed")
+				end
+				table.insert(releases, release)
+			end
+		end
+
+		local result: Session = {
+			phase = phases.mounted,
+			press = dispatch,
+			move = move,
+			stop = stop,
+		}
+		return table.freeze(result)
+	end
+
+	return table.freeze(Input)
+end
+
+return table.freeze(Module)
