@@ -10,6 +10,7 @@ required actions; action resolution refuses missing or wrong-class nodes.
 
 Takes Template rows, Surfaces and mounted/refused phase names. Reuses existing contexts and adopts
 missing templates. A failed existing query, missing template or failed adoption refuses the mount.
+Both the readback record and its names list are frozen.
 Exports Template, Surfaces and Mounted. Games own templates, destinations, names and admission.
 
 ### `roblox.cue-mixer.new`

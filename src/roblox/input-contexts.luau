@@ -12,7 +12,9 @@ local Contexts = {}
 
 function Contexts.mount(plan: { Template }, raw: unknown, phases: { mounted: string, refused: string }): Mounted
 	local function refusal(reason: string): Mounted
-		return table.freeze({ phase = phases.refused, reason = reason, names = {} })
+		local names: { string } = {}
+		table.freeze(names)
+		return table.freeze({ phase = phases.refused, reason = reason, names = names })
 	end
 	if type(raw) ~= "table" then
 		return refusal("surfaces_invalid")
@@ -44,6 +46,7 @@ function Contexts.mount(plan: { Template }, raw: unknown, phases: { mounted: str
 		end
 		table.insert(names, row.name)
 	end
+	table.freeze(names)
 	return table.freeze({ phase = phases.mounted, names = names })
 end
 

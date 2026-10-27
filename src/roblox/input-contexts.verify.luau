@@ -70,13 +70,16 @@ return function(suite: Verify.Harness)
 					return present
 				end,
 			}
-			expect(Contexts.mount(plan, surfaces, phases).phase):toBe("mounted")
+			local mounted = Contexts.mount(plan, surfaces, phases)
+			expect(mounted.phase):toBe("mounted")
+			expect(table.isfrozen(mounted.names)):toBe(true)
 			expect(Contexts.mount(plan, surfaces, phases).phase):toBe("mounted")
 			expect(adopted):toBe(1)
 			surfaces.existing = function(_name: string): unknown?
 				error("query failed")
 			end
 			expect(Contexts.mount(plan, surfaces, phases).reason):toBe("existing_failed:Context")
+			expect(table.isfrozen(Contexts.mount(plan, surfaces, phases).names)):toBe(true)
 			expect(adopted):toBe(1)
 		end)
 	end)
