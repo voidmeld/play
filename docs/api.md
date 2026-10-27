@@ -170,6 +170,7 @@ do not establish persisted durability by themselves.
 Creates immutable, revisioned run progress with exact event receipts, checkpoints,
 disconnect recovery, leader succession, wipes and replacement seats. The caller supplies
 package validation, checkpoint validity, wipe progress, replacement admission and member limits.
+The typed package stays private to the injected policies; describe projects only generic run fields.
 Returns transition, projectRunState and refusal reasons. Clocks must be finite and monotonic.
 Reusing an event ID with another fingerprint refuses without advancing state.
 
