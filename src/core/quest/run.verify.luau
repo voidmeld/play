@@ -17,6 +17,9 @@ local package: Run.Package = {
 	},
 }
 local Core = Run.run({
+	describe = function(value: Run.Package): Run.Package
+		return value
+	end,
 	readPackage = function(value: unknown): Run.Package?
 		return if value == package then package else nil
 	end,

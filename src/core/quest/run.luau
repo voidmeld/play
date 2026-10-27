@@ -86,16 +86,17 @@ export type TransitionRejected = {
 
 export type TransitionResult = TransitionApplied | TransitionRejected
 
-export type Config = {
-	readPackage: (unknown) -> Package?,
-	validCheckpoint: (Package, RunState) -> boolean,
-	wipePhase: (Package, RunState) -> number,
-	replacementAllowed: (Package, RunState) -> boolean,
+export type Config<P> = {
+	readPackage: (unknown) -> P?,
+	describe: (P) -> Package,
+	validCheckpoint: (P, RunState) -> boolean,
+	wipePhase: (P, RunState) -> number,
+	replacementAllowed: (P, RunState) -> boolean,
 	maxMembers: number,
 }
 local SCHEMA_VERSION = 1
 local System = {}
-function System.run(config: Config)
+function System.run<P>(config: Config<P>)
 	local RUN_FIELDS: { [string]: boolean } = {
 		schemaVersion = true,
 		expeditionId = true,
@@ -289,14 +290,14 @@ function System.run(config: Config)
 		return nil
 	end
 
-	local function copyRunState(value: unknown, package: Package): RunState?
+	local function copyRunState(value: unknown, package: P): RunState?
 		if not hasOnlyFields(value, RUN_FIELDS) then
 			return nil
 		end
 		local source = value :: RunState
 		if
 			source.schemaVersion ~= SCHEMA_VERSION
-			or source.expeditionId ~= package.id
+			or source.expeditionId ~= config.describe(package).id
 			or not nonempty(source.runId)
 			or not whole(source.revision)
 			or source.revision < 1
@@ -307,7 +308,7 @@ function System.run(config: Config)
 			or (source.status ~= "active" and source.status ~= "completed")
 			or not whole(source.phaseIndex)
 			or source.phaseIndex < 1
-			or source.phaseIndex > #package.phases
+			or source.phaseIndex > #config.describe(package).phases
 			or not whole(source.attempt)
 			or source.attempt < 1
 			or not nonempty(source.leaderId)
@@ -315,7 +316,11 @@ function System.run(config: Config)
 			return nil
 		end
 		local memberCount = denseLength(source.members)
-		if memberCount == nil or memberCount < package.group.minPlayers or memberCount > package.group.maxPlayers then
+		if
+			memberCount == nil
+			or memberCount < config.describe(package).group.minPlayers
+			or memberCount > config.describe(package).group.maxPlayers
+		then
 			return nil
 		end
 		local members: { Member } = {}
@@ -475,11 +480,11 @@ function System.run(config: Config)
 		return result
 	end
 
-	local function recoveryAnchor(package: Package, state: RunState): string
+	local function recoveryAnchor(package: P, state: RunState): string
 		if state.status == "completed" then
-			return package.returnId
+			return config.describe(package).returnId
 		end
-		return state.checkpointId or package.entryId
+		return state.checkpointId or config.describe(package).entryId
 	end
 
 	local function commitEvent(state: RunState, event: Event, fingerprint: string, nowSec: number)
@@ -488,9 +493,9 @@ function System.run(config: Config)
 		state.receipts[event.eventId] = fingerprint
 	end
 
-	local function startRun(package: Package, event: StartEvent, nowSec: number): TransitionResult
+	local function startRun(package: P, event: StartEvent, nowSec: number): TransitionResult
 		local memberIds = sortedUniqueStrings(event.memberIds, 1) :: { string }
-		if #memberIds < package.group.minPlayers then
+		if #memberIds < config.describe(package).group.minPlayers then
 			return rejectedTransition(nil, "group_too_small")
 		end
 		local members: { Member } = {}
@@ -500,7 +505,7 @@ function System.run(config: Config)
 		local fingerprint = eventFingerprint(event)
 		local state: RunState = {
 			schemaVersion = SCHEMA_VERSION,
-			expeditionId = package.id,
+			expeditionId = config.describe(package).id,
 			runId = event.runId,
 			revision = 1,
 			startedAtSec = nowSec,
@@ -516,11 +521,11 @@ function System.run(config: Config)
 		return appliedTransition(state, false, nil)
 	end
 
-	local function applyCompletePhase(package: Package, state: RunState, event: CompletePhaseEvent): string?
+	local function applyCompletePhase(package: P, state: RunState, event: CompletePhaseEvent): string?
 		if state.status ~= "active" then
 			return Reason.runNotActive
 		end
-		local phase = package.phases[state.phaseIndex]
+		local phase = config.describe(package).phases[state.phaseIndex]
 		if phase.id ~= event.phaseId then
 			return Reason.phaseConflict
 		end
@@ -577,7 +582,7 @@ function System.run(config: Config)
 		return nil
 	end
 
-	local function applyReconnect(package: Package, state: RunState, event: MemberEvent, nowSec: number): string?
+	local function applyReconnect(package: P, state: RunState, event: MemberEvent, nowSec: number): string?
 		local index = memberIndex(state.members, event.memberId)
 		if index == nil then
 			return Reason.unknownMember
@@ -589,7 +594,7 @@ function System.run(config: Config)
 			return Reason.memberDeparted
 		end
 		local disconnectedAtSec = state.members[index].disconnectedAtSec
-		if disconnectedAtSec == nil or nowSec > disconnectedAtSec + package.recoveryWindowSec then
+		if disconnectedAtSec == nil or nowSec > disconnectedAtSec + config.describe(package).recoveryWindowSec then
 			return Reason.recoveryWindowExpired
 		end
 		state.members[index].connected = true
@@ -625,7 +630,7 @@ function System.run(config: Config)
 		return nil
 	end
 
-	local function applyWipe(package: Package, state: RunState, event: WipeEvent): string?
+	local function applyWipe(package: P, state: RunState, event: WipeEvent): string?
 		if state.status ~= "active" then
 			return Reason.runNotActive
 		end
@@ -700,7 +705,7 @@ function System.run(config: Config)
 				prior == nil
 				or prior.connected
 				or prior.disconnectedAtSec == nil
-				or nowSec <= prior.disconnectedAtSec + package.recoveryWindowSec
+				or nowSec <= prior.disconnectedAtSec + config.describe(package).recoveryWindowSec
 			then
 				reason = "replacement_seat_reserved"
 			else
