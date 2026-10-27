@@ -106,6 +106,63 @@ Internal plain-record inspection used by identity codecs. Consumers use the syst
 Neutral identity policy fixture for Lute specifications. Its claim and profile namespaces differ
 from consumer namespaces. Exclude this test fixture from shipped module trees.
 
+## Profession systems
+
+### `core.professions.skills.create`
+
+Takes a profession catalogue, skill cap, primary slot count, start skill, advancement chances,
+recipe lookups and a saved quest-input projector. Returns normalization, detached copy, learn,
+unlearn, recipe admission, trainer projection and skill advancement operations. The caller owns
+catalogue order, trainer eligibility, costs and quest rewards. Refusal does not mutate the input.
+
+### `core.professions.crafting.create`
+
+Takes skill operations, recipe and quality policies and a stack limit. Returns plan and craft.
+Craft checks profession, recipe knowledge, required skill, stations, reagents, output stack and
+entry capacity before returning detached inventory and skill state. Stack changes use inventory/stacks.
+Quality selection and recipe content come from the caller.
+
+### `core.professions.harvest.create`
+
+Takes skill operations and the skinning profession ID. Returns admission, node harvesting and
+skinning operations. The caller supplies each node or skin row, including yields, extras, thresholds
+and random samples. Failed admission returns the unchanged skill state.
+
+### `core.professions.fishing.create`
+
+Takes skill operations, profession ID, waiting range, bite window and zone catch/junk tables.
+Returns idle, cast, observe, hook, weighted selection and reel operations. Injected time controls
+the bite window; junk catches never grant advancement. The caller owns catch content and weights.
+
+### `core.professions.session.create`
+
+Takes movement tolerance and a host admission policy. Returns begin and check for timed work.
+The caller supplies clock, position, health, life and combat samples. Damage, movement, combat,
+death or a host refusal interrupts before completion.
+
+### `core.professions.gathering.create`
+
+Takes allowed affiliations, multiplier bounds and a yield resolver. Returns emptyState, projectNode,
+computeYield and step for timed gathering, respawn slots and replay-safe claims. A repeated event
+returns its original amount. Invalid shapes, backwards clocks and refused yield policy return nil.
+Population calculations, resource definitions and yield policy remain with the caller.
+
+### `roblox.professions.decodeIntent`
+
+Reads a string action and optional string arguments. Unknown actions are ignored by the host.
+
+### `roblox.professions.new`
+
+Takes typed profile reads/updates, session context, clock, randomness, world queries, message delivery,
+receipt identity and durable commit operations, plus the profession policies. Returns handle,
+interrupt, step, forget and harvestedSlots. The host owns active work, fishing lines, harvest slots,
+skin claims, stock windows, repair quotes and pending craft saves. A failed save blocks subsequent
+actions until that context settles. The game retains trainer admission, recipes, nodes, yields,
+quest inputs, progress rewards, repair law, profile composition and all mounted input/presentation.
+Hosts must serialize updates and commits through their authoritative store, provide trusted content
+and random samples, call step with the game clock, and call forget on departure. These operations
+do not establish persisted durability by themselves.
+
 ## [`src/core/progression/talents.luau`](../src/core/progression/talents.luau)
 
 ### `core.progression.talents.default`
