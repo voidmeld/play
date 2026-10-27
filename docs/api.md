@@ -1,5 +1,17 @@
 # Public API
 
+### `roblox.input-contexts.create`
+
+Takes native find/wait, clock, context/action conversion, name and minimumWait operations.
+Returns context and action. Context readiness shares the caller's deadline across the path and
+required actions; action resolution refuses missing or wrong-class nodes.
+
+### `roblox.input-contexts.mount`
+
+Takes Template rows, Surfaces and mounted/refused phase names. Reuses existing contexts and adopts
+missing templates. A failed existing query, missing template or failed adoption refuses the mount.
+Exports Template, Surfaces and Mounted. Games own templates, destinations, names and admission.
+
 ### `roblox.cue-mixer.new`
 
 Takes a CueSource and clock. Returns Mixer with admit, gate, activeVoices, duckGain and
