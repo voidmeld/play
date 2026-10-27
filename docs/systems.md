@@ -1,5 +1,13 @@
 # Systems
 
+## Roblox input
+
+`roblox/input-profile` owns device reach, exclusive action coverage and rollback-safe binding sessions.
+`roblox/input-bindings` projects configured keyboard/gamepad bindings and chords.
+`roblox/thumbstick` projects dead-zone movement and clamped knob displacement.
+Games supply their complete action tables, tuning, device events, button surfaces and intent dispatch.
+These modules neither render controls nor write authoritative game state.
+
 ## Account and character transactions
 
 `core/identity/roster`, `name-claims`, `name-record`, `creation`, `deletion` and `creation-record`

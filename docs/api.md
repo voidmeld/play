@@ -1,5 +1,28 @@
 # Public API
 
+## Roblox input
+
+### `roblox.input-profile.create`
+
+Takes named `Profile` records and mounted/refused phase names. Returns profile, reach, parity,
+coverage, deviceOfInputName and start, with DEVICES. Exports Device, TouchAffordance, Action,
+Profile and Session. A session owns only its requested actions, dispatches through injected bind,
+thumbstick, dispatch and intent operations, rolls back partial mounts, and rejects input after stop.
+Screen actions use the caller's existing surface. Mouse input belongs to the keyboard device family.
+
+### `roblox.input-bindings.create`
+
+Takes `Action<C>` rows, display labels and a chord modifier name. Returns actions, GAMEPAD_GAPS,
+CHORD_MODIFIER, get, keyboardNames, primaryKeyboard, gamepad, matches, keyboardLabel,
+gamepadLabel, matchesCode, matchesInput and forContext. The caller supplies enum values and a held
+button query. Action names, contexts, keys, labels and touch affordances belong to the game.
+
+### `roblox.thumbstick.create`
+
+Takes radiusPx, deadZone, zoneWidth and zoneHeight. Returns anchorAt, drag, release, vectorFor,
+knobFor and the configured RADIUS_PX, DEAD_ZONE, ZONE_WIDTH_SCALE and ZONE_HEIGHT_SCALE.
+Exports Vec2 and Stick. The caller owns touch tracking, rendering and movement submission.
+
 ## [`src/core/social/membership.luau`](../src/core/social/membership.luau)
 
 ### `core.social.membership.membership`
