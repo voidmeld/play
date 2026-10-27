@@ -1,5 +1,111 @@
 # Public API
 
+## Account and character identity
+
+The `core/identity` factories take `policy.Policy`. The caller owns canonical name validation,
+registry-key construction and validation, profile partition keys, destination syntax, allowed
+realms and peoples, account and per-realm capacity, and level bounds. Keep these callbacks pure
+and stable for the lifetime of the returned slice. Creation choices and routing admission belong
+to the caller. The modules preserve schema version 1 and never perform host writes.
+
+### `core.identity.roster.create`
+
+Returns detached roster validation, stored validation, add/remove, monotonic played/level updates,
+destination updates and recent-play realm projections. Stored validation permits retired realm
+and people identifiers; ordinary admission uses the supplied policy. IDs remain independent of names.
+Exports `CharacterIdentity` and `Roster` types.
+
+### `core.identity.name-claims.create`
+
+Returns validated atomic claim, exact-owner release and advisory availability transforms. A claim
+from a different registry key refuses. Case and canonicalization come entirely from the policy.
+Exports `Claim`, `ClaimStatus`, `ReleaseStatus` and `Availability` types.
+
+### `core.identity.name-record.create`
+
+Returns immutable revisioned claim records, validation, copy/equality, empty records, claim/release
+and availability. Releases retain a tombstone. Revision exhaustion refuses mutation; foreign
+owners survive stale release. The caller supplies the entire key namespace.
+Exports `Record` and `Claim` types.
+
+### `core.identity.creation.create`
+
+Returns a typed creation transaction: `prepare`, `plan`, `observeName`, `observeProfile`,
+`observeRoster`, `requestRollback`, `observeRollback`, `observeLeaseRelease` and `takeover`.
+Also supplies ordinary/stored validation, fingerprinting and copies. Plans do not perform writes.
+Each observation checks the operation fingerprint, revision, fence and exact readback. Absent,
+foreign, stale and future records remain distinct refusals. Takeover advances the lease generation
+without changing the original creation identity. Rollback requires proof that owned names were released.
+Exports `State`, `Prepared`, `Phase`, `Plan`, `Result`, `Accepted` and `Rejected` types.
+
+### `core.identity.deletion.create`
+
+Returns a typed deletion transaction with prepare/plan, roster-removal observation, name-release
+observation, lease-release observation, rollback, takeover, validation, fingerprinting and copies.
+An exact roster readback precedes name release; a received post-release read precedes completion.
+Exports `State`, `Prepared`, `Phase`, `Plan`, `Result`, `Accepted` and `Rejected` types.
+
+### `core.identity.creation-record.create`
+
+Returns immutable prepared profile seeds and committed receipts, their validators, copies and
+cross-record identity matching. Seeds can be issued only after profile preparation; receipts only
+after the roster commit. Both retain the original generation across takeover. Exports `Seed` and
+`Receipt` types.
+
+### `core.identity.account-lease.SCHEMA_VERSION`
+### `core.identity.account-lease.MAX_REVISION`
+### `core.identity.account-lease.MAX_FENCE`
+### `core.identity.account-lease.MAX_SAFE_INTEGER`
+### `core.identity.account-lease.MAX_ID_BYTES`
+
+Persisted lease schema and finite numeric/string bounds. Exports the `Lease` type.
+
+### `core.identity.account-lease.validate`
+### `core.identity.account-lease.copy`
+
+Return a detached immutable lease or nil for an invalid shape, identity or generation.
+
+### `core.identity.account-lease.empty`
+
+Creates an unowned lease for a positive integer account ID.
+
+### `core.identity.account-lease.equal`
+
+Compares validated lease values, including the acquisition ID and generation.
+
+### `core.identity.account-lease.acquire`
+
+Acquires or exactly replays a session/acquisition pair using injected time and duration.
+An unexpired foreign owner holds the lease; takeover at expiry increments its fence and revision.
+
+### `core.identity.account-lease.renew`
+
+Renews only the exact live session, fence and revision. Stale or expired authority refuses.
+
+### `core.identity.account-lease.release`
+
+Releases only the exact session and generation; already-released readback is idempotent.
+
+### `core.identity.value.check`
+### `core.identity.value.fields`
+
+Internal plain-record inspection used by identity codecs. Consumers use the system factories.
+
+### `test-scene.identity.accountLimit`
+### `test-scene.identity.realmLimit`
+### `test-scene.identity.minLevel`
+### `test-scene.identity.maxLevel`
+### `test-scene.identity.realms`
+### `test-scene.identity.peoples`
+### `test-scene.identity.profilePartitionKey`
+### `test-scene.identity.registryKey`
+### `test-scene.identity.validDestination`
+### `test-scene.identity.validRegistryKey`
+### `test-scene.identity.validateName`
+
+Neutral identity policy fixture for Lute specifications. Its claim and profile namespaces differ
+from consumer namespaces. Exclude this test fixture from shipped module trees.
+
 ## [`src/core/progression/talents.luau`](../src/core/progression/talents.luau)
 
 ### `core.progression.talents.default`
