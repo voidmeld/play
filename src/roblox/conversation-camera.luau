@@ -23,8 +23,8 @@ local Module = {}
 
 function Module.create(
 	Action: {
-		read newSpring: (number) -> Dynamics.Spring,
-		read springStep: (Dynamics.Spring, number, number, number) -> Dynamics.Spring,
+		newSpring: (number) -> Dynamics.Spring,
+		springStep: (Dynamics.Spring, number, number, number) -> Dynamics.Spring,
 	},
 	tuning: Tuning
 )

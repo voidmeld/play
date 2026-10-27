@@ -1,6 +1,5 @@
 --!strict
 
-export type Release = { read observe: (number?, number) -> boolean, read reset: () -> () }
 export type Candidate<P> = { npcId: string, screenPos: P }
 
 local Selection = {}
@@ -13,7 +12,7 @@ function Selection.pickNext(candidates: { string }, current: string?): string?
 	return candidates[index % #candidates + 1]
 end
 
-function Selection.release(range: number, seconds: number): Release
+function Selection.release(range: number, seconds: number)
 	assert(range > 0 and seconds > 0, "target release needs a positive range and time")
 	local outsideSince: number? = nil
 	return table.freeze({
@@ -26,6 +25,7 @@ function Selection.release(range: number, seconds: number): Release
 		end,
 	})
 end
+export type Release = typeof(Selection.release(1, 1))
 
 function Selection.create<P>(coordinates: (P) -> (number, number))
 	local Projected = {}

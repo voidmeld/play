@@ -6,15 +6,17 @@ export type Surfaces = {
 	existing: (string) -> unknown?,
 	adopt: (unknown, string) -> unknown?,
 }
-export type Mounted = { read phase: string, read reason: string?, read names: { string } }
+local function mounted(phase: string, names: { string }, reason: string?)
+	table.freeze(names)
+	return table.freeze({ phase = phase, names = names, reason = reason })
+end
+export type Mounted = typeof(mounted("", {}, nil))
 
 local Contexts = {}
 
 function Contexts.mount(plan: { Template }, raw: unknown, phases: { mounted: string, refused: string }): Mounted
 	local function refusal(reason: string): Mounted
-		local names: { string } = {}
-		table.freeze(names)
-		return table.freeze({ phase = phases.refused, reason = reason, names = names })
+		return mounted(phases.refused, {}, reason)
 	end
 	if type(raw) ~= "table" then
 		return refusal("surfaces_invalid")
@@ -46,8 +48,7 @@ function Contexts.mount(plan: { Template }, raw: unknown, phases: { mounted: str
 		end
 		table.insert(names, row.name)
 	end
-	table.freeze(names)
-	return table.freeze({ phase = phases.mounted, names = names })
+	return mounted(phases.mounted, names, nil)
 end
 
 function Contexts.create<N, A>(host: {
