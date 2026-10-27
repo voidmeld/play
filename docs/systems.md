@@ -1,5 +1,10 @@
 # Systems
 
+## Roblox NPC motion
+
+`roblox/npc-motion` supplies bounded planar steps, leash geometry and cached/observed puppet projection.
+Games own movement law, actor targeting, pathfinding, grounding queries, native body application and tuning.
+
 ## Roblox rig lifetime
 
 `roblox/equipment-queue` serializes and fences asynchronous equipment application per character owner.

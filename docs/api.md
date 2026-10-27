@@ -1,5 +1,21 @@
 # Public API
 
+### `roblox.npc-motion.projection`
+
+Takes epsilon, facingEpsilon and minimumDt. Returns plan, groundedPivotY and anchoredSurfaceY.
+Projection compares both cached and observed transforms, so an externally displaced body is repaired.
+Exports Planar, Point, Observed, Projection and Changes.
+
+### `roblox.npc-motion.movement`
+
+Takes an epsilon and returns moveToward and insideLeash. Movement limits a planar step and preserves
+the source elevation. A missing leash origin or radius admits the point. Games own pursuit, path
+selection, control state, leash reset, terrain queries and authoritative commits.
+
+### `roblox.npc-motion.distance`
+
+Returns planar distance between two Point values.
+
 ### `roblox.equipment-queue.create`
 
 Takes Deps<P, C> with spawn, active, current, perform and warn. Returns Queue<P, C> with request,
