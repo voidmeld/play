@@ -1,5 +1,27 @@
 # Public API
 
+## [`src/core/social/membership.luau`](../src/core/social/membership.luau)
+
+### `core.social.membership.membership`
+
+Creates immutable party membership with named leader invitations, reserved seats, explicit
+accept/decline/leave/kick, acknowledged leader transfer, absence recovery and disband tombstones.
+The caller supplies realm admission, capacity, time and identifier bounds, invitation and recovery
+durations and default loot mode. Authority and platform group admission remain caller-owned.
+Returns projectState, open, invite, accept, decline, leave, kick, transferLeader,
+acceptLeaderTransfer, disband, setLootMode, markAbsent, markPresent and sweep.
+
+## [`src/roblox/party.luau`](../src/roblox/party.luau)
+
+### `roblox.party.party`
+
+Creates an atomic-store host for a membership core, exact record schema and caller boundary text.
+Returns mount, SCHEMA_VERSION and REASONS. Mount takes an atomic update store, party-key builder
+and membership reader. The host resets captured results whenever a store retries its transform,
+refuses failed or mismatched readbacks and performs reads with a cancelling transform.
+Only the configured schema is admitted. Store namespaces, engine wiring, admission and notices
+remain in the consumer. The host provides no membership index or matchmaking.
+
 ## Account and character identity
 
 The `core/identity` factories take `policy.Policy`. The caller owns canonical name validation,
