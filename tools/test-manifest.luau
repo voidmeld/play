@@ -68,6 +68,7 @@ return table.freeze {
 	"src/roblox/camera.verify.luau",
 	"src/roblox/chat.verify.luau",
 	"src/roblox/contact-markers.verify.luau",
+	"src/roblox/cue-playback.verify.luau",
 	"src/roblox/data-store.verify.luau",
 	"src/roblox/equipment-queue.verify.luau",
 	"src/roblox/input-profile.verify.luau",

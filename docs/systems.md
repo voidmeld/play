@@ -1,5 +1,11 @@
 # Systems
 
+## Roblox sound and effects
+
+`roblox/cue-mixer` owns retrigger admission, voice expiry and configured family ducking.
+`roblox/cue-playback` owns cue-id voice lifetime and frame-driven effect progression.
+Games own native voice operations, assets, catalogs, mix values, effect recipes and timing policy.
+
 ## Roblox NPC motion
 
 `roblox/npc-motion` supplies bounded planar steps, leash geometry and cached/observed puppet projection.
