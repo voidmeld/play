@@ -65,6 +65,7 @@ return table.freeze {
 	"src/core/trade/exchange.verify.luau",
 	"src/core/trade/receipt.verify.luau",
 	"src/core/vendors/exchange.verify.luau",
+	"src/roblox/camera.verify.luau",
 	"src/roblox/chat.verify.luau",
 	"src/roblox/data-store.verify.luau",
 	"src/roblox/input-profile.verify.luau",
