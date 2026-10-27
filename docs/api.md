@@ -166,6 +166,10 @@ Do not clear its ledger when you cleanse an effect.
 
 ### `core.loot.roll.roll`
 
+## [`src/core/loot/decision.luau`](../src/core/loot/decision.luau)
+
+### `core.loot.decision.decision`
+
 ## [`src/core/mail/mailbox.luau`](../src/core/mail/mailbox.luau)
 
 ### `core.mail.mailbox.mailbox`

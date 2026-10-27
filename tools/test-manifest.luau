@@ -12,6 +12,7 @@ return table.freeze {
 	"src/core/events/watch.verify.luau",
 	"src/core/inventory/stacks.verify.luau",
 	"src/core/ledger/ledger.verify.luau",
+	"src/core/loot/decision.verify.luau",
 	"src/core/loot/roll.verify.luau",
 	"src/core/mail/mailbox.verify.luau",
 	"src/core/market/book.verify.luau",
