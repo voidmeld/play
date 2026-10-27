@@ -80,6 +80,22 @@ return function(suite: Verify.Harness)
 			):toBeNil()
 		end)
 		it("decodes exact plain requests and preserves the existing revision wire bound", function()
+			local hostile = setmetatable({ kind = "view" }, {
+				__iter = function()
+					error("untrusted iterator ran")
+				end,
+			})
+			expect((Talents.decodeIntent(hostile))):toBeNil()
+			expect(
+				(
+					Core.normalize(
+						{ classId = "role", revision = 0, ranks = hostile, respecCount = 0 },
+						"role",
+						1,
+						runtime
+					)
+				)
+			):toBeNil()
 			for _, bad in
 				{
 					false,

@@ -36,7 +36,7 @@ function System.fromLoadout(classId: string, revision: number, loadout: Loadout)
 end
 
 function System.decodeIntent(value: unknown): (Intent?, string?)
-	local raw = Value.raw(value)
+	local raw = Value.record(value, { kind = true, revision = true, talentId = true })
 	if raw == nil then
 		return nil, "invalid_intent"
 	end
@@ -104,8 +104,10 @@ function System.rules<R, C>(runtimeClass: (R) -> string, compile: (Loadout, stri
 		if fields.classId ~= classId or revision == nil or respecCount == nil then
 			return nil, "invalid_identity", nil
 		end
-		local rawRanks = Value.raw(fields.ranks)
-		if rawRanks == nil or getmetatable(fields.ranks :: { [unknown]: unknown }) ~= nil then
+		local rawRanks = if type(fields.ranks) == "table" and getmetatable(fields.ranks) == nil
+			then Value.raw(fields.ranks)
+			else nil
+		if rawRanks == nil then
 			return nil, "invalid_ranks", nil
 		end
 		local ranks: { [string]: number } = {}
