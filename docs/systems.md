@@ -35,6 +35,8 @@ Games own world queries, native camera writes, speakers, UI measurement and all 
 
 ## Roblox input
 
+`roblox/input-contexts` supplies deadline-bound client readiness and fail-closed server template adoption.
+
 `roblox/input-profile` owns device reach, exclusive action coverage and rollback-safe binding sessions.
 `roblox/input-bindings` projects configured keyboard/gamepad bindings and chords.
 `roblox/thumbstick` projects dead-zone movement and clamped knob displacement.

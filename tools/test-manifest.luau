@@ -71,6 +71,7 @@ return table.freeze {
 	"src/roblox/cue-playback.verify.luau",
 	"src/roblox/data-store.verify.luau",
 	"src/roblox/equipment-queue.verify.luau",
+	"src/roblox/input-contexts.verify.luau",
 	"src/roblox/input-profile.verify.luau",
 	"src/roblox/messaging.verify.luau",
 	"src/roblox/npc-motion.verify.luau",
