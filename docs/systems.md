@@ -1,5 +1,14 @@
 # Systems
 
+## Account and character transactions
+
+`core/identity/roster`, `name-claims`, `name-record`, `creation`, `deletion` and `creation-record`
+are pure typed factories over `core/identity/policy`. `account-lease` owns fenced account leases.
+The host applies plans through its own ordered persistence operations and returns actual readbacks
+to the transaction. A lost response, future schema, foreign owner, stale revision or absent readback
+does not advance success. The game owns account composition, saved keys, naming rules, creation
+admission and routes. No factory supplies game data or performs persistence itself.
+
 [Return to Play](../README.md).
 
 The game supplies content, limits, identities, and host operations.
