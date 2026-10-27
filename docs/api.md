@@ -163,6 +163,36 @@ Hosts must serialize updates and commits through their authoritative store, prov
 and random samples, call step with the game clock, and call forget on departure. These operations
 do not establish persisted durability by themselves.
 
+## [`src/core/quest/run.luau`](../src/core/quest/run.luau)
+
+### `core.quest.run.run`
+
+Creates immutable, revisioned run progress with exact event receipts, checkpoints,
+disconnect recovery, leader succession, wipes and replacement seats. The caller supplies
+package validation, checkpoint validity, wipe progress, replacement admission and member limits.
+Returns transition, projectRunState and refusal reasons. Clocks must be finite and monotonic.
+Reusing an event ID with another fingerprint refuses without advancing state.
+
+## [`src/core/quest/claims.luau`](../src/core/quest/claims.luau)
+
+### `core.quest.claims.claims`
+
+Creates reservation records and pure atomic-store transforms for claim, renewal, close,
+write-through and replacement rosters. The caller supplies lease and record durations,
+member count, carrier contract, text limit and retry delays. Writes require a current job
+lease and a newer run revision. Rejoin targets validate membership and record expiry.
+The host remains responsible for atomic storage, ordered writes and destination authority.
+
+## [`src/core/progression/settlement.luau`](../src/core/progression/settlement.luau)
+
+### `core.progression.settlement.settlement`
+
+Creates per-character run reward history and replay-safe settlement. Package, run and personal
+state readers, reward qualities, role eligibility, reward choice and personal grants are injected.
+A grant must be pure and return a detached state. Failed grants do not advance reward history.
+Replay requires matching receipts in both ledgers; another transaction cannot reward the same run.
+Returns emptyRewardHistory and applyPersonalReward. Reward content and grant limits belong to the caller.
+
 ## [`src/core/progression/talents.luau`](../src/core/progression/talents.luau)
 
 ### `core.progression.talents.default`
