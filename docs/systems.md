@@ -1,5 +1,10 @@
 # Systems
 
+## Roblox targeting
+
+`roblox/target-selection` supplies caller-ordered cycling, projected pointer selection and timed
+range release. Games own hostility, eligibility, markers, frame data, native hit queries and tuning.
+
 ## Roblox camera
 
 `roblox/camera` supplies configured follow-camera dynamics, springs and collision clearance.

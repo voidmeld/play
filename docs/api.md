@@ -1,5 +1,19 @@
 # Public API
 
+### `roblox.target-selection.pickNext`
+
+Cycles a caller-ordered list, wrapping and recovering from an absent current identifier.
+
+### `roblox.target-selection.create`
+
+Takes a coordinate reader and returns pickNearestToTap and tapSelection over `Candidate<P>`.
+Radius admission is inclusive; equal-distance candidates use lexical identifiers. Exact hits win.
+
+### `roblox.target-selection.release`
+
+Returns a Release with observe and reset, taking positive range and grace duration. In-range
+observations reset the clock seam; missing positions count as outside. Exports Release and Candidate.
+
 ## Roblox input
 
 ### `roblox.camera.create`
