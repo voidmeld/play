@@ -72,6 +72,7 @@ return table.freeze {
 	"src/roblox/equipment-queue.verify.luau",
 	"src/roblox/input-profile.verify.luau",
 	"src/roblox/messaging.verify.luau",
+	"src/roblox/npc-motion.verify.luau",
 	"src/roblox/party.verify.luau",
 	"src/roblox/profile-sessions.verify.luau",
 	"src/roblox/remote-events.verify.luau",
