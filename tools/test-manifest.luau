@@ -29,6 +29,7 @@ return table.freeze {
 	"src/core/progression/levels.verify.luau",
 	"src/core/progression/recovery.verify.luau",
 	"src/core/progression/season.verify.luau",
+	"src/core/progression/talents.verify.luau",
 	"src/core/progression/tracking.verify.luau",
 	"src/core/progression/transactions.verify.luau",
 	"src/core/quest/counter.verify.luau",

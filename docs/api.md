@@ -1,5 +1,39 @@
 # Public API
 
+## [`src/core/progression/talents.luau`](../src/core/progression/talents.luau)
+
+### `core.progression.talents.default`
+
+Creates empty ranks with revision and respec count zero.
+
+### `core.progression.talents.toLoadout`
+
+Copies state ranks into a role loadout.
+
+### `core.progression.talents.fromLoadout`
+
+Copies role ranks into state with the supplied revision.
+
+### `core.progression.talents.decodeIntent`
+
+Reads exact plain view, select and respec requests. Talent IDs contain 1 to 128 bytes.
+Wire revisions are nonnegative integers. The existing wire contract also permits positive infinity.
+Persisted counts must be finite.
+
+### `core.progression.talents.change`
+
+Checks the revision and respec admission before calling the supplied rank operation.
+An accepted change returns detached ranks and increases the revision once.
+A refused change returns nil and its reason. A view returns the input state.
+The caller must supply validated state, a decoded intent and a pure rank operation.
+
+### `core.progression.talents.rules`
+
+Takes a runtime identity reader and a loadout compiler.
+Returns normalize and load operations. Normalize rejects invalid saved fields, identity, ranks or compilation.
+Load refunds an invalid save to empty state only when that state compiles for the supplied runtime.
+The game supplies talent rules, point limits and ability compilation.
+
 The headings list the module exports.
 Each source link gives the declaration and signature.
 The game supplies host operations to Roblox adapters.
