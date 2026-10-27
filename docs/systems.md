@@ -60,6 +60,7 @@ The game installs the returned state.
 | [events/schedule](../src/core/events/schedule.luau) | Active events, rollout rules, rewards, flags, and content. |
 | [events/watch](../src/core/events/watch.luau) | Public event cycles, participants, credit, recovery, and reward tickets. |
 | [loot/roll](../src/core/loot/roll.luau) | Weighted loot draws, counts, and receipts. |
+| [loot/decision](../src/core/loot/decision.luau) | Party need, greed and pass: a fixed window, one saved result and round robin when all pass. |
 | [social/roster](../src/core/social/roster.luau) | Party snapshots, membership, and local loot cursors. |
 | [inventory/stacks](../src/core/inventory/stacks.luau) | Item stacks, bag capacity, permanent items, and bound or worn items. |
 
