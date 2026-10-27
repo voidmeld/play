@@ -1,5 +1,11 @@
 # Systems
 
+## Roblox camera
+
+`roblox/camera` supplies configured follow-camera dynamics, springs and collision clearance.
+`roblox/conversation-camera` supplies conversation ownership and safe-region framing candidates.
+Games own world queries, native camera writes, speakers, UI measurement and all tuning.
+
 ## Roblox input
 
 `roblox/input-profile` owns device reach, exclusive action coverage and rollback-safe binding sessions.

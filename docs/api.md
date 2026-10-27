@@ -2,6 +2,21 @@
 
 ## Roblox input
 
+### `roblox.camera.create`
+
+Takes Tuning and returns zoomLimits, isCameraStructure, smoothObstruction, obstructedDistance,
+newSpring, springStep, shoulderOffset, sprintWiden, fovTarget and yields. Exports Tuning,
+Spring and Obstruction. Games own camera mode admission, tuning, collision queries and transforms.
+
+### `roblox.conversation-camera.create`
+
+Takes spring operations and Tuning. Returns new, step, space, views, choose and cameraGesture.
+Exports Tuning, Point, Rect, View and State. Framing chooses available space beside a caller's
+card and generates configured view candidates; the caller tests their actual sightlines.
+Temporary unavailability permits reacquisition. Player override or departure releases ownership
+until the conversation key changes. Games supply speaker identity, two-person bounds, measurements,
+angle preferences and native camera application.
+
 ### `roblox.input-profile.create`
 
 Takes named `Profile` records and mounted/refused phase names. Returns profile, reach, parity,
