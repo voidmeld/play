@@ -10,6 +10,7 @@ The game installs the returned state.
 
 | Module | Function |
 | --- | --- |
+| [progression/talents](../src/core/progression/talents.luau) | Saved talent state, request decoding, revisions, respec admission and atomic rank changes. |
 | [cast/queue](../src/core/cast/queue.luau) | Cast queues, cancellation tokens, and cooldown times. |
 | [control/diminishing](../src/core/control/diminishing.luau) | Duration steps, reset times, and family immunity. |
 | [threat/table](../src/core/threat/table.luau) | Threat totals, target selection, taunts, and actor removal. |
