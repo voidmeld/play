@@ -1,0 +1,55 @@
+--!strict
+local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
+local Session = require("./profile-session")
+local Verify = require("../../../.lute/dependencies/verify/src/core")
+local session = Session.create({
+	leaseSeconds = 70,
+	renewBeforeSeconds = 10,
+	coalesceSeconds = 5,
+	shutdownSeconds = 8,
+	ordinaryReason = "tick",
+	immediateReasons = { commit = true },
+})
+return function(suite: Verify.Harness)
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
+	describe("Profile session lifetime", function()
+		it("preserves changes arriving during a successful save", function()
+			local state = assert(session.openAcquired(0, 70))
+			expect(session.dirty(state, 1, "tick").ok):toBe(true)
+			expect(session.due(state, 5)):toBe(false)
+			expect(session.begin(state, 6).kind):toBe("save")
+			expect(session.dirty(state, 7, "commit").ok):toBe(true)
+			expect(session.finish(state, 8, true).ok):toBe(true)
+			expect(state.dirty):toBe(true)
+			expect(session.begin(state, 8).kind):toBe("save")
+			expect(session.finish(state, 9, true).ok):toBe(true)
+			expect(state.dirty):toBe(false)
+		end)
+		it("renews an idle session but refuses a save that completes after lease expiry", function()
+			local state = assert(session.openAcquired(0, 70))
+			expect(session.begin(state, 60).kind):toBe("renewal")
+			expect(session.finish(state, 61, true).ok):toBe(true)
+			expect(state.leaseExpiresAt):toBe(131)
+			session.dirty(state, 62, "commit")
+			session.begin(state, 62)
+			expect(session.finish(state, 131, true).reason):toBe("lease_lost")
+			expect(session.dirty(state, 132, "commit").ok):toBe(false)
+			expect(state.released):toBe(false)
+		end)
+		it("drains close within its budget and keeps an expired close dirty and unreleased", function()
+			local state = session.open(0)
+			expect(session.dirty(state, 0, "unlisted").reason):toBe("reason_invalid")
+			expect(session.close(state, 1).ok):toBe(true)
+			expect(session.begin(state, 1).kind):toBe("close")
+			expect(session.finish(state, 10, true).reason):toBe("shutdown_expired")
+			expect(state.dirty):toBe(true)
+			expect(state.released):toBe(false)
+			local healthy = session.open(0)
+			session.close(healthy, 1)
+			session.begin(healthy, 1)
+			expect(session.finish(healthy, 9, true).ok):toBe(true)
+			expect(healthy.released):toBe(true)
+		end)
+	end)
+end

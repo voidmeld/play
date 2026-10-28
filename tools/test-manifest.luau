@@ -3,6 +3,7 @@
 return table.freeze {
 	"src/core/bank/vault.verify.luau",
 	"src/core/cast/queue.verify.luau",
+	"src/core/character/respawn-host.verify.luau",
 	"src/core/chat/channels.verify.luau",
 	"src/core/control/diminishing.verify.luau",
 	"src/core/craft/recipes.verify.luau",
@@ -30,7 +31,9 @@ return table.freeze {
 	"src/core/net/rate-limit.verify.luau",
 	"src/core/orders/patron.verify.luau",
 	"src/core/orders/work.verify.luau",
+	"src/core/persistence/profile-session.verify.luau",
 	"src/core/persistence/session-lock.verify.luau",
+	"src/core/persistence/store-host.verify.luau",
 	"src/core/professions/professions.verify.luau",
 	"src/core/progression/actionbar.verify.luau",
 	"src/core/progression/grants.verify.luau",
