@@ -71,6 +71,22 @@ return function(suite: Verify.Harness)
 				)
 			):toBeNil()
 		end)
+		it("refuses kind policies that rewrite authored identity or return a non-string kind", function()
+			local renamed: Exploration.System<string> = Exploration.new({
+				readKind = function(_value: unknown): string?
+					return "renamed"
+				end,
+				revealRadius = 5,
+			})
+			expect(renamed.catalog.normalize(markers())):toBeNil()
+			local invalid: Exploration.System<boolean> = Exploration.new({
+				readKind = function(_value: unknown): boolean?
+					return false
+				end,
+				revealRadius = 5,
+			})
+			expect(invalid.catalog.normalize(markers())):toBeNil()
+		end)
 		it("preserves the prior state and reason when observation distance overflows", function()
 			local before: Exploration.ExploredState = {}
 			local result =

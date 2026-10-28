@@ -123,7 +123,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				and nonempty(row.poiId)
 				and nonempty(row.displayName)
 				and type(row.kind) == "string"
-				and config.readKind(row.kind) ~= nil
+				and config.readKind(row.kind) == row.kind
 				and validPosition(row.position)
 				and (row.hub == nil or type(row.hub) == "boolean")
 		end
