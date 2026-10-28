@@ -937,3 +937,22 @@ The caller supplies text, quantity and clock bounds and ledger intent identifier
 State projection refuses inconsistent custody. Claims and deliveries are replay-safe;
 clocks are monotonic, recovery closes at expiry and delivery can select carried claims.
 The game owns goods, admission, supply rules, rewards and durable intent settlement.
+
+## [`src/core/progression/reputation.luau`](../src/core/progression/reputation.luau)
+
+### `core.progression.reputation.create`
+
+Creates a replay-safe event ledger and derived seasonal/lifetime standings. The caller supplies
+admitted earning kinds and realms, numeric bounds, curve requirements, rates, thresholds and titles.
+Saved history refuses duplicate event identities and regressed timestamps. Replaying identical credit
+does not award twice; conflicting credit refuses. Standings are sorted by account, realm and season.
+
+## [`src/core/progression/standing-credit.luau`](../src/core/progression/standing-credit.luau)
+
+### `core.progression.standing-credit.create`
+
+Coordinates bounded cumulative standing credit through injected authority, clock, readiness,
+committed totals and write callbacks. Flush retains accrual made during a write and retires only
+captured acknowledgments. Transient budget deferral retains authority; uncertain writes stop it.
+Saved floors prevent replay after reconnect. Offline recovery verifies the exact identity and amount
+before acknowledgment. The caller owns persistence, stream identifiers, profile schema and rewards.
