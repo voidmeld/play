@@ -16,6 +16,7 @@ return table.freeze {
 	"src/core/identity/name-claims.verify.luau",
 	"src/core/identity/records.verify.luau",
 	"src/core/identity/roster.verify.luau",
+	"src/core/inventory/cargo.verify.luau",
 	"src/core/inventory/stacks.verify.luau",
 	"src/core/ledger/ledger.verify.luau",
 	"src/core/loot/decision.verify.luau",

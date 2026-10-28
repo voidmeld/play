@@ -735,3 +735,13 @@ Use the system module for game code.
 ### `core.internal.season-read.readEvent`
 
 [Source](../src/core/internal/season-read.luau).
+
+## [`src/core/inventory/cargo.luau`](../src/core/inventory/cargo.luau)
+
+### `core.inventory.cargo.create`
+
+Creates immutable claim custody, drop recovery, expiry and delivery transitions.
+The caller supplies text, quantity and clock bounds and ledger intent identifiers.
+State projection refuses inconsistent custody. Claims and deliveries are replay-safe;
+clocks are monotonic, recovery closes at expiry and delivery can select carried claims.
+The game owns goods, admission, supply rules, rewards and durable intent settlement.
