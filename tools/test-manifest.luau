@@ -30,6 +30,7 @@ return table.freeze {
 	"src/core/net/rate-limit.verify.luau",
 	"src/core/orders/patron.verify.luau",
 	"src/core/orders/work.verify.luau",
+	"src/core/persistence/profile-session.verify.luau",
 	"src/core/persistence/session-lock.verify.luau",
 	"src/core/persistence/store-host.verify.luau",
 	"src/core/professions/professions.verify.luau",

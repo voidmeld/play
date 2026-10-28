@@ -968,3 +968,12 @@ outcome transforms are removed rather than silently replayed later. Legacy queue
 their retry behavior. Memory transactions copy inputs and readback and reject cycles and non-data
 values. Observations report operation latency, budget waits and retries. Profile schema, partition
 keys, lease authority and durable record validation belong to the consumer.
+
+## [`src/core/persistence/profile-session.luau`](../src/core/persistence/profile-session.luau)
+
+### `core.persistence.profile-session.create`
+
+Creates a mutable session lifetime state machine with injected lease, renewal, coalescing and close
+budgets and admitted dirty reasons. In-flight generations preserve concurrent changes. Expiry fences
+late write completion; successful close releases only within the shutdown budget. The consumer owns
+lease acquisition, renewal, durable readback, schema and partition keys.
