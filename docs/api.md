@@ -879,7 +879,8 @@ Use the system module for game code.
 
 Supply the marker-kind decoder and reveal radius. The immutable system validates catalogs and
 saved discoveries, merges explored identities, applies observations, and projects one-time discovery
-presentations. Invalid input refuses without changing the prior state. Catalog order governs output.
+presentations. The decoder admits the existing string kind without rewriting its identity. Invalid
+input refuses without changing the prior state. Catalog order governs output.
 
 ## [`src/core/map/coordinates.luau`](../src/core/map/coordinates.luau)
 
