@@ -18,21 +18,21 @@ export type RevealResult = { ok: boolean, reason: string?, state: ExploredState,
 export type Presentation<K> = { zoneId: string, poiId: string, name: string, kind: K, hub: boolean? }
 export type Transition<K> = { state: ExploredState, presentations: { Presentation<K> } }
 export type System<K> = {
-	read catalog: { read normalize: (unknown) -> CatalogValue<K>? },
-	read reveal: {
-		read emptyState: () -> ExploredState,
-		read transition: (ExploredState, Observation, { Poi }) -> RevealResult,
-		read REVEAL_RADIUS_STUDS: number,
+	catalog: { normalize: (unknown) -> CatalogValue<K>? },
+	reveal: {
+		emptyState: () -> ExploredState,
+		transition: (ExploredState, Observation, { Poi }) -> RevealResult,
+		REVEAL_RADIUS_STUDS: number,
 	},
-	read state: {
-		read defaultState: () -> ExploredState,
-		read resetState: () -> ExploredState,
-		read normalize: (unknown, unknown) -> ExploredState?,
-		read merge: (unknown, unknown, unknown) -> ExploredState?,
-		read ordered: (unknown, unknown) -> { Identity }?,
+	state: {
+		defaultState: () -> ExploredState,
+		resetState: () -> ExploredState,
+		normalize: (unknown, unknown) -> ExploredState?,
+		merge: (unknown, unknown, unknown) -> ExploredState?,
+		ordered: (unknown, unknown) -> { Identity }?,
 	},
-	read discovery: { read project: (unknown, unknown) -> { Presentation<K> }? },
-	read pipeline: { read transition: (unknown, unknown, unknown, unknown) -> Transition<K>? },
+	discovery: { project: (unknown, unknown) -> { Presentation<K> }? },
+	pipeline: { transition: (unknown, unknown, unknown, unknown) -> Transition<K>? },
 }
 local Exploration = {}
 function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revealRadius: number }): System<K>
@@ -188,7 +188,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			}
 		end
 
-		return table.freeze(MapMarkerCatalogCore)
+		return Value.freezeDeep(MapMarkerCatalogCore)
 	end)()
 	local MapRevealCore = (function()
 		type Result = RevealResult
@@ -528,7 +528,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			return result
 		end
 
-		return table.freeze(MapExploredStateCore)
+		return Value.freezeDeep(MapExploredStateCore)
 	end)()
 	local MapDiscoveryProjectionCore = (function()
 		local DISCOVERY_FIELDS: { [string]: boolean } = {
@@ -636,7 +636,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			return presentations
 		end
 
-		return table.freeze(MapDiscoveryProjectionCore)
+		return Value.freezeDeep(MapDiscoveryProjectionCore)
 	end)()
 	local MapExplorationPipelineCore = (function()
 		type Raw = { [unknown]: unknown }
@@ -781,7 +781,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			return Value.freezeDeep(result)
 		end
 
-		return table.freeze(MapExplorationPipelineCore)
+		return Value.freezeDeep(MapExplorationPipelineCore)
 	end)()
 	local result: System<K> = {
 		catalog = MapMarkerCatalogCore,
