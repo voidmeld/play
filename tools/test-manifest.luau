@@ -3,6 +3,7 @@
 return table.freeze {
 	"src/core/bank/vault.verify.luau",
 	"src/core/cast/queue.verify.luau",
+	"src/core/character/respawn-host.verify.luau",
 	"src/core/chat/channels.verify.luau",
 	"src/core/control/diminishing.verify.luau",
 	"src/core/craft/recipes.verify.luau",

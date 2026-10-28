@@ -977,3 +977,16 @@ Creates a mutable session lifetime state machine with injected lease, renewal, c
 budgets and admitted dirty reasons. In-flight generations preserve concurrent changes. Expiry fences
 late write completion; successful close releases only within the shutdown budget. The consumer owns
 lease acquisition, renewal, durable readback, schema and partition keys.
+## [`src/core/character/respawn-host.luau`](../src/core/character/respawn-host.luau)
+
+### `core.character.respawn-host.completeSpawn`
+
+Attempts a supplied spawn up to three times. Current-session and body-validity predicates must hold
+before a destination can be restored. Exceptions and cancellation return explicit refusal reasons.
+
+### `core.character.respawn-host.create`
+
+Creates cancellable character watches, recovery timers and guarded character replacement through
+injected owners, observations, scheduling and engine operations. Character generations reject stale
+humanoid waits. Context changes and replacement characters revoke an outstanding spawn. The caller
+owns death timing, persistence admission, bind destinations, recovery rules, protection and presentation.
