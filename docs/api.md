@@ -956,3 +956,15 @@ committed totals and write callbacks. Flush retains accrual made during a write 
 captured acknowledgments. Transient budget deferral retains authority; uncertain writes stop it.
 Saved floors prevent replay after reconnect. Offline recovery verifies the exact identity and amount
 before acknowledgment. The caller owns persistence, stream identifiers, profile schema and rewards.
+
+## [`src/core/persistence/store-host.luau`](../src/core/persistence/store-host.luau)
+
+### `core.persistence.store-host.create`
+
+Builds memory and injected persistent store adapters and bounded close draining. The caller supplies
+retry timing, key bounds, backend operations, uncached-read options, budget admission and circuit policy.
+Queued operations retain per-key order across handles that share a state identity. Failed atomic
+outcome transforms are removed rather than silently replayed later. Legacy queued writes retain
+their retry behavior. Memory transactions copy inputs and readback and reject cycles and non-data
+values. Observations report operation latency, budget waits and retries. Profile schema, partition
+keys, lease authority and durable record validation belong to the consumer.

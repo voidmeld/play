@@ -31,6 +31,7 @@ return table.freeze {
 	"src/core/orders/patron.verify.luau",
 	"src/core/orders/work.verify.luau",
 	"src/core/persistence/session-lock.verify.luau",
+	"src/core/persistence/store-host.verify.luau",
 	"src/core/professions/professions.verify.luau",
 	"src/core/progression/actionbar.verify.luau",
 	"src/core/progression/grants.verify.luau",
