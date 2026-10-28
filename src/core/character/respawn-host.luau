@@ -49,23 +49,23 @@ export type Dependencies<P, C, H, O, S> = {
 }
 local Respawn = {}
 export type Host<P, C, O> = {
-	read pendingAt: { [P]: number },
-	read watchers: { [P]: O },
-	read plannedRefresh: { [P]: boolean },
-	read refreshes: { [P]: Refresh<C> },
-	read cancelPending: (P, string) -> (),
-	read schedulePending: (P) -> (),
-	read reschedule: () -> (),
-	read track: (P) -> (),
-	read untrack: (P) -> (),
-	read refresh: <F>(
+	pendingAt: { [P]: number },
+	watchers: { [P]: O },
+	plannedRefresh: { [P]: boolean },
+	refreshes: { [P]: Refresh<C> },
+	cancelPending: (P, string) -> (),
+	schedulePending: (P) -> (),
+	reschedule: () -> (),
+	track: (P) -> (),
+	untrack: (P) -> (),
+	refresh: <F>(
 		P,
 		(() -> boolean) -> (unknown, string?, F?),
 		() -> boolean,
 		() -> (),
 		(F?, () -> boolean) -> ()
 	) -> boolean,
-	read dispose: () -> (),
+	dispose: () -> (),
 }
 function Respawn.completeSpawn<F>(
 	spawn: () -> (unknown, string?, F?),
@@ -390,7 +390,6 @@ function Respawn.create<P, C, H, O, S>(deps: Dependencies<P, C, H, O, S>): Host<
 		refresh = refresh,
 		dispose = dispose,
 	}
-	table.freeze(result)
 	return result
 end
 return table.freeze(Respawn)
