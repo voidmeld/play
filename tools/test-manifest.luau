@@ -22,6 +22,7 @@ return table.freeze {
 	"src/core/loot/decision.verify.luau",
 	"src/core/loot/roll.verify.luau",
 	"src/core/mail/mailbox.verify.luau",
+	"src/core/map/exploration.verify.luau",
 	"src/core/market/book.verify.luau",
 	"src/core/market/conservation.verify.luau",
 	"src/core/market/goods.verify.luau",
