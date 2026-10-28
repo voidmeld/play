@@ -873,6 +873,60 @@ Use the system module for game code.
 
 [Source](../src/core/internal/season-read.luau).
 
+## [`src/core/map/exploration.luau`](../src/core/map/exploration.luau)
+
+### `core.map.exploration.new`
+
+Supply the marker-kind decoder and reveal radius. The immutable system validates catalogs and
+saved discoveries, merges explored identities, applies observations, and projects one-time discovery
+presentations. Invalid input refuses without changing the prior state. Catalog order governs output.
+
+## [`src/core/map/coordinates.luau`](../src/core/map/coordinates.luau)
+
+### `core.map.coordinates.worldToMap`
+
+### `core.map.coordinates.mapToWorld`
+
+Convert finite coordinates through validated bounds, clamping at the map boundary.
+
+## [`src/core/map/geometry.luau`](../src/core/map/geometry.luau)
+
+### `core.map.geometry.imagePan`
+
+### `core.map.geometry.projectMarker`
+
+### `core.map.geometry.projectTrackedWaypoint`
+
+Project normalized markers into a circular viewport. Only tracked waypoints clamp to its edge.
+
+## [`src/core/map/viewport.luau`](../src/core/map/viewport.luau)
+
+### `core.map.viewport.build`
+
+Build the player-centered viewport from validated explored identities and normalized marker rows.
+
+## [`src/core/map/updates.luau`](../src/core/map/updates.luau)
+
+### `core.map.updates.new`
+
+Supply the update frequency. Pan follows that cadence; changed marker revisions update immediately.
+Reversed clocks and invalid samples refuse.
+
+## [`src/core/map/renderer.luau`](../src/core/map/renderer.luau)
+
+### `core.map.renderer.new`
+
+Compose surface policy, update state and viewport projection. Supply catalog normalization, surface
+resolution and update transition functions. Disabled surfaces retain their previous update state.
+
+## [`src/core/map/polyline.luau`](../src/core/map/polyline.luau)
+
+### `core.map.polyline.simplifyPolyline`
+
+### `core.map.polyline.smoothPolyline`
+
+Simplify by caller tolerance and smooth map paths while preserving both endpoints.
+
 ## [`src/core/inventory/cargo.luau`](../src/core/inventory/cargo.luau)
 
 ### `core.inventory.cargo.create`
