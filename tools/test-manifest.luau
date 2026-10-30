@@ -44,6 +44,7 @@ return table.freeze {
 	"src/core/progression/season.verify.luau",
 	"src/core/progression/settlement.verify.luau",
 	"src/core/progression/standing-credit.verify.luau",
+	"src/core/progression/talent-ranks.verify.luau",
 	"src/core/progression/talents.verify.luau",
 	"src/core/progression/tracking.verify.luau",
 	"src/core/progression/transactions.verify.luau",

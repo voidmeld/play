@@ -64,6 +64,7 @@ The game installs the returned state.
 | --- | --- |
 | [professions/skills](../src/core/professions/skills.luau), [crafting](../src/core/professions/crafting.luau), [harvest](../src/core/professions/harvest.luau), [fishing](../src/core/professions/fishing.luau), [session](../src/core/professions/session.luau), [gathering](../src/core/professions/gathering.luau) | Configured skills, recipe transactions, yields, fishing windows, interruption and replay-safe node claims. The [profession host](../src/roblox/professions.luau) coordinates injected profile, world and durable commit operations. |
 | [progression/talents](../src/core/progression/talents.luau) | Saved talent state, request decoding, revisions, respec admission and atomic rank changes. |
+| [progression/talent-ranks](../src/core/progression/talent-ranks.luau) | Point budgets, same-line tier gates, ranked spending and isolated role respecs over read-only game definitions. |
 | [cast/queue](../src/core/cast/queue.luau) | Cast queues, cancellation tokens, and cooldown times. |
 | [control/diminishing](../src/core/control/diminishing.luau) | Duration steps, reset times, and family immunity. |
 | [threat/table](../src/core/threat/table.luau) | Threat totals, target selection, taunts, and actor removal. |

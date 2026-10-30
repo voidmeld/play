@@ -1,5 +1,63 @@
 # Public API
 
+## [`src/core/progression/talent-ranks.luau`](../src/core/progression/talent-ranks.luau)
+
+Exports read-only `Node`, `Tier`, `Line` and `Spec` definitions, plus `Bucket`, `Loadout` and `Result`.
+The game supplies unique role definitions and a nonnegative integer point budget. It owns level curves,
+signatures, ability compilation and player-facing presentation. Definition arrays can carry extra fields.
+
+### `core.progression.talent-ranks.bucketOf`
+
+Reads a role's bucket or returns an empty bucket. Treat existing buckets as borrowed state.
+
+### `core.progression.talent-ranks.spendByLine`
+
+Totals rank costs by line, optionally counting only nodes below a tier.
+
+### `core.progression.talent-ranks.stateProblem`
+
+Refuses invalid budgets, stored ranks, respec counts, unmet same-line tier gates and overspending.
+
+### `core.progression.talent-ranks.rankRefusal`
+
+Checks role selection, stored state, node rank limit, tier gate and available points in that order.
+
+### `core.progression.talent-ranks.addRank`
+
+Returns detached state with one additional rank, or a refusal without changing the input.
+
+### `core.progression.talent-ranks.respecRole`
+
+Clears only the selected role's ranks and increments its respec count in detached state.
+
+### `core.progression.talent-ranks.spentPoints`
+
+Totals the selected role's spent rank costs. An absent role definition returns zero.
+
+### `core.progression.talent-ranks.availablePoints`
+
+Returns the supplied point budget minus spent points, with a zero floor.
+
+### `core.progression.talent-ranks.UNKNOWN_TALENT`
+
+An unknown node or missing tier definition.
+
+### `core.progression.talent-ranks.FULL_RANK`
+
+The node has reached its rank limit.
+
+### `core.progression.talent-ranks.TIER_LOCKED`
+
+The same line lacks the required lower-tier spend.
+
+### `core.progression.talent-ranks.NO_POINTS`
+
+The remaining budget cannot cover the next rank.
+
+### `core.progression.talent-ranks.INVALID_STATE`
+
+The stored state or supplied budget is invalid.
+
 ### `roblox.input-contexts.create`
 
 Takes native find/wait, clock, context/action conversion, name and minimumWait operations.
