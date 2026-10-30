@@ -1,7 +1,7 @@
 --!strict
 export type Refresh<C> = { previous: C?, character: C?, invalid: boolean? }
 export type Observation<C> = {
-	character: C?,
+	characterPresent: boolean,
 	engineCharacter: C?,
 	liveBody: boolean,
 	actorPresent: boolean,
@@ -238,7 +238,7 @@ function Respawn.create<P, C, H, O, S>(deps: Dependencies<P, C, H, O, S>): Host<
 		local observedCharacter: C? = nil
 		local observedLive = false
 		local function evaluate(observation: Observation<C>)
-			if observation.character == nil then
+			if not observation.characterPresent then
 				stamp("character_nil")
 				cancelPending(player, "character_nil")
 				lastAlive[player] = nil
@@ -254,6 +254,7 @@ function Respawn.create<P, C, H, O, S>(deps: Dependencies<P, C, H, O, S>): Host<
 			elseif observedLive and observation.engineCharacter ~= nil and not plannedRefresh[player] then
 				observedLive = false
 				deps.engineDeath(player)
+				observation = deps.sample(player)
 			end
 			local previous = lastAlive[player]
 			lastAlive[player] = observation.alive

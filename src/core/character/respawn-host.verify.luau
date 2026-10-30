@@ -14,6 +14,7 @@ local function fixture()
 		enginePending = false,
 		respawns = 0,
 		deaths = 0,
+		damageOnEngineDeath = false,
 		context = "one",
 		character = "old",
 		humanoid = true,
@@ -24,7 +25,7 @@ local function fixture()
 		onWait = nil :: (() -> ())?,
 	}
 	local observation: Respawn.Observation<string> = {
-		character = "old",
+		characterPresent = true,
 		engineCharacter = "old",
 		liveBody = true,
 		actorPresent = true,
@@ -141,6 +142,9 @@ local function fixture()
 		end,
 		engineDeath = function()
 			state.deaths += 1
+			if state.damageOnEngineDeath then
+				observation.alive, observation.hp = false, 0
+			end
 		end,
 		context = function()
 			return state.context
@@ -168,6 +172,66 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("Cancellable character lifecycle", function()
+		it("uses authoritative death state after a previously live body disappears", function()
+			local state, lifecycle, observation = fixture()
+			state.damageOnEngineDeath = true
+			lifecycle.track(1)
+			observation.liveBody = false
+			assert(state.changed)(table.clone(observation))
+			expect(state.deaths):toBe(1)
+			expect(lifecycle.pendingAt[1]):toBe(0)
+			lifecycle.dispose()
+		end)
+		it("does not restore a missing body or one lost during the final validity check", function()
+			for _, disappears in { false, true } do
+				local checks, restores = 0, 0
+				local ok = Respawn.completeSpawn(function(): (unknown, string?)
+					return true, nil
+				end, function()
+					checks += 1
+					return disappears and checks == 1
+				end, function()
+					return true
+				end, function() end, function()
+					restores += 1
+				end)
+				expect(ok):toBe(false)
+				expect(restores):toBe(0)
+			end
+		end)
+		it("retains the acknowledged destination and does not respawn after restoration refuses", function()
+			local attempts, restores = 0, 0
+			local ok, reason = Respawn.completeSpawn(function(): (unknown, string?, string?)
+				attempts += 1
+				return true, nil, "destination"
+			end, function()
+				return true
+			end, function()
+				return true
+			end, function() end, function(destination)
+				restores += 1
+				expect(destination):toBe("destination")
+				error("placement_refused", 0)
+			end)
+			expect(ok):toBe(false)
+			expect(string.find(reason or "", "placement_refused", 1, true) ~= nil):toBe(true)
+			expect(attempts):toBe(1)
+			expect(restores):toBe(1)
+		end)
+		it("keeps recovery state without an engine body and cancels it when character state leaves", function()
+			local state, lifecycle, observation, advance = fixture()
+			observation.engineCharacter = nil
+			observation.liveBody, observation.alive, observation.hp = false, false, 0
+			lifecycle.track(1)
+			expect(lifecycle.pendingAt[1]):toBe(0)
+			lifecycle.schedulePending(1)
+			observation.characterPresent = false
+			assert(state.changed)(observation)
+			expect(lifecycle.pendingAt[1]):toBeNil()
+			advance(20)
+			expect(state.respawns):toBe(0)
+			lifecycle.dispose()
+		end)
 		it("waits for recovery persistence and cancels delayed return on departure", function()
 			local state, lifecycle, observation, advance = fixture()
 			lifecycle.track(1)
