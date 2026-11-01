@@ -352,7 +352,7 @@ function Consumables.create(config: Config)
 		return out
 	end
 
-	function Core.tick(state: State?, actor: Actor, mobs: { [string]: Mob }?, now: number): (State?, number, number)
+	function Core.advance(state: State?, actor: Actor, mobs: { [string]: Mob }?, now: number): (State?, number, number)
 		if state == nil then
 			return nil, 0, 0
 		end

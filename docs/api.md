@@ -6,8 +6,8 @@
 
 Creates an isolated item registry and recovery rules from `Config`. `register` and `registerAll`
 validate and copy definitions, freezing accepted items and their buff statistics. `item` reads
-registered definitions. `copy`, `begin`, `interrupt`, `activeStats` and `tick` operate on recovery
-state. `tick` returns new state and separate health/mana gains without mutating the input actor.
+registered definitions. `copy`, `begin`, `interrupt`, `activeStats` and `advance` operate on recovery
+state. `advance` returns new state and separate health/mana gains without mutating the input actor.
 The reducer may use `interruptActor` to advance the interruption generation and clear channels.
 
 Health and mana channels have independent absolute deadlines. Repeated or reversed samples award
