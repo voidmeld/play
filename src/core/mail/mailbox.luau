@@ -46,6 +46,7 @@ export type Mailbox<T> = {
 	attachments: (unknown) -> Attachments?,
 	id: (number, unknown) -> string?,
 	prepare: (string, number, number, unknown, number, number) -> Envelope?,
+	read: (unknown) -> Envelope?,
 	valid: (unknown) -> boolean,
 	pointers: (unknown) -> { [string]: Pointer }?,
 	sameRequest: (unknown, unknown) -> boolean,
@@ -245,6 +246,7 @@ function Mail.mailbox<T>(config: Config<T>): Mailbox<T>
 
 	return {
 		attachments = attachments,
+		read = envelope,
 		id = id,
 		prepare = function(
 			mailId: string,
