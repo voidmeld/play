@@ -131,7 +131,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function fingerprint(candidate: unknown): string?
-		local prepared = candidate :: Prepared
+		local prepared = candidate
 		local nameOk, displayName = policy.validateName(prepared.displayName)
 		if not nameOk or displayName == nil then
 			return nil
@@ -159,8 +159,8 @@ local function create(policy: Policy.Policy)
 		if type(candidate) ~= "table" then
 			return nil
 		end
-		local state = candidate :: State
-		for key in state :: { [unknown]: unknown } do
+		local state = candidate
+		for key in state do
 			if type(key) ~= "string" or not KNOWN_STATE_FIELDS[key] then
 				return nil
 			end
@@ -222,7 +222,7 @@ local function create(policy: Policy.Policy)
 		if type(candidate) ~= "table" then
 			return "malformed_event"
 		end
-		local event = candidate :: RawEvent
+		local event = candidate
 		if event.expectedRevision ~= state.revision then
 			return "stale_revision"
 		end
@@ -238,10 +238,10 @@ local function create(policy: Policy.Policy)
 		end
 		local raw = assert(tableFields(candidate))
 		if raw.revision ~= state.revision or raw.fence ~= state.fence then
-			if whole(raw.revision, 0, MAX_REVISION) and (raw.revision :: number) > state.revision then
+			if whole(raw.revision, 0, MAX_REVISION) and raw.revision > state.revision then
 				return "future_readback"
 			end
-			if whole(raw.fence, 1, MAX_FENCE) and (raw.fence :: number) > state.fence then
+			if whole(raw.fence, 1, MAX_FENCE) and raw.fence > state.fence then
 				return "future_readback"
 			end
 			return "readback_mismatch"
@@ -263,7 +263,7 @@ local function create(policy: Policy.Policy)
 		if type(request) ~= "table" then
 			return rejected(nil, "malformed_request")
 		end
-		local candidate = request :: Prepared
+		local candidate = request
 		local nameOk, displayName = policy.validateName(candidate.displayName)
 		local identity = fingerprint(candidate)
 		if not nameOk or displayName == nil or identity == nil then
@@ -334,8 +334,8 @@ local function create(policy: Policy.Policy)
 		if type(left) ~= "table" or type(right) ~= "table" then
 			return false
 		end
-		local leftFields = left :: { [unknown]: unknown }
-		local rightFields = right :: { [unknown]: unknown }
+		local leftFields = left
+		local rightFields = right
 		for key, value in leftFields do
 			if not equal(value, rightFields[key]) then
 				return false
@@ -350,7 +350,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeRoster(raw: unknown, candidate: unknown): Result
-		local event = candidate :: RawEvent
+		local event = candidate
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -391,7 +391,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeNameRelease(raw: unknown, candidate: unknown): Result
-		local event = candidate :: RawEvent
+		local event = candidate
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -431,7 +431,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeLeaseRelease(raw: unknown, candidate: unknown): Result
-		local event = candidate :: RawEvent
+		local event = candidate
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -459,7 +459,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function requestRollback(raw: unknown, candidate: unknown): Result
-		local event = candidate :: RawEvent
+		local event = candidate
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -483,7 +483,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeRollback(raw: unknown, candidate: unknown): Result
-		local event = candidate :: RawEvent
+		local event = candidate
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -504,7 +504,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function takeover(raw: unknown, candidate: unknown): Result
-		local event = candidate :: RawEvent
+		local event = candidate
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -537,8 +537,8 @@ local function create(policy: Policy.Policy)
 		end
 		local value = copy(state)
 		value.revision += 1
-		value.fence = event.fence :: number
-		value.leaseRevision = event.leaseRevision :: number
+		value.fence = event.fence
+		value.leaseRevision = event.leaseRevision
 		return accepted(value, false)
 	end
 
@@ -554,15 +554,6 @@ local function create(policy: Policy.Policy)
 		validate = validate,
 		fingerprint = fingerprint,
 		copy = copy,
-		Types = (nil :: unknown) :: {
-			State: State,
-			Prepared: Prepared,
-			Phase: Phase,
-			Plan: Plan,
-			Result: Result,
-			Accepted: Accepted,
-			Rejected: Rejected,
-		},
 		SCHEMA_VERSION = SCHEMA_VERSION,
 		MAX_REVISION = MAX_REVISION,
 		MAX_FENCE = MAX_FENCE,

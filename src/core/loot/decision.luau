@@ -105,7 +105,7 @@ function System.decision(config: Config)
 			return nil, "need_not_legal"
 		end
 		local declarations = table.clone(decision.declarations)
-		declarations[userId] = choice :: Choice
+		declarations[userId] = choice
 		local next: Decision = table.clone(decision)
 		next.declarations = declarations
 		return next, nil

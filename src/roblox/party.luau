@@ -141,14 +141,14 @@ function System.party(config: Config)
 	}
 
 	local function text(value: unknown): boolean
-		return type(value) == "string" and #(value :: string) > 0 and #(value :: string) <= config.maxText
+		return type(value) == "string" and #value > 0 and #value <= config.maxText
 	end
 
 	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: { [unknown]: unknown } do
+		for key in value do
 			if type(key) ~= "string" or fields[key] ~= true then
 				return false
 			end
@@ -234,7 +234,7 @@ function System.party(config: Config)
 		if not hasOnlyFields(value, RECORD_FIELDS) then
 			return nil, "record_invalid"
 		end
-		local raw = value :: { [string]: unknown }
+		local raw = value
 		if
 			type(raw.schemaVersion) ~= "number"
 			or raw.schemaVersion ~= raw.schemaVersion
@@ -254,7 +254,7 @@ function System.party(config: Config)
 		if state == nil then
 			return nil, stateReason or "record_invalid"
 		end
-		if (state :: CoreState).partyId ~= partyId then
+		if (state).partyId ~= partyId then
 			return nil, "party_mismatch"
 		end
 		return state, nil
@@ -265,14 +265,14 @@ function System.party(config: Config)
 	function PartyService.mount(dependencies: unknown): MountResult
 		if
 			type(dependencies) ~= "table"
-			or type((dependencies :: { [string]: unknown }).store) ~= "table"
-			or type(((dependencies :: { [string]: unknown }).store :: { [string]: unknown }).update) ~= "function"
-			or type((dependencies :: { [string]: unknown }).keyForParty) ~= "function"
-			or type((dependencies :: { [string]: unknown }).readMembership) ~= "function"
+			or type((dependencies).store) ~= "table"
+			or type(((dependencies).store).update) ~= "function"
+			or type((dependencies).keyForParty) ~= "function"
+			or type((dependencies).readMembership) ~= "function"
 		then
 			return refusedMount("dependencies_malformed")
 		end
-		local deps = dependencies :: Dependencies
+		local deps = dependencies
 
 		local function membershipOf(accountId: string): (string?, string?)
 			local loaded = table.pack(pcall(deps.readMembership, accountId))
@@ -286,7 +286,7 @@ function System.party(config: Config)
 			if not text(value) then
 				return nil, "membership_load_failed"
 			end
-			return value :: string, nil
+			return value, nil
 		end
 
 		local function commit(partyId: string, transform: (CoreState) -> (CoreState?, boolean, string?)): PartyOutcome
@@ -306,17 +306,17 @@ function System.party(config: Config)
 					transformFail = migrateReason
 					return nil
 				end
-				local nextState, wasReplayed, reason = transform(state :: CoreState)
+				local nextState, wasReplayed, reason = transform(state)
 				if nextState == nil then
 					transformFail = reason
 					return nil
 				end
 				captured = nextState
-				replayed = wasReplayed and nextState.lastAt == (state :: CoreState).lastAt
+				replayed = wasReplayed and nextState.lastAt == (state).lastAt
 				if replayed then
 					return nil
 				end
-				return buildRecord(nextState :: CoreState)
+				return buildRecord(nextState)
 			end)
 
 			if not result.ok then
@@ -340,7 +340,7 @@ function System.party(config: Config)
 			if readback == nil then
 				return refused(readbackReason or "readback_mismatch")
 			end
-			if captured == nil or (readback :: CoreState).lastAt ~= (captured :: CoreState).lastAt then
+			if captured == nil or (readback).lastAt ~= (captured).lastAt then
 				return refused("readback_mismatch")
 			end
 			return frozenOutcome({
@@ -357,11 +357,11 @@ function System.party(config: Config)
 			if not hasOnlyFields(requestValue, OPEN_FIELDS) then
 				return refused("request_shape_invalid")
 			end
-			local request = requestValue :: { [string]: unknown }
+			local request = requestValue
 			if not text(request.partyId) then
 				return refused("party_id_invalid")
 			end
-			local partyId = request.partyId :: string
+			local partyId = request.partyId
 			local result, reason = Core.open({
 				partyId = partyId,
 				realmId = request.realmId,
@@ -373,7 +373,7 @@ function System.party(config: Config)
 			if result == nil then
 				return refused("core_refused: " .. tostring(reason))
 			end
-			local fresh = (result :: CoreResult).state
+			local fresh = (result).state
 			local transformFail: string? = nil
 			local outcome = deps.store.update(deps.keyForParty(partyId), function(current)
 				transformFail = nil
@@ -407,19 +407,19 @@ function System.party(config: Config)
 			if not hasOnlyFields(requestValue, INVITE_FIELDS) then
 				return refused("request_shape_invalid")
 			end
-			local request = requestValue :: { [string]: unknown }
+			local request = requestValue
 			if not text(request.partyId) then
 				return refused("party_id_invalid")
 			end
 			if not text(request.accountId) then
 				return refused("account_invalid")
 			end
-			local held, membershipReason = membershipOf(request.accountId :: string)
+			local held, membershipReason = membershipOf(request.accountId)
 			if membershipReason ~= nil then
-				return refused(membershipReason :: string)
+				return refused(membershipReason)
 			end
 			local grouped = held ~= nil and held ~= request.partyId
-			return commit(request.partyId :: string, function(state)
+			return commit(request.partyId, function(state)
 				local result, reason = Core.invite(state, {
 					accountId = request.accountId,
 					invitedBy = request.invitedBy,
@@ -430,7 +430,7 @@ function System.party(config: Config)
 				if result == nil then
 					return nil, false, "core_refused: " .. tostring(reason)
 				end
-				return (result :: CoreResult).state, (result :: CoreResult).replayed, nil
+				return (result).state, (result).replayed, nil
 			end)
 		end
 
@@ -438,19 +438,19 @@ function System.party(config: Config)
 			if not hasOnlyFields(requestValue, ACCEPT_FIELDS) then
 				return refused("request_shape_invalid")
 			end
-			local request = requestValue :: { [string]: unknown }
+			local request = requestValue
 			if not text(request.partyId) then
 				return refused("party_id_invalid")
 			end
 			if not text(request.accountId) then
 				return refused("account_invalid")
 			end
-			local held, membershipReason = membershipOf(request.accountId :: string)
+			local held, membershipReason = membershipOf(request.accountId)
 			if membershipReason ~= nil then
-				return refused(membershipReason :: string)
+				return refused(membershipReason)
 			end
 			local grouped = held ~= nil and held ~= request.partyId
-			return commit(request.partyId :: string, function(state)
+			return commit(request.partyId, function(state)
 				local result, reason = Core.accept(state, {
 					accountId = request.accountId,
 					accepterGrouped = grouped,
@@ -460,7 +460,7 @@ function System.party(config: Config)
 				if result == nil then
 					return nil, false, "core_refused: " .. tostring(reason)
 				end
-				return (result :: CoreResult).state, (result :: CoreResult).replayed, nil
+				return (result).state, (result).replayed, nil
 			end)
 		end
 
@@ -472,16 +472,16 @@ function System.party(config: Config)
 				if not hasOnlyFields(requestValue, fields) then
 					return refused("request_shape_invalid")
 				end
-				local request = requestValue :: { [string]: unknown }
+				local request = requestValue
 				if not text(request.partyId) then
 					return refused("party_id_invalid")
 				end
-				return commit(request.partyId :: string, function(state)
+				return commit(request.partyId, function(state)
 					local result, reason = apply(state, request)
 					if result == nil then
 						return nil, false, "core_refused: " .. tostring(reason)
 					end
-					return (result :: CoreResult).state, (result :: CoreResult).replayed, nil
+					return (result).state, (result).replayed, nil
 				end)
 			end
 		end
@@ -536,7 +536,7 @@ function System.party(config: Config)
 			if not text(partyIdValue) then
 				return refused("party_id_invalid")
 			end
-			local partyId = partyIdValue :: string
+			local partyId = partyIdValue
 			local captured: CoreState? = nil
 			local missing = false
 			local transformFail: string? = nil

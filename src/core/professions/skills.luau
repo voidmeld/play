@@ -79,25 +79,25 @@ function Skills.create(config: Config)
 		if type(raw) ~= "table" then
 			return out
 		end
-		local rawSkills = (raw :: Raw).skills
+		local rawSkills = (raw).skills
 		if type(rawSkills) == "table" then
 			local primaries = 0
 			for _, row in CATALOGUE do
-				local value = (rawSkills :: Raw)[row.id]
+				local value = (rawSkills)[row.id]
 				if whole(value, START_SKILL, SKILL_CAP) and (not row.primary or primaries < PRIMARY_SLOTS) then
-					out.skills[row.id] = value :: number
+					out.skills[row.id] = value
 					if row.primary then
 						primaries += 1
 					end
 				end
 			end
 		end
-		local rawRecipes = (raw :: Raw).recipes
+		local rawRecipes = (raw).recipes
 		if type(rawRecipes) == "table" then
-			for recipeId, flag in rawRecipes :: Raw do
+			for recipeId, flag in rawRecipes do
 				local recipe = Recipes.get(recipeId)
 				if flag == true and recipe ~= nil and out.skills[recipe.profession] ~= nil then
-					out.recipes[recipeId :: string] = true
+					out.recipes[recipeId] = true
 				end
 			end
 		end
@@ -156,7 +156,7 @@ function Skills.create(config: Config)
 			return nil, reason
 		end
 		local out = Core.copy(state)
-		out.skills[professionId :: string] = START_SKILL
+		out.skills[professionId] = START_SKILL
 		return out, nil
 	end
 
@@ -262,7 +262,7 @@ function Skills.create(config: Config)
 			return nil, reason
 		end
 		local out = Core.copy(state)
-		out.recipes[recipeId :: string] = true
+		out.recipes[recipeId] = true
 		return out, nil
 	end
 

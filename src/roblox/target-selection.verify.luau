@@ -43,7 +43,7 @@ return function(suite: Verify.Harness)
 					{ 80, 115, true },
 				}
 			do
-				expect(release.observe(sample[1] :: number, sample[2] :: number)):toBe(sample[3])
+				expect(release.observe(sample[1], sample[2])):toBe(sample[3])
 			end
 			release.reset()
 			expect(release.observe(nil, 0)):toBe(false)

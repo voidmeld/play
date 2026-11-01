@@ -1,5 +1,7 @@
 --!strict
 
+local Value = require("../internal/value")
+
 export type NormalizedPoint = {
 	u: number,
 	v: number,
@@ -41,7 +43,6 @@ export type Result = {
 local Updates = {}
 function Updates.new(updateHz: number)
 	assert(updateHz == updateHz and updateHz > 0 and updateHz < math.huge, "invalid update frequency")
-	type Raw = { [unknown]: unknown }
 	local UPDATE_HZ = updateHz
 	local UPDATE_INTERVAL_SECONDS = 1 / UPDATE_HZ
 
@@ -67,54 +68,68 @@ function Updates.new(updateHz: number)
 	end
 
 	local function normalized(value: unknown): boolean
-		return finite(value) and (value :: number) >= 0 and (value :: number) <= 1
+		return (type(value) == "number" and finite(value)) and value >= 0 and value <= 1
 	end
 
 	local function revision(value: unknown): boolean
-		return finite(value) and (value :: number) >= 0 and (value :: number) == math.floor(value :: number)
+		return (type(value) == "number" and finite(value)) and value >= 0 and value == math.floor(value)
 	end
 
-	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
-		if type(value) ~= "table" then
-			return false
+	local function readPoint(value: unknown): NormalizedPoint?
+		local point = Value.record(value, POINT_FIELDS, false, false)
+		if point == nil then
+			return nil
 		end
-		for key in value :: Raw do
-			if type(key) ~= "string" or not fields[key] then
-				return false
-			end
+		local u, v = point.u, point.v
+		if
+			type(u) ~= "number"
+			or type(v) ~= "number"
+			or not (type(u) == "number" and normalized(u))
+			or not (type(v) == "number" and normalized(v))
+		then
+			return nil
 		end
-		return true
+		return { u = u, v = v }
 	end
-
-	local function validPoint(value: unknown): boolean
-		if not hasOnlyFields(value, POINT_FIELDS) then
-			return false
+	local function readState(value: unknown): State?
+		local state = Value.record(value, STATE_FIELDS, false, false)
+		if state == nil then
+			return nil
 		end
-		local point = value :: Raw
-		return normalized(point.u) and normalized(point.v)
+		local sample, pan, marker = state.lastSampleAtSeconds, state.lastPanAtSeconds, state.markerRevision
+		if sample == nil and pan == nil and marker == nil then
+			return {}
+		end
+		if
+			type(sample) ~= "number"
+			or type(pan) ~= "number"
+			or type(marker) ~= "number"
+			or not (type(sample) == "number" and finite(sample))
+			or not (type(pan) == "number" and finite(pan))
+			or pan > sample
+			or not (type(marker) == "number" and revision(marker))
+		then
+			return nil
+		end
+		return { lastSampleAtSeconds = sample, lastPanAtSeconds = pan, markerRevision = marker }
 	end
-
-	local function validState(value: unknown): boolean
-		if not hasOnlyFields(value, STATE_FIELDS) then
-			return false
+	local function readSample(value: unknown): Sample?
+		local sample = Value.record(value, SAMPLE_FIELDS, false, false)
+		if sample == nil then
+			return nil
 		end
-		local state = value :: Raw
-		local empty = state.lastSampleAtSeconds == nil and state.lastPanAtSeconds == nil and state.markerRevision == nil
-		if empty then
-			return true
+		local at, marker = sample.atSeconds, sample.markerRevision
+		local player = readPoint(sample.player)
+		if
+			type(at) ~= "number"
+			or not (type(at) == "number" and finite(at))
+			or type(marker) ~= "number"
+			or not (type(marker) == "number" and revision(marker))
+			or player == nil
+		then
+			return nil
 		end
-		return finite(state.lastSampleAtSeconds)
-			and finite(state.lastPanAtSeconds)
-			and (state.lastPanAtSeconds :: number) <= (state.lastSampleAtSeconds :: number)
-			and revision(state.markerRevision)
-	end
-
-	local function validSample(value: unknown): boolean
-		if not hasOnlyFields(value, SAMPLE_FIELDS) then
-			return false
-		end
-		local sample = value :: Raw
-		return finite(sample.atSeconds) and validPoint(sample.player) and revision(sample.markerRevision)
+		return { atSeconds = at, player = player, markerRevision = marker }
 	end
 
 	local function copyPoint(point: NormalizedPoint): NormalizedPoint
@@ -131,27 +146,32 @@ function Updates.new(updateHz: number)
 	end
 
 	function MinimapUpdateCore.transition(previous: unknown, nextSample: unknown): Result?
-		if not validState(previous) or not validSample(nextSample) then
+		local state, sample = readState(previous), readSample(nextSample)
+		if state == nil or sample == nil then
 			return nil
 		end
-
-		local state = previous :: State
-		local sample = nextSample :: Sample
 		local first = state.lastSampleAtSeconds == nil
-		if not first and sample.atSeconds < (state.lastSampleAtSeconds :: number) then
+		if state.lastSampleAtSeconds ~= nil and sample.atSeconds < state.lastSampleAtSeconds then
 			return nil
 		end
 
 		local panDue = first
 		if not first then
-			local lastPanAtSeconds = state.lastPanAtSeconds :: number
+			local lastPanAtSeconds = state.lastPanAtSeconds
+			if lastPanAtSeconds == nil then
+				return nil
+			end
 			local elapsed = sample.atSeconds - lastPanAtSeconds
-			if not finite(elapsed) then
+			if not (type(elapsed) == "number" and finite(elapsed)) then
 				return nil
 			end
 			local dueAtSeconds = lastPanAtSeconds + UPDATE_INTERVAL_SECONDS
 			panDue = elapsed >= UPDATE_INTERVAL_SECONDS
-				or (sample.atSeconds > lastPanAtSeconds and finite(dueAtSeconds) and sample.atSeconds >= dueAtSeconds)
+				or (
+					sample.atSeconds > lastPanAtSeconds
+					and (type(dueAtSeconds) == "number" and finite(dueAtSeconds))
+					and sample.atSeconds >= dueAtSeconds
+				)
 		end
 		local markersDue = first or sample.markerRevision ~= state.markerRevision
 

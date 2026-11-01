@@ -53,7 +53,7 @@ function Renderer.new<K>(deps: {
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: { [unknown]: unknown } do
+		for key in value do
 			if type(key) ~= "string" or not fields[key] then
 				return false
 			end
@@ -90,7 +90,7 @@ function Renderer.new<K>(deps: {
 		if not hasOnlyFields(input, INPUT_FIELDS) then
 			return nil
 		end
-		local source = input :: Input<K>
+		local source = input
 		local surface = MinimapSurfacePolicy.resolve(source.preferredInput, source.explicitEnabled)
 		if surface == nil then
 			return nil
@@ -103,7 +103,7 @@ function Renderer.new<K>(deps: {
 		if not surface.enabled then
 			return {
 				surface = surface,
-				updateState = copyState(source.previousUpdateState :: UpdateTypes.State),
+				updateState = copyState(source.previousUpdateState),
 				viewportUpdate = nil,
 			}
 		end

@@ -1,4 +1,5 @@
 --!strict
+local Value = require("../internal/value")
 
 local MapRevealCore = require("./exploration")
 local MinimapGeometry = require("./geometry")
@@ -66,176 +67,126 @@ local POINT_FIELDS: { [string]: boolean } = {
 	v = true,
 }
 
-type MarkerIndex = { [string]: { [string]: boolean } }
-type Raw = { [unknown]: unknown }
-
-local function validId(value: unknown): boolean
-	return type(value) == "string" and value ~= ""
-end
-
-local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
-	if type(value) ~= "table" then
-		return false
-	end
-	for key in value :: Raw do
-		if type(key) ~= "string" or not fields[key] then
-			return false
-		end
-	end
-	return true
-end
-
-local function validPoint(value: unknown): boolean
-	return hasOnlyFields(value, POINT_FIELDS)
-		and MinimapGeometry.projectMarker(0.5, 0.5, (value :: Raw).u, (value :: Raw).v, 2) ~= nil
-end
-
-local function arrayLength(value: unknown): number?
-	if type(value) ~= "table" then
+local function point(value: unknown): NormalizedPoint?
+	local raw = Value.record(value, POINT_FIELDS, false, false)
+	if raw == nil then
 		return nil
 	end
-	local count = 0
-	for key in value :: Raw do
-		if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
-			return nil
-		end
-		count += 1
+	local u, v = raw.u, raw.v
+	if type(u) ~= "number" or type(v) ~= "number" or MinimapGeometry.projectMarker(0.5, 0.5, u, v, 2) == nil then
+		return nil
 	end
-	for index = 1, count do
-		if (value :: Raw)[index] == nil then
-			return nil
-		end
-	end
-	return count
+	return { u = u, v = v }
 end
 
-local function markerIndex(rows: unknown): (MarkerIndex?, number?)
-	local count = arrayLength(rows)
-	if count == nil or count == 0 then
-		return nil, nil
+local function marker(value: unknown): MarkerRow?
+	local raw = Value.record(value, MARKER_FIELDS, false, false)
+	if raw == nil then
+		return nil
 	end
-	local index: MarkerIndex = {}
-	for rowIndex = 1, count do
-		local row = (rows :: Raw)[rowIndex]
-		if
-			not hasOnlyFields(row, MARKER_FIELDS)
-			or not validId((row :: Raw).zoneId)
-			or not validId((row :: Raw).poiId)
-			or not validPoint((row :: Raw).position)
-		then
-			return nil, nil
-		end
-		local marker = row :: MarkerRow
-		local zone = index[marker.zoneId]
-		if zone == nil then
-			zone = {}
-			index[marker.zoneId] = zone
-		end
-		if zone[marker.poiId] then
-			return nil, nil
-		end
-		zone[marker.poiId] = true
+	local zone, poi, position = raw.zoneId, raw.poiId, point(raw.position)
+	if type(zone) ~= "string" or zone == "" or type(poi) ~= "string" or poi == "" or position == nil then
+		return nil
 	end
-	return index, count
-end
-
-local function validExploredMap(exploredMap: unknown, index: MarkerIndex): boolean
-	if type(exploredMap) ~= "table" then
-		return false
-	end
-	for zoneId, exploredPois in exploredMap :: Raw do
-		if not validId(zoneId) or index[zoneId :: string] == nil or type(exploredPois) ~= "table" then
-			return false
-		end
-		for poiId, revealed in exploredPois :: Raw do
-			if not validId(poiId) or index[zoneId :: string][poiId :: string] == nil or revealed ~= true then
-				return false
-			end
-		end
-	end
-	return true
-end
-
-local function validWaypoint(value: unknown, zoneId: string): boolean
-	return hasOnlyFields(value, WAYPOINT_FIELDS)
-		and (value :: Raw).zoneId == zoneId
-		and validPoint((value :: Raw).position)
+	return { zoneId = zone, poiId = poi, position = position }
 end
 
 local MapViewportModel = {}
-
 function MapViewportModel.build(value: unknown): Viewport?
-	if
-		not hasOnlyFields(value, INPUT_FIELDS)
-		or not validId((value :: Raw).zoneId)
-		or not validPoint((value :: Raw).player)
-	then
+	local input = Value.record(value, INPUT_FIELDS, false, false)
+	if input == nil then
 		return nil
 	end
-	local input = value :: Input
-	local index, markerCount = markerIndex(input.markerRows)
-	if index == nil or markerCount == nil or index[input.zoneId] == nil then
+	local zone = input.zoneId
+	local playerPoint = point(input.player)
+	if type(zone) ~= "string" or zone == "" or playerPoint == nil then
 		return nil
 	end
-	if not validExploredMap(input.exploredMap, index) then
+	local rawRows = Value.dense(input.markerRows, math.huge, false)
+	if rawRows == nil or #rawRows == 0 then
 		return nil
 	end
-	if input.trackedWaypoint ~= nil and not validWaypoint(input.trackedWaypoint, input.zoneId) then
+	local rows: { MarkerRow } = {}
+	local index: { [string]: { [string]: boolean } } = {}
+	for _, value in rawRows do
+		local row = marker(value)
+		if row == nil then
+			return nil
+		end
+		local bucket = index[row.zoneId]
+		if bucket == nil then
+			bucket = {}
+			index[row.zoneId] = bucket
+		end
+		if bucket[row.poiId] then
+			return nil
+		end
+		bucket[row.poiId] = true
+		table.insert(rows, row)
+	end
+	if index[zone] == nil then
 		return nil
 	end
-
-	local imagePan = MinimapGeometry.imagePan(input.player.u, input.player.v, input.imageScale)
-	local player =
-		MinimapGeometry.projectMarker(input.player.u, input.player.v, input.player.u, input.player.v, input.imageScale)
+	local explored = Value.raw(input.exploredMap)
+	if explored == nil then
+		return nil
+	end
+	local revealed: { [string]: boolean } = {}
+	for zoneId, rawPois in explored do
+		if type(zoneId) ~= "string" or zoneId == "" or index[zoneId] == nil then
+			return nil
+		end
+		local pois = Value.raw(rawPois)
+		if pois == nil then
+			return nil
+		end
+		for poiId, visible in pois do
+			if type(poiId) ~= "string" or poiId == "" or index[zoneId][poiId] == nil or visible ~= true then
+				return nil
+			end
+			if zoneId == zone then
+				revealed[poiId] = true
+			end
+		end
+	end
+	local waypoint: NormalizedPoint? = nil
+	if input.trackedWaypoint ~= nil then
+		local raw = Value.record(input.trackedWaypoint, WAYPOINT_FIELDS, false, false)
+		if raw == nil or raw.zoneId ~= zone then
+			return nil
+		end
+		waypoint = point(raw.position)
+		if waypoint == nil then
+			return nil
+		end
+	end
+	local scale = input.imageScale
+	local imagePan = MinimapGeometry.imagePan(playerPoint.u, playerPoint.v, scale)
+	local player = MinimapGeometry.projectMarker(playerPoint.u, playerPoint.v, playerPoint.u, playerPoint.v, scale)
 	if imagePan == nil or player == nil then
 		return nil
 	end
-
-	local exploredZone = input.exploredMap[input.zoneId]
-	local poiMarkers: { PoiMarker } = {}
-	for rowIndex = 1, markerCount do
-		local row = input.markerRows[rowIndex]
-		if row.zoneId == input.zoneId and exploredZone ~= nil and exploredZone[row.poiId] == true then
-			local projection = MinimapGeometry.projectMarker(
-				input.player.u,
-				input.player.v,
-				row.position.u,
-				row.position.v,
-				input.imageScale
-			)
+	local markers: { PoiMarker } = {}
+	for _, row in rows do
+		if row.zoneId == zone and revealed[row.poiId] then
+			local projection =
+				MinimapGeometry.projectMarker(playerPoint.u, playerPoint.v, row.position.u, row.position.v, scale)
 			if projection == nil then
 				return nil
 			end
 			if projection.withinWindow then
-				poiMarkers[#poiMarkers + 1] = {
-					zoneId = row.zoneId,
-					poiId = row.poiId,
-					projection = projection,
-				}
+				table.insert(markers, { zoneId = zone, poiId = row.poiId, projection = projection })
 			end
 		end
 	end
-
-	local trackedWaypoint = nil
-	if input.trackedWaypoint ~= nil then
-		trackedWaypoint = MinimapGeometry.projectTrackedWaypoint(
-			input.player.u,
-			input.player.v,
-			input.trackedWaypoint.position.u,
-			input.trackedWaypoint.position.v,
-			input.imageScale
-		)
-		if trackedWaypoint == nil then
+	local tracked: MinimapGeometry.MarkerProjection? = nil
+	if waypoint ~= nil then
+		tracked = MinimapGeometry.projectTrackedWaypoint(playerPoint.u, playerPoint.v, waypoint.u, waypoint.v, scale)
+		if tracked == nil then
 			return nil
 		end
 	end
-
-	return {
-		imagePan = imagePan,
-		player = player,
-		poiMarkers = poiMarkers,
-		trackedWaypoint = trackedWaypoint,
-	}
+	return { imagePan = imagePan, player = player, poiMarkers = markers, trackedWaypoint = tracked }
 end
 
 return table.freeze(MapViewportModel)

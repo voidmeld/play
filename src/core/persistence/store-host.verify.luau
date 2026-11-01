@@ -18,10 +18,10 @@ local function fixture()
 	local state = {
 		now = 0,
 		sequence = 0,
-		queue = {} :: { StoreHost.QueuedWrite },
-		values = {} :: { [string]: unknown },
+		queue = {},
+		values = {},
 		fail = true,
-		writes = {} :: { string },
+		writes = {},
 	}
 	local raw: StoreHost.RawStore = {
 		GetAsync = function(_self, key)
@@ -110,7 +110,7 @@ local function fixture()
 				return { UseCache = false }
 			end,
 			validUncachedOptions = function(value)
-				return type(value) == "table" and (value :: { UseCache: unknown }).UseCache == false
+				return type(value) == "table" and (value).UseCache == false
 			end,
 		})
 	end
@@ -176,14 +176,14 @@ return function(suite: Verify.Harness)
 				return nil
 			end)
 			local result = store.updateOutcome("a", function(value)
-				(value :: { count: number }).count = 9
+				(value).count = 9
 				return nil
 			end)
 			expect(result.reason):toBe("callback_cancelled")
-			expect((values.a :: { count: number }).count):toBe(3)
-			local got = store.getOutcome("a").value :: { count: number }
+			expect((values.a).count):toBe(3)
+			local got = store.getOutcome("a").value
 			got.count = 6
-			expect((values.a :: { count: number }).count):toBe(3)
+			expect((values.a).count):toBe(3)
 			local cyclic: { [string]: unknown } = {}
 			cyclic.self = cyclic
 			expect(store.updateOutcome("a", function()

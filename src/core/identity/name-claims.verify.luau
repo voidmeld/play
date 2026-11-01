@@ -74,7 +74,7 @@ return function(suite: Verify.Harness)
 
 		it("fails closed on malformed records and cross-key callback state", function()
 			local malformed = claim("Alden Vale", 101, "chr_a", 10)
-			local rawMalformed = (malformed :: unknown) :: { [string]: unknown }
+			local rawMalformed = malformed
 			rawMalformed.clientOwned = true
 			expect(function()
 				registry.validate(malformed)

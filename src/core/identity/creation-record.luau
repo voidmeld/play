@@ -79,7 +79,7 @@ local function create(policy: Policy.Policy)
 		if type(raw) ~= "table" or HasMetatable.check(raw) then
 			return false
 		end
-		local view = raw :: { [unknown]: unknown }
+		local view = raw
 		for key in view do
 			if type(key) ~= "string" or fields[key] ~= true then
 				return false
@@ -135,7 +135,7 @@ local function create(policy: Policy.Policy)
 			fence = seed.fence,
 			leaseRevision = seed.leaseRevision,
 		}
-		return table.freeze(value) :: Seed
+		return (table.freeze(value))
 	end
 
 	local function frozenReceipt(receipt: Receipt): Receipt
@@ -149,14 +149,14 @@ local function create(policy: Policy.Policy)
 			fence = receipt.fence,
 			leaseRevision = receipt.leaseRevision,
 		}
-		return table.freeze(value) :: Receipt
+		return (table.freeze(value))
 	end
 
 	local function validate(candidate: unknown, stored: boolean?): Seed?
 		if not exact(candidate, SEED_FIELDS) then
 			return nil
 		end
-		local raw = candidate :: Seed
+		local raw = candidate
 		if
 			raw.schemaVersion ~= Record.SCHEMA_VERSION
 			or not whole(raw.userId, 1, Record.MAX_SAFE_INTEGER)
@@ -233,7 +233,7 @@ local function create(policy: Policy.Policy)
 		if not exact(candidate, RECEIPT_FIELDS) then
 			return nil
 		end
-		local raw = candidate :: Receipt
+		local raw = candidate
 		if
 			raw.schemaVersion ~= Record.SCHEMA_VERSION
 			or not whole(raw.userId, 1, Record.MAX_SAFE_INTEGER)
@@ -296,7 +296,7 @@ local function create(policy: Policy.Policy)
 
 	function Record.matchesTransaction(seedRaw: unknown, candidate: unknown, stored: boolean?): boolean
 		local seed = validate(seedRaw, stored)
-		local state = candidate :: CreationState
+		local state = candidate
 		return seed ~= nil
 			and type(state) == "table"
 			and seed.userId == state.userId
@@ -314,8 +314,6 @@ local function create(policy: Policy.Policy)
 	function Record.seedMatchesReceipt(seedRaw: unknown, receiptRaw: unknown): boolean
 		return Record.receiptMatchesSeed(receiptRaw, seedRaw)
 	end
-
-	Record.Types = (nil :: unknown) :: { Seed: Seed, Receipt: Receipt }
 
 	return table.freeze(Record)
 end

@@ -33,7 +33,7 @@ local Core = Settlement.settlement({
 		if type(value) ~= "table" then
 			return nil
 		end
-		local raw = value :: { [unknown]: unknown }
+		local raw = value
 		if type(raw.items) ~= "number" or type(raw.receipts) ~= "table" then
 			return nil
 		end

@@ -75,7 +75,7 @@ local function create(policy: Policy.Policy)
 		if type(value) ~= "string" or #value == 0 or #value > 64 then
 			reject(field .. " must be a non-empty string of at most 64 bytes")
 		end
-		return value :: string
+		return value
 	end
 
 	local declaredDestinationShape = policy.validDestination
@@ -107,8 +107,8 @@ local function create(policy: Policy.Policy)
 		if type(candidate) ~= "table" then
 			reject("character must be a table")
 		end
-		local character = candidate :: RawCharacter
-		for key in character :: { [unknown]: unknown } do
+		local character = candidate
+		for key in character do
 			if type(key) ~= "string" or not KNOWN_CHARACTER_FIELDS[key] then
 				reject("unknown character field " .. tostring(key))
 			end
@@ -131,20 +131,13 @@ local function create(policy: Policy.Policy)
 		end
 		nonempty(character.classId, "classId")
 		local appearancePresetId = nonempty(character.appearancePresetId, "appearancePresetId")
-		if not whole(character.createdAtUnix) or (character.createdAtUnix :: number) < 0 then
+		if not whole(character.createdAtUnix) or character.createdAtUnix < 0 then
 			reject("createdAtUnix must be a non-negative whole number")
 		end
-		if
-			not whole(character.lastPlayedAtUnix)
-			or (character.lastPlayedAtUnix :: number) < (character.createdAtUnix :: number)
-		then
+		if not whole(character.lastPlayedAtUnix) or character.lastPlayedAtUnix < character.createdAtUnix then
 			reject("lastPlayedAtUnix must be a whole number no earlier than creation")
 		end
-		if
-			not whole(character.level)
-			or (character.level :: number) < MIN_LEVEL
-			or (character.level :: number) > MAX_LEVEL
-		then
+		if not whole(character.level) or character.level < MIN_LEVEL or character.level > MAX_LEVEL then
 			reject(("level must be a whole number within %d..%d"):format(MIN_LEVEL, MAX_LEVEL))
 		end
 		if
@@ -155,15 +148,15 @@ local function create(policy: Policy.Policy)
 		local normalized = table.clone(character)
 		normalized.peopleId = peopleId
 		normalized.appearancePresetId = appearancePresetId
-		return normalized :: CharacterIdentity
+		return normalized
 	end
 
 	local function validate(candidate: unknown, stored: boolean?): Roster
 		if type(candidate) ~= "table" then
 			reject("roster must be a table")
 		end
-		local roster = candidate :: RawRoster
-		for key in roster :: { [unknown]: unknown } do
+		local roster = candidate
+		for key in roster do
 			if type(key) ~= "string" or not KNOWN_ROSTER_FIELDS[key] then
 				reject("unknown roster field " .. tostring(key))
 			end
@@ -171,16 +164,16 @@ local function create(policy: Policy.Policy)
 		if roster.schemaVersion ~= SCHEMA_VERSION then
 			reject("unsupported schemaVersion")
 		end
-		if not whole(roster.userId) or (roster.userId :: number) <= 0 then
+		if not whole(roster.userId) or roster.userId <= 0 then
 			reject("userId must be a positive whole number")
 		end
 		if type(roster.characters) ~= "table" then
 			reject("characters must be a table")
 		end
-		local rawCharacters = roster.characters :: { [unknown]: unknown }
+		local rawCharacters = roster.characters
 		local characterCount = 0
 		for index in rawCharacters do
-			if not whole(index) or (index :: number) < 1 then
+			if not whole(index) or index < 1 then
 				reject("characters must be a dense array")
 			end
 			characterCount += 1
@@ -199,12 +192,12 @@ local function create(policy: Policy.Policy)
 		local characters: { CharacterIdentity } = {}
 		for index, rawCharacter in rawCharacters do
 			local character = validateCharacter(rawCharacter, stored)
-			characters[index :: number] = character
+			characters[index] = character
 			if seenIds[character.characterId] then
 				reject("duplicate characterId " .. character.characterId)
 			end
 			seenIds[character.characterId] = true
-			local nameKey = policy.registryKey(character.displayName) :: string
+			local nameKey = (policy.registryKey(character.displayName))
 			if seenNames[nameKey] then
 				reject("duplicate case-insensitive displayName " .. character.displayName)
 			end
@@ -216,8 +209,8 @@ local function create(policy: Policy.Policy)
 			realmCounts[character.realmId] = count
 		end
 		return {
-			schemaVersion = roster.schemaVersion :: number,
-			userId = roster.userId :: number,
+			schemaVersion = roster.schemaVersion,
+			userId = roster.userId,
 			characters = characters,
 		}
 	end
@@ -236,7 +229,7 @@ local function create(policy: Policy.Policy)
 		end
 		for index, character in nextRoster.characters do
 			if character.characterId == characterId then
-				local removed = table.remove(nextRoster.characters, index) :: CharacterIdentity
+				local removed = (table.remove(nextRoster.characters, index))
 				return nextRoster, removed
 			end
 		end
@@ -245,10 +238,10 @@ local function create(policy: Policy.Policy)
 
 	local function markPlayed(roster: unknown, characterId: unknown, playedAtUnix: unknown): Roster
 		local nextRoster = copyRoster(validate(roster))
-		if not whole(playedAtUnix) or (playedAtUnix :: number) < 0 then
+		if not whole(playedAtUnix) or playedAtUnix < 0 then
 			reject("playedAtUnix must be a non-negative whole number")
 		end
-		local played = playedAtUnix :: number
+		local played = playedAtUnix
 		for _, character in nextRoster.characters do
 			if character.characterId == characterId then
 				if played < character.lastPlayedAtUnix then
@@ -263,10 +256,10 @@ local function create(policy: Policy.Policy)
 
 	local function markLevel(roster: unknown, characterId: unknown, level: unknown): Roster
 		local nextRoster = copyRoster(validate(roster))
-		if not whole(level) or (level :: number) < MIN_LEVEL or (level :: number) > MAX_LEVEL then
+		if not whole(level) or level < MIN_LEVEL or level > MAX_LEVEL then
 			reject(("level must be a whole number within %d..%d"):format(MIN_LEVEL, MAX_LEVEL))
 		end
-		local nextLevel = level :: number
+		local nextLevel = level
 		for _, character in nextRoster.characters do
 			if character.characterId == characterId then
 				if nextLevel < character.level then
@@ -286,7 +279,7 @@ local function create(policy: Policy.Policy)
 		end
 		for _, character in nextRoster.characters do
 			if character.characterId == characterId then
-				character.lastDestinationId = destinationId :: string
+				character.lastDestinationId = destinationId
 				return nextRoster
 			end
 		end
@@ -341,7 +334,6 @@ local function create(policy: Policy.Policy)
 		MAX_LEVEL = MAX_LEVEL,
 		NEVER_DEPARTED = NEVER_DEPARTED,
 		REALMS = REALMS,
-		Types = (nil :: unknown) :: { CharacterIdentity: CharacterIdentity, Roster: Roster },
 	}
 end
 

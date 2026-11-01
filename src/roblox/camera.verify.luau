@@ -138,15 +138,7 @@ return function(suite: Verify.Harness)
 					{ "Keyboard", 1, 0, false, false, false },
 				}
 			do
-				expect(
-					core.cameraGesture(
-						sample[1] :: string,
-						sample[2] :: number,
-						sample[3] :: number,
-						sample[4] :: boolean,
-						sample[5] :: boolean
-					)
-				):toBe(sample[6])
+				expect(core.cameraGesture(sample[1], sample[2], sample[3], sample[4], sample[5])):toBe(sample[6])
 			end
 		end)
 	end)

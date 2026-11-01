@@ -15,9 +15,9 @@ type State = Creation.State
 type Plan = Creation.Plan
 type Accepted = Creation.Accepted
 
-type Receipt = typeof(creation.Types.Receipt)
-type Claim = typeof(registry.Types.Claim)
-type RosterValue = typeof(roster.Types.Roster)
+type Receipt = Creation.Receipt
+type Claim = Registry.Claim
+type RosterValue = Roster.Roster
 
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
@@ -56,7 +56,7 @@ return function(suite: Verify.Harness)
 		return stateOf(result)
 	end
 
-	local function event(state: State): typeof(creation.Types.Completion)
+	local function event(state: State): Creation.Completion
 		return { expectedRevision = state.revision, expectedFence = state.fence }
 	end
 
@@ -71,16 +71,14 @@ return function(suite: Verify.Harness)
 	end
 
 	local function receipt(state: State, field: string): Receipt
-		return (
-			{
-				operationId = state.operationId,
-				fingerprint = state.fingerprint,
-				characterId = state.characterId,
-				revision = state.revision,
-				fence = state.fence,
-				[field] = true,
-			} :: unknown
-		) :: Receipt
+		return {
+			operationId = state.operationId,
+			fingerprint = state.fingerprint,
+			characterId = state.characterId,
+			revision = state.revision,
+			fence = state.fence,
+			[field] = true,
+		}
 	end
 
 	local function emptyRoster()
@@ -121,7 +119,7 @@ return function(suite: Verify.Harness)
 			expect(stateOf(first).displayName):toBe("Alden Vale")
 			expect(stateOf(first).characterId):toBe("character.a")
 			expect(resumed.ok):toBe(true)
-			expect((resumed :: Accepted).replayed):toBe(true)
+			expect((resumed).replayed):toBe(true)
 			expect(stateOf(resumed)):toEqual(stateOf(first))
 			for field, value in
 				{
@@ -133,7 +131,7 @@ return function(suite: Verify.Harness)
 					classId = "guard",
 					appearancePresetId = "preset.second.issued",
 					createdAtUnix = 51,
-				} :: { [string]: unknown }
+				}
 			do
 				local changed = request("create.1")
 				changed[field] = value
@@ -200,11 +198,11 @@ return function(suite: Verify.Harness)
 				expect(stateOf(absent)):toEqual(state)
 				local foreign = event(state)
 				foreign.readback = claim(state);
-				(foreign.readback :: Claim).userId = 202
+				(foreign.readback).userId = 202
 				expect(creation.observeName(state, foreign).reason):toBe("foreign_collision")
 				local future = event(state)
 				future.readback = claim(state);
-				(future.readback :: Claim).schemaVersion = 2
+				(future.readback).schemaVersion = 2
 				expect(creation.observeName(state, future).reason):toBe("future_readback")
 				local owned = ownName(state)
 				expect(owned.phase):toBe("name_owned")
@@ -232,32 +230,32 @@ return function(suite: Verify.Harness)
 
 			local foreign = event(state)
 			foreign.readback = receipt(state, "prepared");
-			(foreign.readback :: Receipt).operationId = "create.other"
+			(foreign.readback).operationId = "create.other"
 			expect(creation.observeProfile(state, foreign).reason):toBe("foreign_collision")
 
 			local renamed = event(state)
 			renamed.readback = receipt(state, "prepared");
-			(renamed.readback :: Receipt).characterId = "character.other"
+			(renamed.readback).characterId = "character.other"
 			expect(creation.observeProfile(state, renamed).reason):toBe("foreign_collision")
 
 			local ahead = event(state)
 			ahead.readback = receipt(state, "prepared");
-			(ahead.readback :: Receipt).revision += 1
+			(ahead.readback).revision += 1
 			expect(creation.observeProfile(state, ahead).reason):toBe("future_readback")
 
 			local fenced = event(state)
 			fenced.readback = receipt(state, "prepared");
-			(fenced.readback :: Receipt).fence += 1
+			(fenced.readback).fence += 1
 			expect(creation.observeProfile(state, fenced).reason):toBe("future_readback")
 
 			local behind = event(state)
 			behind.readback = receipt(state, "prepared");
-			(behind.readback :: Receipt).revision -= 1
+			(behind.readback).revision -= 1
 			expect(creation.observeProfile(state, behind).reason):toBe("readback_mismatch")
 
 			local unflagged = event(state)
 			unflagged.readback = receipt(state, "prepared");
-			(unflagged.readback :: Receipt).prepared = false
+			(unflagged.readback).prepared = false
 			expect(creation.observeProfile(state, unflagged).reason):toBe("readback_mismatch")
 
 			local exact = event(state)
@@ -312,8 +310,8 @@ return function(suite: Verify.Harness)
 			done.profileReadback = receipt(stateOf(rolling), "aborted")
 			done.nameReadbackReceived = true
 			done.nameReadback = claim(stateOf(rolling));
-			(done.nameReadback :: Claim).userId = 202
-			(done.nameReadback :: Claim).characterId = "character.new"
+			(done.nameReadback).userId = 202
+			(done.nameReadback).characterId = "character.new"
 			local aborted = creation.observeRollback(stateOf(rolling), done)
 			expect(aborted.ok):toBe(true)
 			expect(stateOf(aborted).phase):toBe("aborted")
@@ -332,10 +330,10 @@ return function(suite: Verify.Harness)
 			local acquired = event(state)
 			acquired.fence = state.fence + 1
 			acquired.readback = receipt(state, "acquired");
-			(acquired.readback :: Receipt).revision = state.revision + 1
-			(acquired.readback :: Receipt).fence = acquired.fence :: number
+			(acquired.readback).revision = state.revision + 1
+			(acquired.readback).fence = acquired.fence
 			acquired.leaseRevision = state.leaseRevision + 1
-			(acquired.readback :: Receipt).leaseRevision = acquired.leaseRevision :: number
+			(acquired.readback).leaseRevision = acquired.leaseRevision
 			local taken = creation.takeover(state, acquired)
 			expect(taken.ok):toBe(true)
 			local released = event(stateOf(taken))
@@ -353,9 +351,9 @@ return function(suite: Verify.Harness)
 			acquired.fence = state.fence + 1
 			acquired.leaseRevision = state.leaseRevision + 4
 			acquired.readback = receipt(state, "acquired");
-			(acquired.readback :: Receipt).revision = state.revision + 1
-			(acquired.readback :: Receipt).fence = acquired.fence :: number
-			(acquired.readback :: Receipt).leaseRevision = acquired.leaseRevision :: number
+			(acquired.readback).revision = state.revision + 1
+			(acquired.readback).fence = acquired.fence;
+			(acquired.readback).leaseRevision = acquired.leaseRevision
 			local taken = creation.takeover(state, acquired)
 			expect(taken.ok):toBe(true)
 			expect(stateOf(taken).initialFence):toBe(state.initialFence)

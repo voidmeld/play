@@ -43,7 +43,7 @@ local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boo
 	if type(value) ~= "table" then
 		return false
 	end
-	for key in value :: { [unknown]: unknown } do
+	for key in value do
 		if type(key) ~= "string" or not fields[key] then
 			return false
 		end
@@ -55,7 +55,7 @@ local function spans(bounds: unknown): (Bounds?, number?, number?)
 	if not hasOnlyFields(bounds, BOUNDS_FIELDS) then
 		return nil, nil, nil
 	end
-	local candidate = bounds :: Bounds
+	local candidate = bounds
 	if
 		not finite(candidate.minX)
 		or not finite(candidate.maxX)
@@ -69,14 +69,14 @@ local function spans(bounds: unknown): (Bounds?, number?, number?)
 	if not finite(spanX) or not finite(spanZ) or spanX <= 0 or spanZ <= 0 then
 		return nil, nil, nil
 	end
-	return candidate :: Bounds, spanX, spanZ
+	return candidate, spanX, spanZ
 end
 
 local function validWorldPoint(value: unknown): boolean
 	if not hasOnlyFields(value, WORLD_POINT_FIELDS) then
 		return false
 	end
-	local point = value :: WorldPoint
+	local point = value
 	return finite(point.x) and finite(point.z)
 end
 
@@ -84,7 +84,7 @@ local function validNormalizedPoint(value: unknown): boolean
 	if not hasOnlyFields(value, NORMALIZED_POINT_FIELDS) then
 		return false
 	end
-	local point = value :: NormalizedPoint
+	local point = value
 	return finite(point.u) and finite(point.v)
 end
 
@@ -95,7 +95,7 @@ function ZoneMapProjectionCore.worldToMap(boundsValue: unknown, worldValue: unkn
 	if bounds == nil or spanX == nil or spanZ == nil or not validWorldPoint(worldValue) then
 		return nil
 	end
-	local world = worldValue :: WorldPoint
+	local world = worldValue
 	local boundedX = math.clamp(world.x, bounds.minX, bounds.maxX)
 	local boundedZ = math.clamp(world.z, bounds.minZ, bounds.maxZ)
 	local result: NormalizedPoint = {
@@ -110,7 +110,7 @@ function ZoneMapProjectionCore.mapToWorld(boundsValue: unknown, normalizedValue:
 	if bounds == nil or spanX == nil or spanZ == nil or not validNormalizedPoint(normalizedValue) then
 		return nil
 	end
-	local normalized = normalizedValue :: NormalizedPoint
+	local normalized = normalizedValue
 	local boundedU = math.clamp(normalized.u, 0, 1)
 	local boundedV = math.clamp(normalized.v, 0, 1)
 	local result: WorldPoint = {

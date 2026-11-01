@@ -72,7 +72,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 		end
 
 		local function normalized(value: unknown): boolean
-			return finite(value) and (value :: number) >= 0 and (value :: number) <= 1
+			return finite(value) and value >= 0 and value <= 1
 		end
 
 		local function nonempty(value: unknown): boolean
@@ -83,7 +83,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if type(value) ~= "table" then
 				return false
 			end
-			for key in value :: Raw do
+			for key in value do
 				if type(key) ~= "string" or not allowed[key] then
 					return false
 				end
@@ -96,14 +96,14 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil
 			end
 			local count = 0
-			for key in value :: Raw do
+			for key in value do
 				if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
 					return nil
 				end
 				count += 1
 			end
 			for index = 1, count do
-				if (value :: Raw)[index] == nil then
+				if (value)[index] == nil then
 					return nil
 				end
 			end
@@ -111,13 +111,11 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 		end
 
 		local function validPosition(value: unknown): boolean
-			return hasOnlyFields(value, POSITION_FIELDS)
-				and normalized((value :: Raw).u)
-				and normalized((value :: Raw).v)
+			return hasOnlyFields(value, POSITION_FIELDS) and normalized((value).u) and normalized((value).v)
 		end
 
 		local function validRow(value: unknown): boolean
-			local row = value :: Raw
+			local row = value
 			return hasOnlyFields(value, ROW_FIELDS)
 				and nonempty(row.zoneId)
 				and nonempty(row.poiId)
@@ -150,7 +148,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil
 			end
 
-			local source = rows :: Raw
+			local source = rows
 			local records: { MarkerRecord } = {}
 			local byZone: ZoneIndex = {}
 			local seen: { [string]: { [string]: boolean } } = {}
@@ -160,7 +158,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				if not validRow(rowValue) then
 					return nil
 				end
-				local row = rowValue :: MarkerRecord
+				local row = rowValue
 
 				local zoneSeen = seen[row.zoneId]
 				if zoneSeen == nil then
@@ -172,7 +170,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				end
 				zoneSeen[row.poiId] = true
 
-				local record = copyRow(row :: MarkerRecord)
+				local record = copyRow(row)
 				records[#records + 1] = record
 				local zoneRecords = byZone[record.zoneId]
 				if zoneRecords == nil then
@@ -226,12 +224,12 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if type(value) ~= "table" then
 				return false
 			end
-			for key in value :: Raw do
+			for key in value do
 				if type(key) ~= "string" or not POINT_FIELDS[key] then
 					return false
 				end
 			end
-			return finite((value :: Raw).x) and finite((value :: Raw).z)
+			return finite((value).x) and finite((value).z)
 		end
 
 		local function catalogIndex(rows: unknown): (CatalogIndex?, string?)
@@ -239,7 +237,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil, "poi_rows_not_table"
 			end
 			local count = 0
-			for key in rows :: Raw do
+			for key in rows do
 				if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
 					return nil, "poi_rows_not_array"
 				end
@@ -249,17 +247,17 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil, "poi_rows_empty"
 			end
 			for rowIndex = 1, count do
-				if (rows :: Raw)[rowIndex] == nil then
+				if (rows)[rowIndex] == nil then
 					return nil, "poi_rows_not_contiguous"
 				end
 			end
 			local index: CatalogIndex = {}
 			for rowIndex = 1, count do
-				local rowValue = (rows :: Raw)[rowIndex]
+				local rowValue = (rows)[rowIndex]
 				if type(rowValue) ~= "table" then
 					return nil, "poi_row_not_table"
 				end
-				local row = rowValue :: Raw
+				local row = rowValue
 				for key in row do
 					if type(key) ~= "string" or not ROW_FIELDS[key] then
 						return nil, "poi_row_unknown_field"
@@ -274,15 +272,15 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				if not validatePoint(row.position) then
 					return nil, "invalid_poi_position"
 				end
-				local zone = index[row.zoneId :: string]
+				local zone = index[row.zoneId]
 				if zone == nil then
 					zone = {}
-					index[row.zoneId :: string] = zone
+					index[row.zoneId] = zone
 				end
-				if zone[row.poiId :: string] then
+				if zone[row.poiId] then
 					return nil, "duplicate_poi"
 				end
-				zone[row.poiId :: string] = true
+				zone[row.poiId] = true
 			end
 			return index, nil
 		end
@@ -291,15 +289,15 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if type(state) ~= "table" then
 				return "explored_map_not_table"
 			end
-			for zoneId, exploredPois in state :: Raw do
-				if not validId(zoneId) or index[zoneId :: string] == nil then
+			for zoneId, exploredPois in state do
+				if not validId(zoneId) or index[zoneId] == nil then
 					return "unknown_explored_zone"
 				end
 				if type(exploredPois) ~= "table" then
 					return "explored_zone_not_table"
 				end
-				for poiId, revealed in exploredPois :: Raw do
-					if not validId(poiId) or index[zoneId :: string][poiId :: string] == nil then
+				for poiId, revealed in exploredPois do
+					if not validId(poiId) or index[zoneId][poiId] == nil then
 						return "unknown_explored_poi"
 					end
 					if revealed ~= true then
@@ -314,7 +312,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if type(value) ~= "table" then
 				return "observation_not_table"
 			end
-			local observation = value :: Raw
+			local observation = value
 			for key in observation do
 				if type(key) ~= "string" or not OBSERVATION_FIELDS[key] then
 					return "observation_unknown_field"
@@ -323,7 +321,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if not validId(observation.zoneId) then
 				return "invalid_observation_zone_id"
 			end
-			if index[observation.zoneId :: string] == nil then
+			if index[observation.zoneId] == nil then
 				return "unknown_observation_zone"
 			end
 			if not validatePoint(observation.position) then
@@ -440,13 +438,13 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			end
 
 			local result: ExploredState = {}
-			for zoneId, zoneValue in value :: { [unknown]: unknown } do
+			for zoneId, zoneValue in value do
 				if type(zoneId) ~= "string" or index[zoneId] == nil or type(zoneValue) ~= "table" then
 					return nil
 				end
 
 				local zone: { [string]: true } = {}
-				for poiId, explored in zoneValue :: { [unknown]: unknown } do
+				for poiId, explored in zoneValue do
 					if type(poiId) ~= "string" or index[zoneId][poiId] ~= true or explored ~= true then
 						return nil
 					end
@@ -545,14 +543,14 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil
 			end
 			local count = 0
-			for key in value :: Raw do
+			for key in value do
 				if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
 					return nil
 				end
 				count += 1
 			end
 			for index = 1, count do
-				if (value :: Raw)[index] == nil then
+				if (value)[index] == nil then
 					return nil
 				end
 			end
@@ -563,12 +561,12 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if type(value) ~= "table" then
 				return false
 			end
-			for key in value :: Raw do
+			for key in value do
 				if type(key) ~= "string" or not DISCOVERY_FIELDS[key] then
 					return false
 				end
 			end
-			local discovery = value :: Raw
+			local discovery = value
 			return nonempty(discovery.zoneId) and nonempty(discovery.poiId)
 		end
 
@@ -588,7 +586,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil
 			end
 
-			local discoveries = discoveriesValue :: Raw
+			local discoveries = discoveriesValue
 			local seen: { [string]: { [string]: boolean } } = {}
 			local presentations: { PresentationRecord } = {}
 			for index = 1, count do
@@ -596,7 +594,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				if not validDiscovery(discoveryValue) then
 					return nil
 				end
-				local discovery = discoveryValue :: Discovery
+				local discovery = discoveryValue
 
 				local zoneSeen = seen[discovery.zoneId]
 				if zoneSeen == nil then
@@ -660,7 +658,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if type(value) ~= "table" then
 				return false
 			end
-			for key in value :: Raw do
+			for key in value do
 				if type(key) ~= "string" or fields[key] ~= true then
 					return false
 				end
@@ -673,14 +671,14 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil
 			end
 			local count = 0
-			for key in value :: Raw do
+			for key in value do
 				if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
 					return nil
 				end
 				count += 1
 			end
 			for index = 1, count do
-				if (value :: Raw)[index] == nil then
+				if (value)[index] == nil then
 					return nil
 				end
 			end
@@ -691,14 +689,14 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			if not hasOnlyFields(value, ROW_FIELDS) then
 				return false
 			end
-			local row = value :: Raw
+			local row = value
 			if type(row.zoneId) ~= "string" or #row.zoneId == 0 or type(row.poiId) ~= "string" or #row.poiId == 0 then
 				return false
 			end
 			if not hasOnlyFields(row.position, POINT_FIELDS) then
 				return false
 			end
-			return finite((row.position :: Raw).x) and finite((row.position :: Raw).z)
+			return finite((row.position).x) and finite((row.position).z)
 		end
 
 		local function matchingRevealRows(revealRowsValue: unknown, catalog: Catalog): boolean
@@ -718,7 +716,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 			end
 
 			for index = 1, count do
-				local row = (revealRowsValue :: { PoiRow })[index]
+				local row = (revealRowsValue)[index]
 				if not validRevealRow(row) then
 					return false
 				end
@@ -763,8 +761,7 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 				return nil
 			end
 
-			local revealResult =
-				MapRevealCore.transition(previousState, observationValue :: Observation, revealRowsValue :: { PoiRow })
+			local revealResult = MapRevealCore.transition(previousState, observationValue, revealRowsValue)
 			if not revealResult.ok then
 				return nil
 			end

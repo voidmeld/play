@@ -18,7 +18,7 @@ end
 local function concat(...: { Rule }): { Rule }
 	local all: { Rule } = {}
 	for index = 1, select("#", ...) do
-		for _, rule in select(index, ...) :: { Rule } do
+		for _, rule in (select(index, ...)) do
 			table.insert(all, rule)
 		end
 	end

@@ -102,7 +102,7 @@ function System.create(config: {
 	end
 
 	local function integral(value: unknown): boolean
-		return finite(value) and value == math.floor(value :: number)
+		return finite(value) and value == math.floor(value)
 	end
 
 	local function nonempty(value: unknown): boolean
@@ -117,7 +117,7 @@ function System.create(config: {
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: Raw do
+		for key in value do
 			if type(key) ~= "string" or fields[key] ~= true then
 				return false
 			end
@@ -133,60 +133,58 @@ function System.create(config: {
 		if not hasOnlyFields(value, NODE_FIELDS) then
 			return nil
 		end
-		local source = value :: Raw
+		local source = value
 		if
 			not nonempty(source.id)
 			or not nonempty(source.materialId)
 			or type(source.spaceKind) ~= "string"
 			or SPACE_KINDS[source.spaceKind] ~= true
 			or not finite(source.gatherDurationSec)
-			or (source.gatherDurationSec :: number) <= 0
+			or source.gatherDurationSec <= 0
 			or not finite(source.respawnPeriodSec)
-			or (source.respawnPeriodSec :: number) <= 0
+			or source.respawnPeriodSec <= 0
 			or not integral(source.baseYield)
-			or (source.baseYield :: number) < 1
+			or source.baseYield < 1
 		then
 			return nil
 		end
 		return Value.freezeDeep({
-			id = source.id :: string,
-			materialId = source.materialId :: string,
-			spaceKind = source.spaceKind :: SpaceKind,
-			gatherDurationSec = source.gatherDurationSec :: number,
-			respawnPeriodSec = source.respawnPeriodSec :: number,
-			baseYield = source.baseYield :: number,
+			id = source.id,
+			materialId = source.materialId,
+			spaceKind = source.spaceKind,
+			gatherDurationSec = source.gatherDurationSec,
+			respawnPeriodSec = source.respawnPeriodSec,
+			baseYield = source.baseYield,
 		})
 	end
 
 	local function admissibleMultiplier(value: unknown): boolean
-		return finite(value) and (value :: number) >= MIN_YIELD_MULTIPLIER and (value :: number) <= MAX_YIELD_MULTIPLIER
+		return finite(value) and value >= MIN_YIELD_MULTIPLIER and value <= MAX_YIELD_MULTIPLIER
 	end
 
 	local function copyState(value: unknown): State?
 		if not hasOnlyFields(value, STATE_FIELDS) then
 			return nil
 		end
-		local source = value :: Raw
+		local source = value
 		if
 			not finite(source.lastClockSec)
-			or (source.lastClockSec :: number) < 0
+			or source.lastClockSec < 0
 			or (source.phase ~= "ready" and source.phase ~= "gathering")
 			or type(source.claims) ~= "table"
 		then
 			return nil
 		end
-		if
-			source.harvestedSlot ~= nil and (not integral(source.harvestedSlot) or (source.harvestedSlot :: number) < 0)
-		then
+		if source.harvestedSlot ~= nil and (not integral(source.harvestedSlot) or source.harvestedSlot < 0) then
 			return nil
 		end
 		if source.phase == "gathering" then
 			if
 				not finite(source.startedAtSec)
-				or (source.startedAtSec :: number) < 0
-				or (source.startedAtSec :: number) > (source.lastClockSec :: number)
+				or source.startedAtSec < 0
+				or source.startedAtSec > source.lastClockSec
 				or not finite(source.completesAtSec)
-				or (source.completesAtSec :: number) <= (source.startedAtSec :: number)
+				or source.completesAtSec <= source.startedAtSec
 			then
 				return nil
 			end
@@ -195,19 +193,19 @@ function System.create(config: {
 		end
 
 		local claims: { [string]: number } = {}
-		for eventId, amount in source.claims :: Raw do
-			if not nonempty(eventId) or not integral(amount) or (amount :: number) < 1 then
+		for eventId, amount in source.claims do
+			if not nonempty(eventId) or not integral(amount) or amount < 1 then
 				return nil
 			end
-			claims[eventId :: string] = amount :: number
+			claims[eventId] = amount
 		end
 
 		return {
-			lastClockSec = source.lastClockSec :: number,
-			phase = source.phase :: Phase,
-			startedAtSec = source.startedAtSec :: number?,
-			completesAtSec = source.completesAtSec :: number?,
-			harvestedSlot = source.harvestedSlot :: number?,
+			lastClockSec = source.lastClockSec,
+			phase = source.phase,
+			startedAtSec = source.startedAtSec,
+			completesAtSec = source.completesAtSec,
+			harvestedSlot = source.harvestedSlot,
 			claims = claims,
 		}
 	end
@@ -216,7 +214,7 @@ function System.create(config: {
 		if not hasOnlyFields(value, COMMAND_FIELDS) then
 			return nil
 		end
-		local source = value :: Raw
+		local source = value
 		if type(source.kind) ~= "string" or COMMAND_KINDS[source.kind] ~= true then
 			return nil
 		end
@@ -234,10 +232,10 @@ function System.create(config: {
 			return nil
 		end
 		return {
-			kind = source.kind :: CommandKind,
-			eventId = source.eventId :: string?,
-			gatheringRealmId = source.gatheringRealmId :: string?,
-			populationMultiplier = source.populationMultiplier :: number?,
+			kind = source.kind,
+			eventId = source.eventId,
+			gatheringRealmId = source.gatheringRealmId,
+			populationMultiplier = source.populationMultiplier,
 		}
 	end
 
@@ -296,7 +294,7 @@ function System.create(config: {
 		if state == nil or node == nil or command == nil or not finite(nowSecValue) then
 			return nil
 		end
-		local nowSec = nowSecValue :: number
+		local nowSec = nowSecValue
 		if nowSec < 0 or nowSec < state.lastClockSec then
 			return nil
 		end
@@ -307,7 +305,7 @@ function System.create(config: {
 				return nil
 			end
 			local startSlot = slotOf(nowSec, node.respawnPeriodSec)
-			local available = state.harvestedSlot == nil or startSlot > (state.harvestedSlot :: number)
+			local available = state.harvestedSlot == nil or startSlot > state.harvestedSlot
 			local result = baseResult(state)
 			result.materialId = node.materialId
 			if available then
@@ -334,7 +332,7 @@ function System.create(config: {
 			return result
 		end
 
-		local eventId = command.eventId :: string
+		local eventId = command.eventId
 		local prior = state.claims[eventId]
 		if prior ~= nil then
 			local result = baseResult(state)
@@ -349,14 +347,14 @@ function System.create(config: {
 		if state.phase ~= "gathering" then
 			return nil
 		end
-		if nowSec < (state.completesAtSec :: number) then
+		if nowSec < state.completesAtSec then
 			local result = baseResult(state)
 			result.available = true
 			return result
 		end
 
 		local completeSlot = slotOf(nowSec, node.respawnPeriodSec)
-		local nodeAvailable = state.harvestedSlot == nil or completeSlot > (state.harvestedSlot :: number)
+		local nodeAvailable = state.harvestedSlot == nil or completeSlot > state.harvestedSlot
 		if not nodeAvailable then
 			state.phase = "ready"
 			state.startedAtSec = nil

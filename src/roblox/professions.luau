@@ -255,7 +255,7 @@ function Service.decodeIntent(action: unknown, arg: unknown, extra: unknown): In
 	if type(extra) ~= "string" and extra ~= nil then
 		return nil
 	end
-	return { action = action, arg = arg :: string?, extra = extra :: string? }
+	return { action = action, arg = arg, extra = extra }
 end
 
 function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy<F & Fields, X>): Handle<P>
@@ -338,7 +338,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 	end
 
 	local function result(player: P, action: string, ok: boolean, reason: string?, extra: ResultExtras?)
-		local payload: ResultMessage = { kind = "result" :: "result", action = action, ok = ok, reason = reason }
+		local payload: ResultMessage = { kind = "result", action = action, ok = ok, reason = reason }
 		if extra ~= nil then
 			payload.yields = extra.yields
 			payload.produced = extra.produced
@@ -601,7 +601,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 									profession = professionId,
 									status = (if entry.status == "learnable" and profile.gold < entry.cost
 										then "cannot_afford"
-										else entry.status) :: string,
+										else entry.status),
 									cost = entry.cost,
 									requiredSkill = entry.recipe.requiredSkill,
 									preview = lessonPreview(entry.recipe),
@@ -686,18 +686,17 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if kind == "gather" then
 			active[player] = {
 				session = session,
-				kind = "gather" :: "gather",
-				payload = payload :: GatherPayload,
+				kind = "gather",
+				payload = payload,
 				trackReceipt = receipt,
 			}
 		elseif kind == "skin" then
-			active[player] =
-				{ session = session, kind = "skin" :: "skin", payload = payload :: SkinPayload, trackReceipt = receipt }
+			active[player] = { session = session, kind = "skin", payload = payload, trackReceipt = receipt }
 		else
 			active[player] = {
 				session = session,
-				kind = "craft" :: "craft",
-				payload = payload :: CraftPayload,
+				kind = "craft",
+				payload = payload,
 				trackReceipt = receipt,
 			}
 		end
@@ -710,7 +709,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if context == nil then
 			return
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local nodeKind = entry.payload.nodeKind
 		local nodeId = entry.payload.nodeId
 		local at = now()
@@ -759,7 +758,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if context == nil then
 			return
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local key = entry.payload.corpseKey
 		if skinned[key] == true then
 			result(player, "skin", false, "already_skinned", nil)
@@ -805,7 +804,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if context == nil then
 			return
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local recipe = Recipes.get(entry.payload.recipeId)
 		if recipe ~= nil and not policy.recipeAllowed(profile, recipe) then
 			return result(player, "craft", false, "wrong_realm", nil)
@@ -921,12 +920,12 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not validId(rawId) then
 			return result(player, "learn", false, "invalid_request", nil)
 		end
-		local professionId = rawId :: string
+		local professionId = rawId
 		local context, loadedProfile = resolve(player)
 		if context == nil then
 			return result(player, "learn", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local group = nearestGroup(player)
 		if group == nil or Trainers.groupOfProfession(professionId) ~= group then
 			return result(player, "learn", false, "seek_trainer", nil)
@@ -971,7 +970,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not validId(rawId) then
 			return result(player, "unlearn", false, "invalid_request", nil)
 		end
-		local professionId = rawId :: string
+		local professionId = rawId
 		if confirm ~= "confirm" then
 			return result(player, "unlearn", false, "confirm_required", nil)
 		end
@@ -979,7 +978,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if context == nil then
 			return result(player, "unlearn", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local nextState, reason = Core.unlearn(stateOf(profile), professionId)
 		if nextState == nil then
 			return result(player, "unlearn", false, reason, nil)
@@ -1008,12 +1007,12 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not validId(rawId) then
 			return result(player, "train", false, "invalid_request", nil)
 		end
-		local recipeId = rawId :: string
+		local recipeId = rawId
 		local context, loadedProfile = resolve(player)
 		if context == nil then
 			return result(player, "train", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local recipe = Recipes.get(recipeId)
 		if recipe == nil then
 			return result(player, "train", false, "unknown_recipe", nil)
@@ -1066,12 +1065,12 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not validId(rawId) then
 			return result(player, "recipe_item", false, "invalid_request", nil)
 		end
-		local itemId = rawId :: string
+		local itemId = rawId
 		local context, loadedProfile = resolve(player)
 		if context == nil then
 			return result(player, "recipe_item", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		if (profile.inventory or {})[itemId] == nil then
 			return result(player, "recipe_item", false, "not_owned", nil)
 		end
@@ -1090,7 +1089,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not stored then
 			return result(player, "recipe_item", false, "not_saved", nil)
 		end
-		result(player, "recipe_item", true, nil, { recipeId = (recipe :: Types.Recipe).id })
+		result(player, "recipe_item", true, nil, { recipeId = (recipe).id })
 		local _, fresh = resolve(player)
 		if fresh ~= nil then
 			publish(player, fresh)
@@ -1101,7 +1100,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not validId(rawId) then
 			return result(player, "buy", false, "invalid_request", nil)
 		end
-		local itemId = rawId :: string
+		local itemId = rawId
 		local context = resolve(player)
 		if context == nil then
 			return result(player, "buy", false, "session_absent", nil)
@@ -1117,7 +1116,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 			if recipe ~= nil and recipe.vendor ~= nil and Trainers.groupOfProfession(recipe.profession) == group then
 				price = recipe.vendor.price
 				stock = stockFor(itemId, now())
-				if (stock :: Stock).remaining <= 0 then
+				if (stock).remaining <= 0 then
 					return result(player, "buy", false, "sold_out", nil)
 				end
 			end
@@ -1149,12 +1148,12 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not validId(rawId) then
 			return result(player, "gather", false, "invalid_request", nil)
 		end
-		local nodeId = rawId :: string
+		local nodeId = rawId
 		local context, loadedProfile = resolve(player)
 		if context == nil then
 			return result(player, "gather", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local node = deps.world.node(nodeId)
 		local nodeKind = if node ~= nil then Nodes.kind(node.kindId) else nil
 		if node == nil or nodeKind == nil then
@@ -1205,7 +1204,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not validId(rawId) then
 			return result(player, "craft", false, "invalid_request", nil)
 		end
-		local recipeId = rawId :: string
+		local recipeId = rawId
 		local _, profile = resolve(player)
 		if profile == nil then
 			return result(player, "craft", false, "session_absent", nil)

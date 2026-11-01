@@ -41,7 +41,7 @@ function Playback.make<N, V>(deps: Deps<N, V>): (cueId: string, at: N?) -> boole
 			props.RollOffMinDistance = spec.rollOffMinDistance
 			props.RollOffMaxDistance = spec.rollOffMaxDistance
 		end
-		local target: N = if spec.spatial and at ~= nil then at :: N else deps.home
+		local target: N = if spec.spatial and at ~= nil then at else deps.home
 		local disposeVoice, voice = deps.mountVoice("Cue_" .. cueId, props, target)
 		deps.play(voice)
 		deps.schedule(spec.voiceSec + deps.tailSec, disposeVoice)

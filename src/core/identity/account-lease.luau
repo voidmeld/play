@@ -46,16 +46,16 @@ local function text(value: unknown): boolean
 end
 
 local function exact(raw: unknown): boolean
-	if type(raw) ~= "table" or getmetatable(raw :: HasMetatable.MetatableProbe) ~= nil then
+	if type(raw) ~= "table" or getmetatable(raw) ~= nil then
 		return false
 	end
-	for key in raw :: Raw do
+	for key in raw do
 		if type(key) ~= "string" or FIELDS[key] ~= true then
 			return false
 		end
 	end
 	for key in FIELDS do
-		if (raw :: Raw)[key] == nil then
+		if (raw)[key] == nil then
 			return false
 		end
 	end
@@ -72,7 +72,7 @@ local function frozen(raw: Lease): Lease
 		acquisitionId = raw.acquisitionId,
 		expiresAtUnix = raw.expiresAtUnix,
 	}
-	return table.freeze(value) :: Lease
+	return (table.freeze(value))
 end
 
 local function request(userId: unknown, sessionId: unknown, acquisitionId: unknown): boolean
@@ -82,11 +82,11 @@ end
 local function timeWindow(now: unknown, ttl: unknown): boolean
 	return whole(now, 0, Record.MAX_SAFE_INTEGER)
 		and whole(ttl, 1, Record.MAX_SAFE_INTEGER)
-		and (now :: number) <= Record.MAX_SAFE_INTEGER - (ttl :: number)
+		and now <= Record.MAX_SAFE_INTEGER - ttl
 end
 
 function Record.validate(raw: unknown): Lease?
-	local source = raw :: Raw
+	local source = raw
 	if
 		not exact(raw)
 		or source.schemaVersion ~= Record.SCHEMA_VERSION
@@ -104,12 +104,12 @@ function Record.validate(raw: unknown): Lease?
 	elseif
 		not text(source.sessionId)
 		or not text(source.acquisitionId)
-		or (source.fence :: number) < 1
-		or (source.expiresAtUnix :: number) < 1
+		or source.fence < 1
+		or source.expiresAtUnix < 1
 	then
 		return nil
 	end
-	return frozen((raw :: unknown) :: Lease)
+	return frozen(raw)
 end
 
 function Record.empty(userId: unknown): Lease?
@@ -159,7 +159,7 @@ function Record.acquire(
 	if current.userId ~= userId then
 		return current, "identity_mismatch"
 	end
-	if current.sessionId ~= false and current.expiresAtUnix > (now :: number) then
+	if current.sessionId ~= false and current.expiresAtUnix > now then
 		if current.sessionId == sessionId and current.acquisitionId == acquisitionId then
 			return current, "owned"
 		end
@@ -175,7 +175,7 @@ function Record.acquire(
 		fence = current.fence + 1,
 		sessionId = sessionId,
 		acquisitionId = acquisitionId,
-		expiresAtUnix = (now :: number) + (ttl :: number),
+		expiresAtUnix = now + ttl,
 	}
 	return Record.validate(nextRecord), "acquired"
 end
@@ -211,7 +211,7 @@ function Record.renew(
 	if current.revision ~= expectedRevision then
 		return current, "stale"
 	end
-	if current.expiresAtUnix <= (now :: number) then
+	if current.expiresAtUnix <= now then
 		return current, "expired"
 	end
 	if current.revision >= Record.MAX_REVISION then
@@ -224,7 +224,7 @@ function Record.renew(
 		fence = current.fence,
 		sessionId = current.sessionId,
 		acquisitionId = current.acquisitionId,
-		expiresAtUnix = (now :: number) + (ttl :: number),
+		expiresAtUnix = now + ttl,
 	}
 	return Record.validate(nextRecord), "renewed"
 end
@@ -274,7 +274,5 @@ function Record.release(
 	}
 	return Record.validate(nextRecord), "released"
 end
-
-Record.Types = (nil :: unknown) :: { Lease: Lease }
 
 return table.freeze(Record)

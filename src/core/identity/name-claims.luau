@@ -55,8 +55,8 @@ local function create(policy: Policy.Policy)
 		if type(candidate) ~= "table" then
 			reject("claim must be a table")
 		end
-		local claim = candidate :: RawClaim
-		for key in claim :: { [unknown]: unknown } do
+		local claim = candidate
+		for key in claim do
 			if type(key) ~= "string" or not KNOWN_FIELDS[key] then
 				reject("unknown claim field " .. tostring(key))
 			end
@@ -68,16 +68,16 @@ local function create(policy: Policy.Policy)
 		if not nameOk or displayName ~= claim.displayName then
 			reject("displayName is invalid or noncanonical")
 		end
-		if not whole(claim.userId) or (claim.userId :: number) <= 0 then
+		if not whole(claim.userId) or claim.userId <= 0 then
 			reject("userId must be a positive whole number")
 		end
 		if type(claim.characterId) ~= "string" or #claim.characterId == 0 or #claim.characterId > 64 then
 			reject("characterId must be a non-empty string of at most 64 bytes")
 		end
-		if not whole(claim.claimedAtUnix) or (claim.claimedAtUnix :: number) < 0 then
+		if not whole(claim.claimedAtUnix) or claim.claimedAtUnix < 0 then
 			reject("claimedAtUnix must be a non-negative whole number")
 		end
-		return claim :: Claim
+		return claim
 	end
 
 	local function claim(current: unknown, requested: unknown): (Claim, ClaimStatus)
@@ -102,7 +102,7 @@ local function create(policy: Policy.Policy)
 			return nil, "absent"
 		end
 		local existing = validate(current)
-		if not whole(userId) or (userId :: number) <= 0 or type(characterId) ~= "string" or #characterId == 0 then
+		if not whole(userId) or userId <= 0 or type(characterId) ~= "string" or #characterId == 0 then
 			reject("release identity is invalid")
 		end
 		if existing.userId ~= userId or existing.characterId ~= characterId then
@@ -128,7 +128,6 @@ local function create(policy: Policy.Policy)
 		release = release,
 		availability = availability,
 		SCHEMA_VERSION = SCHEMA_VERSION,
-		Types = (nil :: unknown) :: { Claim: Claim, ClaimStatus: ClaimStatus, ReleaseStatus: ReleaseStatus },
 	}
 end
 

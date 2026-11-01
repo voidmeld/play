@@ -61,11 +61,6 @@ function System.membership(config: Config)
 	local MAX_AT = config.maxAt
 	local REALMS = config.realms
 	local DEFAULT_LOOT_MODE = config.defaultLootMode
-	local LOOT_MODES: { [string]: boolean } = {
-		round_robin = true,
-		need_greed = true,
-	}
-
 	local LEADER_TRANSFER_FIELDS: { [string]: boolean } = { accountId = true, by = true, at = true }
 
 	local STATE_FIELDS: { [string]: boolean } = {
@@ -158,18 +153,18 @@ function System.membership(config: Config)
 	end
 
 	local function text(value: unknown): boolean
-		return type(value) == "string" and #(value :: string) > 0 and #(value :: string) <= MAX_TEXT
+		return type(value) == "string" and #value > 0 and #value <= MAX_TEXT
 	end
 
 	local function timestamp(value: unknown): boolean
-		return finite(value) and (value :: number) >= 0 and (value :: number) <= MAX_AT
+		return (type(value) == "number" and finite(value)) and value >= 0 and value <= MAX_AT
 	end
 
 	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: { [unknown]: unknown } do
+		for key in value do
 			if type(key) ~= "string" or fields[key] ~= true then
 				return false
 			end
@@ -178,22 +173,8 @@ function System.membership(config: Config)
 	end
 
 	local function denseLength(value: unknown): number?
-		if type(value) ~= "table" then
-			return nil
-		end
-		local count = 0
-		for key in value :: { [unknown]: unknown } do
-			if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-				return nil
-			end
-			count += 1
-		end
-		for index = 1, count do
-			if (value :: { [unknown]: unknown })[index] == nil then
-				return nil
-			end
-		end
-		return count
+		local rows = Value.dense(value, math.huge, false)
+		return if rows == nil then nil else #rows
 	end
 
 	local function frozenMember(member: Member): Member
@@ -203,24 +184,26 @@ function System.membership(config: Config)
 		if not hasOnlyFields(value, MEMBER_FIELDS) then
 			return nil, "member_shape_invalid"
 		end
-		local source = value :: { [string]: unknown }
-		if not text(source.accountId) then
+		local source = assert(Value.raw(value))
+		if not (type(source.accountId) == "string" and text(source.accountId)) then
 			return nil, "account_invalid"
 		end
-		if source.characterId ~= nil and not text(source.characterId) then
+		if source.characterId ~= nil and not (type(source.characterId) == "string" and text(source.characterId)) then
 			return nil, "account_invalid"
 		end
-		if not timestamp(source.joinedAt) then
+		if not (type(source.joinedAt) == "number" and timestamp(source.joinedAt)) then
 			return nil, "time_invalid"
 		end
-		if source.absentSince ~= nil and not timestamp(source.absentSince) then
+		if
+			source.absentSince ~= nil and not (type(source.absentSince) == "number" and timestamp(source.absentSince))
+		then
 			return nil, "time_invalid"
 		end
 		return frozenMember({
-			accountId = source.accountId :: string,
-			characterId = source.characterId :: string?,
-			joinedAt = source.joinedAt :: number,
-			absentSince = source.absentSince :: number?,
+			accountId = source.accountId,
+			characterId = source.characterId,
+			joinedAt = source.joinedAt,
+			absentSince = source.absentSince,
 		}),
 			nil
 	end
@@ -229,17 +212,20 @@ function System.membership(config: Config)
 		if not hasOnlyFields(value, INVITE_FIELDS) then
 			return nil, "invite_shape_invalid"
 		end
-		local source = value :: { [string]: unknown }
-		if not text(source.accountId) or not text(source.invitedBy) then
+		local source = assert(Value.raw(value))
+		if
+			not (type(source.accountId) == "string" and text(source.accountId))
+			or not (type(source.invitedBy) == "string" and text(source.invitedBy))
+		then
 			return nil, "account_invalid"
 		end
-		if not timestamp(source.at) then
+		if not (type(source.at) == "number" and timestamp(source.at)) then
 			return nil, "time_invalid"
 		end
 		return Value.freezeDeep({
-			accountId = source.accountId :: string,
-			invitedBy = source.invitedBy :: string,
-			at = source.at :: number,
+			accountId = source.accountId,
+			invitedBy = source.invitedBy,
+			at = source.at,
 		}),
 			nil
 	end
@@ -248,29 +234,34 @@ function System.membership(config: Config)
 		if not hasOnlyFields(value, STATE_FIELDS) then
 			return nil, "state_shape_invalid"
 		end
-		local source = value :: { [string]: unknown }
-		if not text(source.partyId) then
+		local source = assert(Value.raw(value))
+		if not (type(source.partyId) == "string" and text(source.partyId)) then
 			return nil, "party_id_invalid"
 		end
 		if type(source.realmId) ~= "string" or REALMS[source.realmId] ~= true then
 			return nil, "realm_unknown"
 		end
-		if not text(source.leaderId) then
+		if not (type(source.leaderId) == "string" and text(source.leaderId)) then
 			return nil, "account_invalid"
 		end
-		if type(source.lootMode) ~= "string" or LOOT_MODES[source.lootMode] ~= true then
+		if source.lootMode ~= "round_robin" and source.lootMode ~= "need_greed" then
 			return nil, "loot_mode_invalid"
 		end
-		if source.lootCursor ~= nil and not text(source.lootCursor) then
+		if source.lootCursor ~= nil and not (type(source.lootCursor) == "string" and text(source.lootCursor)) then
 			return nil, "account_invalid"
 		end
-		if not timestamp(source.createdAt) or not timestamp(source.lastAt) then
+		if
+			not (type(source.createdAt) == "number" and timestamp(source.createdAt))
+			or not (type(source.lastAt) == "number" and timestamp(source.lastAt))
+		then
 			return nil, "time_invalid"
 		end
-		if (source.lastAt :: number) < (source.createdAt :: number) then
+		if source.lastAt < source.createdAt then
 			return nil, "time_regressed"
 		end
-		if source.disbandedAt ~= nil and not timestamp(source.disbandedAt) then
+		if
+			source.disbandedAt ~= nil and not (type(source.disbandedAt) == "number" and timestamp(source.disbandedAt))
+		then
 			return nil, "time_invalid"
 		end
 
@@ -281,11 +272,11 @@ function System.membership(config: Config)
 		local members: { Member } = {}
 		local seen: { [string]: boolean } = {}
 		for index = 1, memberCount do
-			local row, reason = projectMember((source.members :: { unknown })[index])
+			local row, reason = projectMember(assert(Value.dense(source.members, math.huge, false))[index])
 			if row == nil then
 				return nil, reason
 			end
-			local member = row :: Member
+			local member = row
 			if seen[member.accountId] then
 				return nil, "member_duplicate"
 			end
@@ -300,11 +291,11 @@ function System.membership(config: Config)
 		local invites: { Invite } = {}
 		local invited: { [string]: boolean } = {}
 		for index = 1, inviteCount do
-			local row, reason = projectInvite((source.invites :: { unknown })[index])
+			local row, reason = projectInvite(assert(Value.dense(source.invites, math.huge, false))[index])
 			if row == nil then
 				return nil, reason
 			end
-			local invite = row :: Invite
+			local invite = row
 			if invited[invite.accountId] then
 				return nil, "invite_duplicate"
 			end
@@ -326,43 +317,43 @@ function System.membership(config: Config)
 			if memberCount + inviteCount > MAX_MEMBERS then
 				return nil, "members_overfull"
 			end
-			if not seen[source.leaderId :: string] then
+			if not seen[source.leaderId] then
 				return nil, "leader_not_member"
 			end
 		end
 
 		local transfer: LeaderTransfer? = nil
 		if source.leaderTransfer ~= nil then
-			local row = source.leaderTransfer :: { [string]: unknown }
+			local row = Value.raw(source.leaderTransfer)
 			if
-				not hasOnlyFields(row, LEADER_TRANSFER_FIELDS)
-				or not text(row.accountId)
-				or not text(row.by)
-				or not timestamp(row.at)
-				or (row.at :: number) > (source.lastAt :: number)
+				row == nil
+				or not hasOnlyFields(row, LEADER_TRANSFER_FIELDS)
+				or not (type(row.accountId) == "string" and text(row.accountId))
+				or not (type(row.by) == "string" and text(row.by))
+				or not (type(row.at) == "number" and timestamp(row.at))
+				or row.at > source.lastAt
 				or row.by ~= source.leaderId
 				or row.accountId == row.by
-				or not seen[row.accountId :: string]
+				or not seen[row.accountId]
 				or source.disbandedAt ~= nil
 			then
 				return nil, "leader_transfer_invalid"
 			end
-			transfer =
-				Value.freezeDeep({ accountId = row.accountId :: string, by = row.by :: string, at = row.at :: number })
+			transfer = Value.freezeDeep({ accountId = row.accountId, by = row.by, at = row.at })
 		end
 
 		return Value.freezeDeep({
-			partyId = source.partyId :: string,
-			realmId = source.realmId :: string,
-			leaderId = source.leaderId :: string,
+			partyId = source.partyId,
+			realmId = source.realmId,
+			leaderId = source.leaderId,
 			leaderTransfer = transfer,
 			members = Value.freezeDeep(members),
 			invites = Value.freezeDeep(invites),
-			lootMode = source.lootMode :: LootMode,
-			lootCursor = source.lootCursor :: string?,
-			createdAt = source.createdAt :: number,
-			lastAt = source.lastAt :: number,
-			disbandedAt = source.disbandedAt :: number?,
+			lootMode = source.lootMode,
+			lootCursor = source.lootCursor,
+			createdAt = source.createdAt,
+			lastAt = source.lastAt,
+			disbandedAt = source.disbandedAt,
 		}),
 			nil
 	end
@@ -491,8 +482,7 @@ function System.membership(config: Config)
 			table.insert(members, member)
 			if member.accountId == state.leaderId then
 				leaderGone = false
-				leaderAbsent = member.absentSince ~= nil
-					and at - (member.absentSince :: number) >= LEADER_SUCCESSION_SEC
+				leaderAbsent = member.absentSince ~= nil and at - member.absentSince >= LEADER_SUCCESSION_SEC
 			end
 		end
 		local invites: { Invite } = {}
@@ -524,17 +514,17 @@ function System.membership(config: Config)
 		if state == nil then
 			return nil, reason, false
 		end
-		local live = state :: State
+		local live = state
 		if live.disbandedAt ~= nil then
 			return nil, "party_disbanded", false
 		end
-		if not timestamp(at) then
+		if not (type(at) == "number" and timestamp(at)) then
 			return nil, "time_invalid", false
 		end
-		if (at :: number) < live.lastAt then
+		if at < live.lastAt then
 			return nil, "time_regressed", false
 		end
-		local settled, changed = settleLifecycle(live, at :: number)
+		local settled, changed = settleLifecycle(live, at)
 		if settled.disbandedAt ~= nil and not allowExpired then
 			return nil, "party_disbanded", changed
 		end
@@ -555,27 +545,30 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, OPEN_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
-		if not text(request.partyId) then
+		local request = assert(Value.raw(requestValue))
+		if not (type(request.partyId) == "string" and text(request.partyId)) then
 			return nil, "party_id_invalid"
 		end
 		if type(request.realmId) ~= "string" or REALMS[request.realmId] ~= true then
 			return nil, "realm_unknown"
 		end
-		if request.founderCharacterId ~= nil and not text(request.founderCharacterId) then
+		if
+			request.founderCharacterId ~= nil
+			and not (type(request.founderCharacterId) == "string" and text(request.founderCharacterId))
+		then
 			return nil, "account_invalid"
 		end
-		if not text(request.founderId) then
+		if not (type(request.founderId) == "string" and text(request.founderId)) then
 			return nil, "account_invalid"
 		end
 		local lootMode = request.lootMode
 		if lootMode == nil then
 			lootMode = DEFAULT_LOOT_MODE
 		end
-		if type(lootMode) ~= "string" or LOOT_MODES[lootMode] ~= true then
+		if lootMode ~= "round_robin" and lootMode ~= "need_greed" then
 			return nil, "loot_mode_invalid"
 		end
-		if not timestamp(request.at) then
+		if not (type(request.at) == "number" and timestamp(request.at)) then
 			return nil, "time_invalid"
 		end
 		local state, reason = projectState({
@@ -595,25 +588,31 @@ function System.membership(config: Config)
 		if state == nil then
 			return nil, reason
 		end
-		return advanced(state :: State), nil
+		return advanced(state), nil
 	end
 
 	function PartyCore.invite(stateValue: unknown, requestValue: unknown): (Result?, string?)
 		if not hasOnlyFields(requestValue, INVITE_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.accountId) or not text(request.invitedBy) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if
+			not (type(request.accountId) == "string" and text(request.accountId))
+			or not (type(request.invitedBy) == "string" and text(request.invitedBy))
+		then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
-		local invitedBy = request.invitedBy :: string
+		local accountId = request.accountId
+		local invitedBy = request.invitedBy
 		if invitedBy ~= live.leaderId then
 			return nil, "not_leader"
 		end
@@ -653,20 +652,23 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, ACCEPT_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if request.characterId ~= nil and not text(request.characterId) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if request.characterId ~= nil and not (type(request.characterId) == "string" and text(request.characterId)) then
 			return nil, "account_invalid"
 		end
-		if not text(request.accountId) then
+		if not (type(request.accountId) == "string" and text(request.accountId)) then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
+		local accountId = request.accountId
 		if type(request.accepterGrouped) ~= "boolean" then
 			return nil, "grouped_flag_invalid"
 		end
@@ -688,7 +690,11 @@ function System.membership(config: Config)
 		local members = copyMembers(live.members)
 		table.insert(
 			members,
-			frozenMember({ accountId = accountId, characterId = request.characterId :: string?, joinedAt = at })
+			frozenMember({
+				accountId = accountId,
+				characterId = request.characterId,
+				joinedAt = at,
+			})
 		)
 		return advanced(rebuild(live, members, invites, live.leaderId, live.lootMode, live.lootCursor, at, nil)), nil
 	end
@@ -697,17 +703,20 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, ACCOUNT_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.accountId) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if not (type(request.accountId) == "string" and text(request.accountId)) then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
+		local accountId = request.accountId
 		local pending = inviteIndex(live, accountId)
 		if pending == nil then
 			return unchanged(live), nil
@@ -724,17 +733,20 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, ACCOUNT_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.accountId) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if not (type(request.accountId) == "string" and text(request.accountId)) then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
+		local accountId = request.accountId
 		local index = memberIndex(live, accountId)
 		if index == nil then
 			return nil, "not_member"
@@ -755,18 +767,24 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, KICK_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.accountId) or not text(request.by) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if
+			not (type(request.accountId) == "string" and text(request.accountId))
+			or not (type(request.by) == "string" and text(request.by))
+		then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
-		local by = request.by :: string
+		local accountId = request.accountId
+		local by = request.by
 		if by ~= live.leaderId then
 			return nil, "not_leader"
 		end
@@ -789,18 +807,24 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, TRANSFER_LEADER_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.accountId) or not text(request.by) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if
+			not (type(request.accountId) == "string" and text(request.accountId))
+			or not (type(request.by) == "string" and text(request.by))
+		then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
-		local by = request.by :: string
+		local accountId = request.accountId
+		local by = request.by
 		if by ~= live.leaderId then
 			return nil, "not_leader"
 		end
@@ -810,8 +834,8 @@ function System.membership(config: Config)
 		if memberIndex(live, accountId) == nil then
 			return nil, "not_member"
 		end
-		local target = live.members[memberIndex(live, accountId) :: number]
-		local leader = live.members[memberIndex(live, by) :: number]
+		local target = live.members[assert(memberIndex(live, accountId))]
+		local leader = live.members[assert(memberIndex(live, by))]
 		if target.absentSince ~= nil or leader.absentSince ~= nil then
 			return nil, "member_absent"
 		end
@@ -838,17 +862,20 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, PRESENT_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, reason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, reason
 		end
-		local at = request.at :: number
-		if not text(request.accountId) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		if not (type(request.accountId) == "string" and text(request.accountId)) then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
-		local live = state :: State
+		local accountId = request.accountId
+		local live = state
 		local transfer = live.leaderTransfer
 		if transfer == nil then
 			return nil, "leader_transfer_unknown"
@@ -856,8 +883,8 @@ function System.membership(config: Config)
 		if accountId ~= transfer.accountId then
 			return nil, "transfer_recipient_mismatch"
 		end
-		local member = live.members[memberIndex(live, accountId) :: number]
-		if request.characterId ~= nil and not text(request.characterId) then
+		local member = live.members[assert(memberIndex(live, accountId))]
+		if request.characterId ~= nil and not (type(request.characterId) == "string" and text(request.characterId)) then
 			return nil, "account_invalid"
 		end
 		if request.characterId ~= nil and member.characterId ~= nil and request.characterId ~= member.characterId then
@@ -882,14 +909,17 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, DISBAND_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.by) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if not (type(request.by) == "string" and text(request.by)) then
 			return nil, "account_invalid"
 		end
 		if request.by ~= live.leaderId then
@@ -902,20 +932,23 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, LOOT_MODE_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.by) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if not (type(request.by) == "string" and text(request.by)) then
 			return nil, "account_invalid"
 		end
 		if request.by ~= live.leaderId then
 			return nil, "not_leader"
 		end
-		if type(request.lootMode) ~= "string" or LOOT_MODES[request.lootMode] ~= true then
+		if request.lootMode ~= "round_robin" and request.lootMode ~= "need_greed" then
 			return nil, "loot_mode_invalid"
 		end
 		if request.lootMode == live.lootMode then
@@ -927,7 +960,7 @@ function System.membership(config: Config)
 				copyMembers(live.members),
 				copyInvites(live.invites),
 				live.leaderId,
-				request.lootMode :: LootMode,
+				request.lootMode,
 				live.lootCursor,
 				at,
 				nil
@@ -940,17 +973,20 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, ACCOUNT_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.accountId) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if not (type(request.accountId) == "string" and text(request.accountId)) then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
+		local accountId = request.accountId
 		local index = memberIndex(live, accountId)
 		if index == nil then
 			return nil, "not_member"
@@ -975,22 +1011,25 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, PRESENT_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local request = requestValue :: { [string]: unknown }
+		local request = assert(Value.raw(requestValue))
 		local state, stateReason = openState(stateValue, request.at)
 		if state == nil then
 			return nil, stateReason
 		end
-		local at = request.at :: number
-		local live = state :: State
-		if not text(request.accountId) then
+		local at = request.at
+		if type(at) ~= "number" then
+			return nil, "time_invalid"
+		end
+		local live = state
+		if not (type(request.accountId) == "string" and text(request.accountId)) then
 			return nil, "account_invalid"
 		end
-		local accountId = request.accountId :: string
+		local accountId = request.accountId
 		local index = memberIndex(live, accountId)
 		if index == nil then
 			return nil, "not_member"
 		end
-		if request.characterId ~= nil and not text(request.characterId) then
+		if request.characterId ~= nil and not (type(request.characterId) == "string" and text(request.characterId)) then
 			return nil, "account_invalid"
 		end
 		if
@@ -1009,7 +1048,7 @@ function System.membership(config: Config)
 		local members = copyMembers(live.members)
 		members[index] = frozenMember({
 			accountId = live.members[index].accountId,
-			characterId = (request.characterId :: string?) or live.members[index].characterId,
+			characterId = request.characterId or live.members[index].characterId,
 			joinedAt = live.members[index].joinedAt,
 			absentSince = nil,
 		})
@@ -1023,14 +1062,29 @@ function System.membership(config: Config)
 		if not hasOnlyFields(requestValue, SWEEP_REQUEST_FIELDS) then
 			return nil, "request_shape_invalid"
 		end
-		local state, reason, changed = openState(stateValue, (requestValue :: { [string]: unknown }).at, true)
+		local state, reason, changed = openState(stateValue, assert(Value.raw(requestValue)).at, true)
 		if state == nil then
 			return nil, reason
 		end
-		return if changed then advanced(state :: State) else unchanged(state :: State), nil
+		return if changed then advanced(state) else unchanged(state), nil
 	end
 
 	return Value.freezeDeep(PartyCore)
 end
-export type Core = typeof(System.membership((nil :: unknown) :: Config))
+export type Core = {
+	projectState: (unknown) -> (State?, string?),
+	open: (unknown) -> (Result?, string?),
+	invite: (unknown, unknown) -> (Result?, string?),
+	accept: (unknown, unknown) -> (Result?, string?),
+	decline: (unknown, unknown) -> (Result?, string?),
+	leave: (unknown, unknown) -> (Result?, string?),
+	kick: (unknown, unknown) -> (Result?, string?),
+	transferLeader: (unknown, unknown) -> (Result?, string?),
+	acceptLeaderTransfer: (unknown, unknown) -> (Result?, string?),
+	disband: (unknown, unknown) -> (Result?, string?),
+	setLootMode: (unknown, unknown) -> (Result?, string?),
+	markAbsent: (unknown, unknown) -> (Result?, string?),
+	markPresent: (unknown, unknown) -> (Result?, string?),
+	sweep: (unknown, unknown) -> (Result?, string?),
+}
 return Value.freezeDeep(System)

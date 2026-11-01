@@ -132,7 +132,7 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 	end
 
 	local function whole(value: unknown): boolean
-		return finite(value) and (value :: number) >= 0 and value == math.floor(value :: number)
+		return finite(value) and value >= 0 and value == math.floor(value)
 	end
 
 	local function nonempty(value: unknown): boolean
@@ -143,7 +143,7 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: Raw do
+		for key in value do
 			if type(key) ~= "string" or not fields[key] then
 				return false
 			end
@@ -157,10 +157,10 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 			return value
 		end
 		local result: { [unknown]: unknown } = {}
-		for key, child in (value :: unknown) :: { [unknown]: unknown } do
+		for key, child in value do
 			result[deepFreezeCopy(key)] = deepFreezeCopy(child)
 		end
-		return (table.freeze(result) :: unknown) :: T
+		return (table.freeze(result))
 	end
 
 	local function segment(value: string): string
@@ -180,7 +180,7 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 		if not hasOnlyFields(value, REWARD_RECEIPT_FIELDS) then
 			return nil
 		end
-		local source = value :: RewardReceipt<Q>
+		local source = value
 		if
 			not nonempty(source.requestFingerprint)
 			or not nonempty(source.runId)
@@ -206,7 +206,7 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 		if not hasOnlyFields(value, HISTORY_FIELDS) then
 			return nil
 		end
-		local source = value :: RewardHistory<Q>
+		local source = value
 		if
 			source.schemaVersion ~= SCHEMA_VERSION
 			or source.expeditionId ~= config.packageId(package)
@@ -233,7 +233,7 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 			then
 				return nil
 			end
-			local acceptedReceipt = receipt :: RewardReceipt<Q>
+			local acceptedReceipt = receipt
 			local transactionIdString = transactionId
 			clearNumbers[acceptedReceipt.clearNumber] = true
 			receiptCount += 1
@@ -280,7 +280,7 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 		if not hasOnlyFields(value, REWARD_REQUEST_FIELDS) then
 			return false
 		end
-		local request = value :: RewardRequest
+		local request = value
 		return nonempty(request.transactionId)
 			and whole(request.expectedRevision)
 			and nonempty(request.characterId)
@@ -292,12 +292,14 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 	end
 
 	local function rewardRejected(history: RewardHistory<Q>?, personalState: S?, reason: string): RewardRejected<S, Q>
-		return deepFreezeCopy({
-			ok = false :: false,
-			history = history,
-			personalState = personalState,
-			reason = reason,
-		}) :: RewardRejected<S, Q>
+		return (
+			deepFreezeCopy({
+				ok = false,
+				history = history,
+				personalState = personalState,
+				reason = reason,
+			})
+		)
 	end
 
 	local function rewardApplied(
@@ -306,13 +308,15 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 		reward: RewardGrant<Q>,
 		replayed: boolean
 	): RewardApplied<S, Q>
-		return deepFreezeCopy({
-			ok = true :: true,
-			history = history,
-			personalState = personalState,
-			reward = reward,
-			replayed = replayed,
-		}) :: RewardApplied<S, Q>
+		return (
+			deepFreezeCopy({
+				ok = true,
+				history = history,
+				personalState = personalState,
+				reward = reward,
+				replayed = replayed,
+			})
+		)
 	end
 
 	local function applyPersonalReward(
@@ -342,7 +346,7 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 		if not validRewardRequest(requestValue) then
 			return rewardRejected(history, personalState, Reason.invalidRewardRequest)
 		end
-		local request = requestValue :: RewardRequest
+		local request = requestValue
 		if runState.status ~= "completed" then
 			return rewardRejected(history, personalState, Reason.runNotCompleted)
 		end
@@ -418,15 +422,17 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 		if not nonempty(expeditionId) or not nonempty(characterId) then
 			return nil
 		end
-		return deepFreezeCopy({
-			schemaVersion = SCHEMA_VERSION,
-			expeditionId = expeditionId,
-			characterId = characterId,
-			revision = 0,
-			eligibleClears = 0,
-			receipts = {},
-			rewardedRuns = {},
-		}) :: RewardHistory<Q>
+		return (
+			deepFreezeCopy({
+				schemaVersion = SCHEMA_VERSION,
+				expeditionId = expeditionId,
+				characterId = characterId,
+				revision = 0,
+				eligibleClears = 0,
+				receipts = {},
+				rewardedRuns = {},
+			})
+		)
 	end
 
 	return table.freeze({ emptyRewardHistory = emptyRewardHistory, applyPersonalReward = applyPersonalReward })

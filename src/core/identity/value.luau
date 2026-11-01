@@ -7,7 +7,7 @@ local HasMetatable = {}
 
 local function tableFields(value: unknown): RawReadback?
 	if type(value) == "table" then
-		return value :: RawReadback
+		return value
 	end
 	return nil
 end
@@ -15,9 +15,7 @@ end
 HasMetatable.fields = tableFields
 
 function HasMetatable.check(value: unknown): boolean
-	return getmetatable(value :: MetatableProbe) ~= nil
+	return getmetatable(value) ~= nil
 end
-
-HasMetatable.Types = (nil :: unknown) :: { MetatableProbe: MetatableProbe }
 
 return table.freeze(HasMetatable)

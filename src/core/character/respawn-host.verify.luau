@@ -18,11 +18,11 @@ local function fixture()
 		context = "one",
 		character = "old",
 		humanoid = true,
-		prepared = {} :: { string },
-		jobs = {} :: { Job },
-		changed = nil :: ((Respawn.Observation<string>) -> ())?,
-		characterChanged = nil :: ((string?) -> ())?,
-		onWait = nil :: (() -> ())?,
+		prepared = {},
+		jobs = {},
+		changed = nil,
+		characterChanged = nil,
+		onWait = nil,
 	}
 	local observation: Respawn.Observation<string> = {
 		characterPresent = true,
