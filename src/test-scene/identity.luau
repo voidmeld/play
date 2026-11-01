@@ -6,7 +6,7 @@ local function validate(raw: unknown): (boolean, string?, string?)
 	if type(raw) ~= "string" then
 		return false, nil, "invalid"
 	end
-	local normalized = string.match(raw, "^%s*(.-)%s*$") :: string
+	local normalized = string.match(raw, "^%s*(.-)%s*$") or ""
 	if
 		normalized == "Reserved"
 		or #normalized < 2
@@ -45,4 +45,4 @@ local policy: Policy.Policy = {
 	maxLevel = 50,
 }
 
-return table.freeze(policy) :: Policy.Policy
+return (table.freeze(policy))

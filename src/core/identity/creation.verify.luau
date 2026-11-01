@@ -5,19 +5,30 @@ local Creation = require("./creation")
 local Policy = require("../../test-scene/identity")
 local Registry = require("./name-claims")
 local Roster = require("./roster")
+local Value = require("../internal/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
+type Raw = Value.Raw
+local function nested(value: { [string]: unknown }, key: string): Raw
+	local result = assert(Value.raw(value[key]))
+	value[key] = result
+	return result
+end
+local function nudge(value: Raw, key: string, delta: number)
+	local current = value[key]
+	assert(type(current) == "number")
+	value[key] = current + delta
+end
 
 local creation = Creation.create(Policy)
 local roster = Roster.create(Policy)
-local registry = Registry.create(Policy)
 type Result = Creation.Result
 type State = Creation.State
 type Plan = Creation.Plan
 type Accepted = Creation.Accepted
 
-type Receipt = typeof(creation.Types.Receipt)
-type Claim = typeof(registry.Types.Claim)
-type RosterValue = typeof(roster.Types.Roster)
+type Receipt = Creation.Receipt
+type Claim = Registry.Claim
+type RosterValue = Roster.Roster
 
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
@@ -30,11 +41,7 @@ return function(suite: Verify.Harness)
 		return assert(result.state, "transaction state missing")
 	end
 
-	local function request(
-		operationId: string,
-		displayName: string?,
-		fence: number?
-	): Creation.Prepared & { [string]: unknown }
+	local function request(operationId: string, displayName: string?, fence: number?): Raw
 		return {
 			userId = 101,
 			operationId = operationId,
@@ -53,10 +60,11 @@ return function(suite: Verify.Harness)
 	local function prepared(): State
 		local result = creation.prepare(nil, request("create.1"))
 		expect(result.ok):toBe(true)
+		assert(result.ok)
 		return stateOf(result)
 	end
 
-	local function event(state: State): typeof(creation.Types.Completion)
+	local function event(state: State): Creation.Completion
 		return { expectedRevision = state.revision, expectedFence = state.fence }
 	end
 
@@ -71,16 +79,14 @@ return function(suite: Verify.Harness)
 	end
 
 	local function receipt(state: State, field: string): Receipt
-		return (
-			{
-				operationId = state.operationId,
-				fingerprint = state.fingerprint,
-				characterId = state.characterId,
-				revision = state.revision,
-				fence = state.fence,
-				[field] = true,
-			} :: unknown
-		) :: Receipt
+		return {
+			operationId = state.operationId,
+			fingerprint = state.fingerprint,
+			characterId = state.characterId,
+			revision = state.revision,
+			fence = state.fence,
+			[field] = true,
+		}
 	end
 
 	local function emptyRoster()
@@ -92,6 +98,7 @@ return function(suite: Verify.Harness)
 		completion.readback = claim(state)
 		local result = creation.observeName(state, completion)
 		expect(result.ok):toBe(true)
+		assert(result.ok)
 		return stateOf(result)
 	end
 
@@ -100,6 +107,7 @@ return function(suite: Verify.Harness)
 		completion.readback = receipt(state, "prepared")
 		local result = creation.observeProfile(state, completion)
 		expect(result.ok):toBe(true)
+		assert(result.ok)
 		return stateOf(result)
 	end
 
@@ -110,6 +118,7 @@ return function(suite: Verify.Harness)
 		completion.readback = roster.add(base, planOf(creation.plan(state)).character)
 		local result = creation.observeRoster(state, completion)
 		expect(result.ok):toBe(true)
+		assert(result.ok)
 		return stateOf(result)
 	end
 
@@ -118,13 +127,15 @@ return function(suite: Verify.Harness)
 			local first = creation.prepare(nil, request("create.1", "  Alden Vale  "))
 			local resumed = creation.prepare(stateOf(first), request("create.1", "Alden Vale"))
 			expect(first.ok):toBe(true)
+			assert(first.ok)
 			expect(stateOf(first).displayName):toBe("Alden Vale")
 			expect(stateOf(first).characterId):toBe("character.a")
 			expect(resumed.ok):toBe(true)
-			expect((resumed :: Accepted).replayed):toBe(true)
+			assert(resumed.ok)
+			expect((resumed).replayed):toBe(true)
 			expect(stateOf(resumed)):toEqual(stateOf(first))
 			for field, value in
-				{
+				assert(Value.raw({
 					userId = 102,
 					characterId = "character.b",
 					displayName = "Alden Stone",
@@ -133,7 +144,7 @@ return function(suite: Verify.Harness)
 					classId = "guard",
 					appearancePresetId = "preset.second.issued",
 					createdAtUnix = 51,
-				} :: { [string]: unknown }
+				}))
 			do
 				local changed = request("create.1")
 				changed[field] = value
@@ -149,7 +160,7 @@ return function(suite: Verify.Harness)
 			local state = stateOf(creation.prepare(nil, realistic))
 			expect(state.userId):toBe(4294967295)
 			expect(state.createdAtUnix):toBe(1780000000)
-			for _, value in { math.nan, math.huge, -math.huge, creation.MAX_SAFE_INTEGER + 1 } do
+			for _, value in assert(Value.raw({ math.nan, math.huge, -math.huge, creation.MAX_SAFE_INTEGER + 1 })) do
 				local malformed = request("create.1")
 				malformed.userId = value
 				expect(creation.prepare(nil, malformed).reason):toBe("malformed_request")
@@ -166,6 +177,7 @@ return function(suite: Verify.Harness)
 			maximal.appearancePresetId = string.rep("a", 64)
 			local created = creation.prepare(nil, maximal)
 			expect(created.ok):toBe(true)
+			assert(created.ok)
 			expect(#stateOf(created).fingerprint > 128):toBe(true)
 			local validated = creation.validate(stateOf(created))
 			expect(validated):toEqual(stateOf(created))
@@ -199,12 +211,12 @@ return function(suite: Verify.Harness)
 				expect(absent.reason):toBe("readback_absent")
 				expect(stateOf(absent)):toEqual(state)
 				local foreign = event(state)
-				foreign.readback = claim(state);
-				(foreign.readback :: Claim).userId = 202
+				foreign.readback = claim(state)
+				nested(foreign, "readback").userId = 202
 				expect(creation.observeName(state, foreign).reason):toBe("foreign_collision")
 				local future = event(state)
-				future.readback = claim(state);
-				(future.readback :: Claim).schemaVersion = 2
+				future.readback = claim(state)
+				nested(future, "readback").schemaVersion = 2
 				expect(creation.observeName(state, future).reason):toBe("future_readback")
 				local owned = ownName(state)
 				expect(owned.phase):toBe("name_owned")
@@ -231,33 +243,33 @@ return function(suite: Verify.Harness)
 			local state = ownName(prepared())
 
 			local foreign = event(state)
-			foreign.readback = receipt(state, "prepared");
-			(foreign.readback :: Receipt).operationId = "create.other"
+			foreign.readback = receipt(state, "prepared")
+			nested(foreign, "readback").operationId = "create.other"
 			expect(creation.observeProfile(state, foreign).reason):toBe("foreign_collision")
 
 			local renamed = event(state)
-			renamed.readback = receipt(state, "prepared");
-			(renamed.readback :: Receipt).characterId = "character.other"
+			renamed.readback = receipt(state, "prepared")
+			nested(renamed, "readback").characterId = "character.other"
 			expect(creation.observeProfile(state, renamed).reason):toBe("foreign_collision")
 
 			local ahead = event(state)
-			ahead.readback = receipt(state, "prepared");
-			(ahead.readback :: Receipt).revision += 1
+			ahead.readback = receipt(state, "prepared")
+			nudge(nested(ahead, "readback"), "revision", 1)
 			expect(creation.observeProfile(state, ahead).reason):toBe("future_readback")
 
 			local fenced = event(state)
-			fenced.readback = receipt(state, "prepared");
-			(fenced.readback :: Receipt).fence += 1
+			fenced.readback = receipt(state, "prepared")
+			nudge(nested(fenced, "readback"), "fence", 1)
 			expect(creation.observeProfile(state, fenced).reason):toBe("future_readback")
 
 			local behind = event(state)
-			behind.readback = receipt(state, "prepared");
-			(behind.readback :: Receipt).revision -= 1
+			behind.readback = receipt(state, "prepared")
+			nudge(nested(behind, "readback"), "revision", -1)
 			expect(creation.observeProfile(state, behind).reason):toBe("readback_mismatch")
 
 			local unflagged = event(state)
-			unflagged.readback = receipt(state, "prepared");
-			(unflagged.readback :: Receipt).prepared = false
+			unflagged.readback = receipt(state, "prepared")
+			nested(unflagged, "readback").prepared = false
 			expect(creation.observeProfile(state, unflagged).reason):toBe("readback_mismatch")
 
 			local exact = event(state)
@@ -294,6 +306,7 @@ return function(suite: Verify.Harness)
 			requested.readback = receipt(state, "acknowledged")
 			local rolling = creation.requestRollback(state, requested)
 			expect(rolling.ok):toBe(true)
+			assert(rolling.ok)
 			expect(stateOf(rolling).rollbackNeedsNameRelease):toBe(true)
 			local missingName = event(stateOf(rolling))
 			missingName.profileReadback = receipt(stateOf(rolling), "aborted")
@@ -311,11 +324,12 @@ return function(suite: Verify.Harness)
 			local done = event(stateOf(rolling))
 			done.profileReadback = receipt(stateOf(rolling), "aborted")
 			done.nameReadbackReceived = true
-			done.nameReadback = claim(stateOf(rolling));
-			(done.nameReadback :: Claim).userId = 202
-			(done.nameReadback :: Claim).characterId = "character.new"
+			done.nameReadback = claim(stateOf(rolling))
+			nested(done, "nameReadback").userId = 202
+			nested(done, "nameReadback").characterId = "character.new"
 			local aborted = creation.observeRollback(stateOf(rolling), done)
 			expect(aborted.ok):toBe(true)
+			assert(aborted.ok)
 			expect(stateOf(aborted).phase):toBe("aborted")
 			local live = committed(preparedProfile(ownName(prepared())))
 			local forbidden = event(live)
@@ -331,17 +345,19 @@ return function(suite: Verify.Harness)
 			expect(creation.takeover(state, stale).reason):toBe("stale_fence")
 			local acquired = event(state)
 			acquired.fence = state.fence + 1
-			acquired.readback = receipt(state, "acquired");
-			(acquired.readback :: Receipt).revision = state.revision + 1
-			(acquired.readback :: Receipt).fence = acquired.fence :: number
+			acquired.readback = receipt(state, "acquired")
+			nested(acquired, "readback").revision = state.revision + 1
+			nested(acquired, "readback").fence = acquired.fence
 			acquired.leaseRevision = state.leaseRevision + 1
-			(acquired.readback :: Receipt).leaseRevision = acquired.leaseRevision :: number
+			nested(acquired, "readback").leaseRevision = acquired.leaseRevision
 			local taken = creation.takeover(state, acquired)
 			expect(taken.ok):toBe(true)
+			assert(taken.ok)
 			local released = event(stateOf(taken))
 			released.readback = receipt(stateOf(taken), "expired")
 			local finished = creation.observeLeaseRelease(stateOf(taken), released)
 			expect(finished.ok):toBe(true)
+			assert(finished.ok)
 			expect(stateOf(finished).phase):toBe("lease_released")
 			stateOf(finished).displayName = "Changed"
 			expect(stateOf(taken).displayName):toBe("Alden Vale")
@@ -352,12 +368,13 @@ return function(suite: Verify.Harness)
 			local acquired = event(state)
 			acquired.fence = state.fence + 1
 			acquired.leaseRevision = state.leaseRevision + 4
-			acquired.readback = receipt(state, "acquired");
-			(acquired.readback :: Receipt).revision = state.revision + 1
-			(acquired.readback :: Receipt).fence = acquired.fence :: number
-			(acquired.readback :: Receipt).leaseRevision = acquired.leaseRevision :: number
+			acquired.readback = receipt(state, "acquired")
+			nested(acquired, "readback").revision = state.revision + 1
+			nested(acquired, "readback").fence = acquired.fence
+			nested(acquired, "readback").leaseRevision = acquired.leaseRevision
 			local taken = creation.takeover(state, acquired)
 			expect(taken.ok):toBe(true)
+			assert(taken.ok)
 			expect(stateOf(taken).initialFence):toBe(state.initialFence)
 			expect(stateOf(taken).initialLeaseRevision):toBe(state.initialLeaseRevision)
 			expect(stateOf(taken).fence):toBe(acquired.fence)

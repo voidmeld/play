@@ -119,18 +119,18 @@ function Reputation.create(config: Config)
 	end
 
 	local function integral(value: unknown): boolean
-		return finite(value) and value == math.floor(value :: number)
+		return (type(value) == "number" and finite(value)) and value == math.floor(value)
 	end
 
 	local function text(value: unknown): boolean
-		return type(value) == "string" and #(value :: string) > 0 and #(value :: string) <= MAX_TEXT
+		return type(value) == "string" and #value > 0 and #value <= MAX_TEXT
 	end
 
 	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: Raw do
+		for key in value do
 			if type(key) ~= "string" or fields[key] ~= true then
 				return false
 			end
@@ -139,58 +139,48 @@ function Reputation.create(config: Config)
 	end
 
 	local function denseLength(value: unknown): number?
-		if type(value) ~= "table" then
-			return nil
-		end
-		local count = 0
-		for key in value :: Raw do
-			if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-				return nil
-			end
-			count += 1
-		end
-		for index = 1, count do
-			if (value :: Raw)[index] == nil then
-				return nil
-			end
-		end
-		return count
+		local rows = Value.dense(value, math.huge, false)
+		return if rows == nil then nil else #rows
 	end
 
 	local function projectEvent(value: unknown): (Event?, string?)
 		if not hasOnlyFields(value, EVENT_FIELDS) then
 			return nil, "event_shape_invalid"
 		end
-		local source = value :: Raw
-		if not text(source.eventId) then
+		local source = assert(Value.raw(value))
+		if not (type(source.eventId) == "string" and text(source.eventId)) then
 			return nil, "event_id_invalid"
 		end
 		if type(source.kind) ~= "string" or KINDS[source.kind] ~= true then
 			return nil, "event_kind_invalid"
 		end
-		if not text(source.accountId) then
+		if not (type(source.accountId) == "string" and text(source.accountId)) then
 			return nil, "account_invalid"
 		end
 		if type(source.realmId) ~= "string" or REALMS[source.realmId] ~= true then
 			return nil, "realm_unknown"
 		end
-		if not text(source.seasonId) then
+		if not (type(source.seasonId) == "string" and text(source.seasonId)) then
 			return nil, "season_invalid"
 		end
-		if not integral(source.units) or (source.units :: number) < 1 or (source.units :: number) > MAX_UNITS then
+		if
+			not (type(source.units) == "number" and integral(source.units))
+			or source.units < 1
+			or source.units > MAX_UNITS
+		then
 			return nil, "units_invalid"
 		end
-		if not finite(source.at) or (source.at :: number) < 0 or (source.at :: number) > MAX_AT then
+		if not (type(source.at) == "number" and finite(source.at)) or source.at < 0 or source.at > MAX_AT then
 			return nil, "time_invalid"
 		end
 		return Value.freezeDeep({
-			eventId = source.eventId :: string,
-			kind = source.kind :: EventKind,
-			accountId = source.accountId :: string,
+			eventId = source.eventId,
+			kind = source.kind,
+			accountId = source.accountId,
 			realmId = source.realmId,
-			seasonId = source.seasonId :: string,
-			units = source.units :: number,
-			at = source.at :: number,
+			seasonId = source.seasonId,
+			units = source.units,
+			at = source.at,
 		}),
 			nil
 	end
@@ -209,8 +199,8 @@ function Reputation.create(config: Config)
 		if not hasOnlyFields(value, LADDER_FIELDS) then
 			return nil, "ladder_shape_invalid"
 		end
-		local source = value :: Raw
-		if not text(source.seasonId) then
+		local source = assert(Value.raw(value))
+		if not (type(source.seasonId) == "string" and text(source.seasonId)) then
 			return nil, "season_invalid"
 		end
 
@@ -222,20 +212,20 @@ function Reputation.create(config: Config)
 		local previousThreshold = 0
 		local previousIncrement: number? = nil
 		for index = 1, thresholdCount do
-			local candidate = (source.thresholds :: Raw)[index]
-			if not integral(candidate) or (candidate :: number) < 1 or (candidate :: number) > MAX_THRESHOLD then
+			local candidate = assert(Value.raw(source.thresholds))[index]
+			if
+				not (type(candidate) == "number" and integral(candidate))
+				or candidate < 1
+				or candidate > MAX_THRESHOLD
+			then
 				return nil, "thresholds_invalid"
 			end
-			local threshold = candidate :: number
+			local threshold = candidate
 			local increment = threshold - previousThreshold
 			if increment < 1 then
 				return nil, "thresholds_invalid"
 			end
-			if
-				config.increasingIncrements
-				and previousIncrement ~= nil
-				and increment <= (previousIncrement :: number)
-			then
+			if config.increasingIncrements and previousIncrement ~= nil and increment <= previousIncrement then
 				return nil, "curve_not_front_loaded"
 			end
 			thresholds[index] = threshold
@@ -248,16 +238,20 @@ function Reputation.create(config: Config)
 		end
 		local pointsPerUnit: { [string]: number } = {}
 		local cheapestGrant: number? = nil
-		for key, candidate in source.pointsPerUnit :: Raw do
+		for key, candidate in source.pointsPerUnit do
 			if type(key) ~= "string" or KINDS[key] ~= true then
 				return nil, "rates_incomplete"
 			end
-			if not integral(candidate) or (candidate :: number) < 1 or (candidate :: number) > MAX_POINTS_PER_UNIT then
+			if
+				not (type(candidate) == "number" and integral(candidate))
+				or candidate < 1
+				or candidate > MAX_POINTS_PER_UNIT
+			then
 				return nil, "rate_invalid"
 			end
-			local rate = candidate :: number
+			local rate = candidate
 			pointsPerUnit[key] = rate
-			if cheapestGrant == nil or rate < (cheapestGrant :: number) then
+			if cheapestGrant == nil or rate < cheapestGrant then
 				cheapestGrant = rate
 			end
 		end
@@ -266,7 +260,7 @@ function Reputation.create(config: Config)
 				return nil, "rates_incomplete"
 			end
 		end
-		if cheapestGrant == nil or (config.firstGrantReachesRank and thresholds[1] > (cheapestGrant :: number)) then
+		if cheapestGrant == nil or (config.firstGrantReachesRank and thresholds[1] > cheapestGrant) then
 			return nil, "first_rung_unreachable"
 		end
 
@@ -274,7 +268,7 @@ function Reputation.create(config: Config)
 			return nil, "rank_names_incomplete"
 		end
 		local rankNames: { [string]: { string } } = {}
-		for realmId, ladder in source.rankNames :: Raw do
+		for realmId, ladder in source.rankNames do
 			if type(realmId) ~= "string" or REALMS[realmId] ~= true then
 				return nil, "rank_names_incomplete"
 			end
@@ -288,11 +282,11 @@ function Reputation.create(config: Config)
 			local names: { string } = {}
 			local seen: { [string]: boolean } = {}
 			for index = 1, nameCount do
-				local candidate = (ladder :: Raw)[index]
-				if not text(candidate) or seen[candidate :: string] == true then
+				local candidate = assert(Value.raw(ladder))[index]
+				if not (type(candidate) == "string" and text(candidate)) or seen[candidate] == true then
 					return nil, "rank_name_invalid"
 				end
-				local name = candidate :: string
+				local name = candidate
 				seen[name] = true
 				names[index] = name
 			end
@@ -305,7 +299,7 @@ function Reputation.create(config: Config)
 		end
 
 		return Value.freezeDeep({
-			seasonId = source.seasonId :: string,
+			seasonId = source.seasonId,
 			thresholds = Value.freezeDeep(thresholds),
 			pointsPerUnit = Value.freezeDeep(pointsPerUnit),
 			rankNames = Value.freezeDeep(rankNames),
@@ -335,13 +329,14 @@ function Reputation.create(config: Config)
 		if not hasOnlyFields(value, STATE_FIELDS) then
 			return nil, "state_invalid"
 		end
-		local count = denseLength((value :: Raw).events)
+		local source = assert(Value.raw(value))
+		local count = denseLength(source.events)
 		if count == nil then
 			return nil, "state_invalid"
 		end
 		local ctx = newContext()
 		for index = 1, count do
-			local row = projectEvent(((value :: Raw).events :: Raw)[index])
+			local row = projectEvent(assert(Value.raw(source.events))[index])
 			if row == nil then
 				return nil, "state_invalid"
 			end
@@ -408,10 +403,10 @@ function Reputation.create(config: Config)
 		if ladder == nil then
 			return nil, ladderReason
 		end
-		if not integral(pointsValue) or (pointsValue :: number) < 0 then
+		if not (type(pointsValue) == "number" and integral(pointsValue)) or pointsValue < 0 then
 			return nil, "units_invalid"
 		end
-		return rankOf(ladder.thresholds, pointsValue :: number), nil
+		return rankOf(ladder.thresholds, pointsValue), nil
 	end
 
 	function Ledger.apply(stateValue: unknown, eventValue: unknown, ladderValue: unknown): (ApplyResult?, string?)
@@ -500,7 +495,7 @@ function Reputation.create(config: Config)
 				rank = rank,
 				rankName = rankName,
 				nextRankAt = nextRankAt,
-				pointsToNextRank = if nextRankAt == nil then nil else (nextRankAt :: number) - points,
+				pointsToNextRank = if nextRankAt == nil then nil else nextRankAt - points,
 				lifetimePoints = lifetimeByRealmKey[accountByKey[key] .. "\0" .. realmId],
 			})
 		end
@@ -515,8 +510,6 @@ function Reputation.create(config: Config)
 	Ledger.MAX_UNITS = MAX_UNITS
 	Ledger.MAX_POINTS_PER_UNIT = MAX_POINTS_PER_UNIT
 	Ledger.MAX_THRESHOLD = MAX_THRESHOLD
-
-	Ledger.Types = (nil :: unknown) :: { Event: Event }
 
 	return Value.freezeDeep(Ledger)
 end

@@ -76,28 +76,37 @@ function Skills.create(config: Config)
 
 	function Core.normalize(raw: unknown): State
 		local out = Core.default()
-		if type(raw) ~= "table" then
+		local fields = Value.raw(raw)
+		if fields == nil then
 			return out
 		end
-		local rawSkills = (raw :: Raw).skills
+		local rawSkills = Value.raw(fields.skills)
 		if type(rawSkills) == "table" then
 			local primaries = 0
 			for _, row in CATALOGUE do
-				local value = (rawSkills :: Raw)[row.id]
-				if whole(value, START_SKILL, SKILL_CAP) and (not row.primary or primaries < PRIMARY_SLOTS) then
-					out.skills[row.id] = value :: number
+				local value = (rawSkills)[row.id]
+				if
+					(type(value) == "number" and whole(value, START_SKILL, SKILL_CAP))
+					and (not row.primary or primaries < PRIMARY_SLOTS)
+				then
+					out.skills[row.id] = value
 					if row.primary then
 						primaries += 1
 					end
 				end
 			end
 		end
-		local rawRecipes = (raw :: Raw).recipes
+		local rawRecipes = Value.raw(fields.recipes)
 		if type(rawRecipes) == "table" then
-			for recipeId, flag in rawRecipes :: Raw do
+			for recipeId, flag in rawRecipes do
 				local recipe = Recipes.get(recipeId)
-				if flag == true and recipe ~= nil and out.skills[recipe.profession] ~= nil then
-					out.recipes[recipeId :: string] = true
+				if
+					type(recipeId) == "string"
+					and flag == true
+					and recipe ~= nil
+					and out.skills[recipe.profession] ~= nil
+				then
+					out.recipes[assert(Recipes.get(recipeId)).id] = true
 				end
 			end
 		end
@@ -156,7 +165,7 @@ function Skills.create(config: Config)
 			return nil, reason
 		end
 		local out = Core.copy(state)
-		out.skills[professionId :: string] = START_SKILL
+		out.skills[assert(Core.profession(professionId)).id] = START_SKILL
 		return out, nil
 	end
 
@@ -262,7 +271,7 @@ function Skills.create(config: Config)
 			return nil, reason
 		end
 		local out = Core.copy(state)
-		out.recipes[recipeId :: string] = true
+		out.recipes[assert(Recipes.get(recipeId)).id] = true
 		return out, nil
 	end
 

@@ -153,10 +153,10 @@ function StoreHost.create(config: Config)
 		if value == nil or valueType == "boolean" or valueType == "string" then
 			return true, value
 		end
-		if valueType == "number" then
-			return value == value and (value :: number) > -math.huge and (value :: number) < math.huge, value
+		if type(value) == "number" then
+			return value == value and value > -math.huge and value < math.huge, value
 		end
-		if valueType ~= "table" or getmetatable(value :: RawValue) ~= nil then
+		if type(value) ~= "table" or getmetatable(value) ~= nil then
 			return false, nil
 		end
 		local known: RawValue = copies or {}
@@ -170,14 +170,11 @@ function StoreHost.create(config: Config)
 		local result: RawValue = {}
 		known[value] = result
 		visiting[value] = true
-		for key, child in value :: RawValue do
+		for key, child in value do
 			local keyType = type(key)
 			if
 				(keyType ~= "string" and keyType ~= "number")
-				or (
-					keyType == "number"
-					and (key ~= key or (key :: number) <= -math.huge or (key :: number) >= math.huge)
-				)
+				or (type(key) == "number" and (key ~= key or key <= -math.huge or key >= math.huge))
 			then
 				return false, nil
 			end
@@ -476,7 +473,7 @@ function StoreHost.create(config: Config)
 			local flushed = 0
 			local attempted = 0
 			local blockedKeys: { [string]: boolean } = {}
-			local queuedSnapshot = table.clone(circuit.list()) :: { QueuedWrite }
+			local queuedSnapshot = (table.clone(circuit.list()))
 			for _, queued in queuedSnapshot do
 				if queued.storeName ~= name then
 					continue

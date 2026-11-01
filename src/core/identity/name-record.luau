@@ -1,13 +1,12 @@
 --!strict
 
-local HasMetatable = require("./value")
 local Policy = require("./policy")
 local Registry = require("./name-claims")
+local Value = require("../internal/value")
 
 export type Record = NameRecord
 export type Claim = Registry.Claim
 type NameRecord = { schemaVersion: number, revision: number, registryKey: string, claim: Claim | false }
-type Raw = { [unknown]: unknown }
 
 local function create(policy: Policy.Policy)
 	local registry = Registry.create(policy)
@@ -31,25 +30,8 @@ local function create(policy: Policy.Policy)
 			and value % 1 == 0
 	end
 
-	local function exact(raw: unknown): boolean
-		if type(raw) ~= "table" or getmetatable(raw :: HasMetatable.MetatableProbe) ~= nil then
-			return false
-		end
-		for key in raw :: Raw do
-			if type(key) ~= "string" or FIELDS[key] ~= true then
-				return false
-			end
-		end
-		for key in FIELDS do
-			if (raw :: Raw)[key] == nil then
-				return false
-			end
-		end
-		return true
-	end
-
 	local function copiedClaim(raw: unknown): Claim?
-		if type(raw) ~= "table" or getmetatable(raw :: HasMetatable.MetatableProbe) ~= nil then
+		if type(raw) ~= "table" or getmetatable(raw) ~= nil then
 			return nil
 		end
 		local ok, claim = pcall(registry.validate, raw)
@@ -69,39 +51,32 @@ local function create(policy: Policy.Policy)
 			claimedAtUnix = claim.claimedAtUnix,
 			schemaVersion = claim.schemaVersion,
 		}
-		return table.freeze(value) :: Claim
-	end
-
-	local function frozen(raw: NameRecord, claim: Claim | false): NameRecord
-		local value: NameRecord = {
-			schemaVersion = Record.SCHEMA_VERSION,
-			revision = raw.revision,
-			registryKey = raw.registryKey,
-			claim = claim,
-		}
-		return table.freeze(value) :: NameRecord
+		return Value.freezeDeep(value)
 	end
 
 	function Record.validate(raw: unknown): NameRecord?
-		local source = raw :: Raw
-		if
-			not exact(raw)
-			or source.schemaVersion ~= Record.SCHEMA_VERSION
-			or not whole(source.revision, 0, Record.MAX_REVISION)
-		then
+		local source = Value.record(raw, FIELDS, true)
+		if source == nil or source.schemaVersion ~= Record.SCHEMA_VERSION then
 			return nil
 		end
-		if not policy.validRegistryKey(source.registryKey) then
+		local revision = Value.whole(source.revision, 0, Record.MAX_REVISION)
+		local key = source.registryKey
+		if revision == nil or type(key) ~= "string" or not policy.validRegistryKey(key) then
 			return nil
 		end
+		local claim: Claim | false
 		if source.claim == false then
-			return frozen((raw :: unknown) :: NameRecord, false)
+			claim = false
+		else
+			local found = copiedClaim(source.claim)
+			if found == nil or policy.registryKey(found.displayName) ~= key then
+				return nil
+			end
+			claim = found
 		end
-		local claim = copiedClaim(source.claim)
-		if claim == nil or policy.registryKey(claim.displayName) ~= source.registryKey then
-			return nil
-		end
-		return frozen((raw :: unknown) :: NameRecord, claim)
+		local value: NameRecord =
+			{ schemaVersion = Record.SCHEMA_VERSION, revision = revision, registryKey = key, claim = claim }
+		return Value.freezeDeep(value)
 	end
 
 	function Record.copy(raw: unknown): NameRecord?
@@ -135,14 +110,14 @@ local function create(policy: Policy.Policy)
 		then
 			return false
 		end
-		if left.claim == false then
-			return right.claim == false
+		if left.claim == false or right.claim == false then
+			return left.claim == right.claim
 		end
-		return left.claim.schemaVersion == (right.claim :: Claim).schemaVersion
-			and left.claim.displayName == (right.claim :: Claim).displayName
-			and left.claim.userId == (right.claim :: Claim).userId
-			and left.claim.characterId == (right.claim :: Claim).characterId
-			and left.claim.claimedAtUnix == (right.claim :: Claim).claimedAtUnix
+		return left.claim.schemaVersion == (right.claim).schemaVersion
+			and left.claim.displayName == (right.claim).displayName
+			and left.claim.userId == (right.claim).userId
+			and left.claim.characterId == (right.claim).characterId
+			and left.claim.claimedAtUnix == (right.claim).claimedAtUnix
 	end
 
 	local function nextRecord(raw: NameRecord, revision: number, claim: Claim | false): NameRecord?
@@ -251,8 +226,6 @@ local function create(policy: Policy.Policy)
 		end
 		return status
 	end
-
-	Record.Types = (nil :: unknown) :: { Record: NameRecord, Claim: Claim }
 
 	return table.freeze(Record)
 end

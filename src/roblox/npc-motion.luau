@@ -21,8 +21,8 @@ function Motion.projection(tuning: { epsilon: number, facingEpsilon: number, min
 		if target == nil then
 			return nil
 		end
-		local x = (target :: Planar).x - from.x
-		local z = (target :: Planar).z - from.z
+		local x = (target).x - from.x
+		local z = (target).z - from.z
 		local magnitude = math.sqrt(x * x + z * z)
 		if magnitude <= tuning.facingEpsilon then
 			return { x = 0, z = -1 }
@@ -45,14 +45,14 @@ function Motion.projection(tuning: { epsilon: number, facingEpsilon: number, min
 			planarSpeed = math.sqrt(dx * dx + dz * dz) / math.max(dt, tuning.minimumDt),
 		}
 		local cachedTransformChanged = previous == nil
-			or not samePlanar((previous :: Projection).position, projection.position)
-			or not samePlanar((previous :: Projection).facing, projection.facing)
+			or not samePlanar((previous).position, projection.position)
+			or not samePlanar((previous).facing, projection.facing)
 		local observedTransformChanged = not samePlanar(observed.position, projection.position)
 			or not samePlanar(observed.facing, projection.facing)
 		return projection,
 			{
 				transform = cachedTransformChanged or observedTransformChanged,
-				planarSpeed = previous == nil or not near((previous :: Projection).planarSpeed, projection.planarSpeed),
+				planarSpeed = previous == nil or not near((previous).planarSpeed, projection.planarSpeed),
 			}
 	end
 

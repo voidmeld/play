@@ -1,12 +1,15 @@
 --!strict
 
+local Value = require("../internal/value")
+type Raw = Value.Raw
+
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Policy = require("../../test-scene/identity")
 local Registry = require("./name-claims")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 local registry = Registry.create(Policy)
-local function claim(displayName: string, userId: number, characterId: string, claimedAtUnix: number): Registry.Claim
+local function claim(displayName: string, userId: number, characterId: string, claimedAtUnix: number): Raw
 	return {
 		displayName = displayName,
 		userId = userId,
@@ -74,7 +77,7 @@ return function(suite: Verify.Harness)
 
 		it("fails closed on malformed records and cross-key callback state", function()
 			local malformed = claim("Alden Vale", 101, "chr_a", 10)
-			local rawMalformed = (malformed :: unknown) :: { [string]: unknown }
+			local rawMalformed = malformed
 			rawMalformed.clientOwned = true
 			expect(function()
 				registry.validate(malformed)

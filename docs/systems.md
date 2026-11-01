@@ -52,6 +52,18 @@ to the transaction. A lost response, future schema, foreign owner, stale revisio
 does not advance success. The game owns account composition, saved keys, naming rules, creation
 admission and routes. No factory supplies game data or performs persistence itself.
 
+## Personal reward settlement
+
+`core/progression/settlement` reconciles the run history and personal grant receipts. A retry must
+agree with both ledgers before it reports success. The caller supplies package, run, role, reward
+and grant policies. `copyPersonalState` validates and returns detached personal state;
+`readQuality` validates and returns an immutable or detached quality value. Settlement freezes
+its returned data. Neither reader may return mutable caller-owned data that freezing would affect.
+
+Input mounting uses typed callback dependencies. `input-profile.start` accepts missing optional
+callbacks so it can report an incomplete host; accepted callbacks retain their declared argument
+and result types. Game-facing requests and persisted records remain runtime-validated inputs.
+
 [Return to Play](../README.md).
 
 The game supplies content, limits, identities, and host operations.

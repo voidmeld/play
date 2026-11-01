@@ -1,5 +1,8 @@
 --!strict
 
+local Value = require("../internal/value")
+type Raw = Value.Raw
+
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Policy = require("../../test-scene/identity")
 local Roster = require("./roster")
@@ -16,11 +19,11 @@ local roster = Roster.create(Policy)
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
-	local function emptyRoster(): Roster.Roster
+	local function emptyRoster(): { schemaVersion: number, userId: number, characters: { unknown } }
 		return { schemaVersion = roster.SCHEMA_VERSION, userId = 101, characters = {} }
 	end
 
-	local function character(realmId: string, index: number, lastPlayedAtUnix: number?): Roster.CharacterIdentity
+	local function character(realmId: string, index: number, lastPlayedAtUnix: number?): Raw
 		local characterId = ("chr_%s_%d"):format(realmId, index)
 		return {
 			characterId = characterId,
@@ -37,7 +40,7 @@ return function(suite: Verify.Harness)
 	end
 
 	local function fullRoster(): Roster.Roster
-		local value = emptyRoster()
+		local value: Roster.Roster = { schemaVersion = roster.SCHEMA_VERSION, userId = 101, characters = {} }
 		for _, realmId in { "red", "green", "blue" } do
 			for index = 1, 4 do
 				value = roster.add(value, character(realmId, index))
@@ -90,7 +93,7 @@ return function(suite: Verify.Harness)
 
 		it("fails closed on unknown fields, realms, and noncanonical display names", function()
 			local unknownField = character("red", 1)
-			local unknownFieldRaw = (unknownField :: unknown) :: { [string]: unknown }
+			local unknownFieldRaw = unknownField
 			unknownFieldRaw.runtimeMounted = true
 			expect(function()
 				roster.add(emptyRoster(), unknownField)
@@ -190,13 +193,13 @@ return function(suite: Verify.Harness)
 			expect(card.level):toBe(roster.MIN_LEVEL)
 
 			local holedDestination = character("red", 1)
-			local holedDestinationRaw = (holedDestination :: unknown) :: { [string]: unknown }
+			local holedDestinationRaw = holedDestination
 			holedDestinationRaw.lastDestinationId = nil
 			expect(function()
 				roster.add(emptyRoster(), holedDestination)
 			end):toThrowMatching("lastDestinationId must be")
 			local holedLevel = character("red", 1)
-			local holedLevelRaw = (holedLevel :: unknown) :: { [string]: unknown }
+			local holedLevelRaw = holedLevel
 			holedLevelRaw.level = nil
 			expect(function()
 				roster.add(emptyRoster(), holedLevel)
@@ -204,9 +207,9 @@ return function(suite: Verify.Harness)
 		end)
 
 		it("refuses every level outside the progression's own range", function()
-			for _, hostile in { 0, -1, 1.5, roster.MAX_LEVEL + 1, "3", math.huge, math.nan } :: { unknown } do
+			for _, hostile in { 0, -1, 1.5, roster.MAX_LEVEL + 1, "3", math.huge, math.nan } do
 				local outside = character("red", 1)
-				local outsideRaw = (outside :: unknown) :: { [string]: unknown }
+				local outsideRaw = outside
 				outsideRaw.level = hostile
 				expect(function()
 					roster.add(emptyRoster(), outside)
@@ -242,12 +245,12 @@ return function(suite: Verify.Harness)
 			expect(
 				roster.markDeparted(departed, "chr_red_1", "lobby.destination_meadow").characters[1].lastDestinationId
 			):toBe("lobby.destination_meadow")
-			for _, hostile in { "", "Frontdoor.Destination", "forest", 7, {}, string.rep("d", 129) } :: { unknown } do
+			for _, hostile in { "", "Frontdoor.Destination", "forest", 7, {}, string.rep("d", 129) } do
 				expect(function()
 					roster.markDeparted(value, "chr_red_1", hostile)
 				end):toThrowMatching("lastDestinationId must be")
 				local forged = character("red", 2)
-				local forgedRaw = (forged :: unknown) :: { [string]: unknown }
+				local forgedRaw = forged
 				forgedRaw.lastDestinationId = hostile
 				expect(function()
 					roster.add(value, forged)

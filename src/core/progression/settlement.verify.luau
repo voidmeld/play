@@ -2,6 +2,7 @@
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Run = require("../quest/run")
 local Settlement = require("./settlement")
+local Value = require("../internal/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 type Ledger = { items: number, receipts: { [string]: boolean } }
 local package = { id = "route" }
@@ -29,11 +30,11 @@ local Core = Settlement.settlement({
 	readRunState = function(value: unknown, _): Run.RunState?
 		return if value == completed then completed else nil
 	end,
-	readPersonalState = function(value: unknown): Ledger?
+	copyPersonalState = function(value: unknown): Ledger?
 		if type(value) ~= "table" then
 			return nil
 		end
-		local raw = value :: { [unknown]: unknown }
+		local raw = assert(Value.raw(value))
 		if type(raw.items) ~= "number" or type(raw.receipts) ~= "table" then
 			return nil
 		end
@@ -46,8 +47,8 @@ local Core = Settlement.settlement({
 		end
 		return { items = raw.items, receipts = receipts }
 	end,
-	validQuality = function(value: unknown): boolean
-		return value == "standard"
+	readQuality = function(value: unknown): string?
+		return if value == "standard" then "standard" else nil
 	end,
 	roleUpgrade = function(_: string): boolean
 		return false

@@ -2,6 +2,7 @@
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local DataStore = require("../../roblox/data-store")
 local StoreHost = require("./store-host")
+local Value = require("../internal/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 local retry = DataStore.retryPolicy({ attempts = 2, baseDelay = 0, maxDelay = 0 })
 local host = StoreHost.create({
@@ -18,10 +19,10 @@ local function fixture()
 	local state = {
 		now = 0,
 		sequence = 0,
-		queue = {} :: { StoreHost.QueuedWrite },
-		values = {} :: { [string]: unknown },
+		queue = {},
+		values = {},
 		fail = true,
-		writes = {} :: { string },
+		writes = {},
 	}
 	local raw: StoreHost.RawStore = {
 		GetAsync = function(_self, key)
@@ -110,7 +111,8 @@ local function fixture()
 				return { UseCache = false }
 			end,
 			validUncachedOptions = function(value)
-				return type(value) == "table" and (value :: { UseCache: unknown }).UseCache == false
+				local fields = Value.raw(value)
+				return fields ~= nil and fields.UseCache == false
 			end,
 		})
 	end
@@ -176,14 +178,16 @@ return function(suite: Verify.Harness)
 				return nil
 			end)
 			local result = store.updateOutcome("a", function(value)
-				(value :: { count: number }).count = 9
+				assert(type(value) == "table")
+				table.clear(value)
 				return nil
 			end)
 			expect(result.reason):toBe("callback_cancelled")
-			expect((values.a :: { count: number }).count):toBe(3)
-			local got = store.getOutcome("a").value :: { count: number }
-			got.count = 6
-			expect((values.a :: { count: number }).count):toBe(3)
+			expect(assert(Value.raw(values.a)).count):toBe(3)
+			local got = store.getOutcome("a").value
+			assert(type(got) == "table")
+			table.clear(got)
+			expect(assert(Value.raw(values.a)).count):toBe(3)
 			local cyclic: { [string]: unknown } = {}
 			cyclic.self = cyclic
 			expect(store.updateOutcome("a", function()

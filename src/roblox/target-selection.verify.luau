@@ -32,18 +32,18 @@ return function(suite: Verify.Harness)
 			local release = Selection.release(60, 6)
 			for _, sample in
 				{
-					{ 10, 0, false },
-					{ 60, 100, false },
-					{ 80, 101, false },
-					{ 90, 106.9, false },
-					{ 400, 107, true },
-					{ 30, 108, false },
-					{ 80, 109, false },
-					{ 80, 114.9, false },
-					{ 80, 115, true },
+					{ distance = 10, at = 0, expected = false },
+					{ distance = 60, at = 100, expected = false },
+					{ distance = 80, at = 101, expected = false },
+					{ distance = 90, at = 106.9, expected = false },
+					{ distance = 400, at = 107, expected = true },
+					{ distance = 30, at = 108, expected = false },
+					{ distance = 80, at = 109, expected = false },
+					{ distance = 80, at = 114.9, expected = false },
+					{ distance = 80, at = 115, expected = true },
 				}
 			do
-				expect(release.observe(sample[1] :: number, sample[2] :: number)):toBe(sample[3])
+				expect(release.observe(sample.distance, sample.at)):toBe(sample.expected)
 			end
 			release.reset()
 			expect(release.observe(nil, 0)):toBe(false)

@@ -1,5 +1,6 @@
 --!strict
 local Run = require("./run")
+local Value = require("../internal/value")
 type Raw = { [unknown]: unknown }
 type RunState = Run.RunState
 type RunMember = Run.Member
@@ -85,16 +86,54 @@ function System.claims(config: Config)
 		return type(value) == "number" and value == value and value >= 0 and value <= MAX_SAFE_INTEGER
 	end
 
-	local function deepFreezeCopy<T>(value: T): T
-		local probe: unknown = value
-		if type(probe) ~= "table" then
+	local function copyValue(value: unknown): unknown
+		local raw = Value.raw(value)
+		if raw == nil then
 			return value
 		end
-		local copy: { [unknown]: unknown } = {}
-		for key, child in (value :: unknown) :: { [unknown]: unknown } do
-			copy[deepFreezeCopy(key)] = deepFreezeCopy(child)
+		local result: Raw = {}
+		for key, child in raw do
+			result[copyValue(key)] = copyValue(child)
 		end
-		return (table.freeze(copy) :: unknown) :: T
+		return table.freeze(result)
+	end
+	local function copyRaw(value: Raw): Raw
+		local result: Raw = {}
+		for key, child in value do
+			result[copyValue(key)] = copyValue(child)
+		end
+		return table.freeze(result)
+	end
+	local function copyRecord(value: Record): Record
+		local members: { Member } = {}
+		for _, member in value.members do
+			local copy: Member = { userId = member.userId, characterId = member.characterId }
+			table.insert(members, Value.freezeDeep(copy))
+		end
+		local record: Record = {
+			schemaVersion = value.schemaVersion,
+			runId = value.runId,
+			packageId = value.packageId,
+			placeId = value.placeId,
+			accessCode = value.accessCode,
+			privateServerId = value.privateServerId,
+			partyId = value.partyId,
+			leaderUserId = value.leaderUserId,
+			request = copyRaw(value.request),
+			rows = copyRaw(value.rows),
+			members = Value.freezeDeep(members),
+			createdAtSec = value.createdAtSec,
+			expiresAtSec = value.expiresAtSec,
+			stateRevision = value.stateRevision,
+			status = value.status,
+			runState = if value.runState == nil then nil else copyRaw(value.runState),
+			replacementInvitation = if value.replacementInvitation == nil
+				then nil
+				else copyRaw(value.replacementInvitation),
+			claimedByJobId = value.claimedByJobId,
+			claimedAtSec = value.claimedAtSec,
+		}
+		return Value.freezeDeep(record)
 	end
 
 	function Core.runKey(runId: string): string
@@ -110,7 +149,7 @@ function System.claims(config: Config)
 	end
 
 	function Core.isReservedServer(privateServerId: unknown, privateServerOwnerId: unknown): boolean
-		return text(privateServerId) and privateServerOwnerId == 0
+		return (type(privateServerId) == "string" and text(privateServerId)) and privateServerOwnerId == 0
 	end
 
 	function Core.retryDelaysSec(): { number }
@@ -118,117 +157,151 @@ function System.claims(config: Config)
 	end
 
 	local function validMembers(value: unknown): { Member }?
-		if type(value) ~= "table" or #(value :: Raw) < 1 then
+		local rows = Value.raw(value)
+		if rows == nil or type(value) ~= "table" or #value < 1 then
 			return nil
 		end
 		local seen: { [number]: boolean } = {}
 		local characters: { [string]: boolean } = {}
 		local members: { Member } = {}
-		for _, candidate in value :: Raw do
-			local row = candidate :: Raw
+		for _, candidate in rows do
+			local row = Value.raw(candidate)
+			if row == nil then
+				return nil
+			end
+			local userId, characterId = row.userId, row.characterId
 			if
-				type(row) ~= "table"
-				or not positiveInteger(row.userId)
-				or not text(row.characterId)
-				or seen[row.userId :: number]
-				or characters[row.characterId :: string]
+				type(userId) ~= "number"
+				or not (type(userId) == "number" and positiveInteger(userId))
+				or type(characterId) ~= "string"
+				or not (type(characterId) == "string" and text(characterId))
+				or seen[userId]
+				or characters[characterId]
 			then
 				return nil
 			end
-			seen[row.userId :: number] = true
-			characters[row.characterId :: string] = true
-			members[#members + 1] = { userId = row.userId :: number, characterId = row.characterId :: string }
+			seen[userId] = true
+			characters[characterId] = true
+			table.insert(members, { userId = userId, characterId = characterId })
 		end
 		return members
 	end
 
-	function Core.newRecord(input: unknown, nowSec: number): (Record?, string?)
+	function Core.readRecord(value: unknown): Record?
+		local raw = Value.raw(value)
+		if raw == nil then
+			return nil
+		end
+		local runId, packageId, accessCode, privateServerId, partyId =
+			raw.runId, raw.packageId, raw.accessCode, raw.privateServerId, raw.partyId
+		local placeId, leaderUserId, created, expires, revision =
+			raw.placeId, raw.leaderUserId, raw.createdAtSec, raw.expiresAtSec, raw.stateRevision
+		local status, job, claimed = raw.status, raw.claimedByJobId, raw.claimedAtSec
+		local request, rows = Value.raw(raw.request), Value.raw(raw.rows)
+		local members = validMembers(raw.members)
+		local runState, invitation = Value.raw(raw.runState), Value.raw(raw.replacementInvitation)
 		if
-			type(input) ~= "table"
-			or not text((input :: Raw).runId)
-			or not text((input :: Raw).packageId)
-			or not positiveInteger((input :: Raw).placeId)
-			or not text((input :: Raw).accessCode)
-			or not text((input :: Raw).privateServerId)
-			or not text((input :: Raw).partyId)
-			or not positiveInteger((input :: Raw).leaderUserId)
-			or type((input :: Raw).request) ~= "table"
-			or type((input :: Raw).rows) ~= "table"
-			or type((input :: Raw).runState) ~= "table"
-			or ((input :: Raw).runState :: Raw).runId ~= (input :: Raw).runId
-			or type(((input :: Raw).runState :: Raw).revision) ~= "number"
-			or (((input :: Raw).runState :: Raw).revision :: number) < 1
-			or not instant(nowSec)
+			raw.schemaVersion ~= SCHEMA_VERSION
+			or type(runId) ~= "string"
+			or not (type(runId) == "string" and text(runId))
+			or type(packageId) ~= "string"
+			or not (type(packageId) == "string" and text(packageId))
+			or type(accessCode) ~= "string"
+			or not (type(accessCode) == "string" and text(accessCode))
+			or type(privateServerId) ~= "string"
+			or not (type(privateServerId) == "string" and text(privateServerId))
+			or type(partyId) ~= "string"
+			or not (type(partyId) == "string" and text(partyId))
+			or type(placeId) ~= "number"
+			or not (type(placeId) == "number" and positiveInteger(placeId))
+			or type(leaderUserId) ~= "number"
+			or not (type(leaderUserId) == "number" and positiveInteger(leaderUserId))
+			or type(created) ~= "number"
+			or not (type(created) == "number" and instant(created))
+			or type(expires) ~= "number"
+			or not (type(expires) == "number" and instant(expires))
+			or type(revision) ~= "number"
+			or request == nil
+			or rows == nil
+			or members == nil
+			or (raw.runState ~= nil and runState == nil)
+			or (raw.replacementInvitation ~= nil and invitation == nil)
+			or (job ~= nil and type(job) ~= "string")
+			or (claimed ~= nil and type(claimed) ~= "number")
+			or (status ~= "reserved" and status ~= "active" and status ~= "closed")
 		then
-			return nil, "record_invalid"
+			return nil
 		end
-		local members = validMembers((input :: Raw).members)
-		if members == nil then
-			return nil, "record_invalid"
-		end
-		local leaderSeen = false
-		for _, member in members do
-			leaderSeen = leaderSeen or member.userId == (input :: Raw).leaderUserId
-		end
-		if not leaderSeen then
-			return nil, "record_invalid"
-		end
-		local record: Record = {
+		return {
 			schemaVersion = SCHEMA_VERSION,
-			runId = (input :: Raw).runId :: string,
-			packageId = (input :: Raw).packageId :: string,
-			placeId = (input :: Raw).placeId :: number,
-			accessCode = (input :: Raw).accessCode :: string,
-			privateServerId = (input :: Raw).privateServerId :: string,
-			partyId = (input :: Raw).partyId :: string,
-			leaderUserId = (input :: Raw).leaderUserId :: number,
-			request = (input :: Raw).request :: Raw,
-			rows = (input :: Raw).rows :: Raw,
+			runId = runId,
+			packageId = packageId,
+			accessCode = accessCode,
+			privateServerId = privateServerId,
+			partyId = partyId,
+			placeId = placeId,
+			leaderUserId = leaderUserId,
+			createdAtSec = created,
+			expiresAtSec = expires,
+			stateRevision = revision,
+			request = request,
+			rows = rows,
 			members = members,
-			createdAtSec = nowSec,
-			expiresAtSec = nowSec + RECORD_TTL_SEC,
-			stateRevision = ((input :: Raw).runState :: Raw).revision :: number,
-			runState = (input :: Raw).runState :: Raw,
-			status = "reserved" :: "reserved",
+			runState = runState,
+			replacementInvitation = invitation,
+			status = status,
+			claimedByJobId = job,
+			claimedAtSec = claimed,
 		}
-		return deepFreezeCopy(record), nil
 	end
 
 	function Core.validRecord(value: unknown): boolean
-		if type(value) ~= "table" then
-			return false
-		end
-		local record = value :: Raw
-		return record.schemaVersion == SCHEMA_VERSION
-			and text(record.runId)
-			and text(record.packageId)
-			and positiveInteger(record.placeId)
-			and text(record.accessCode)
-			and text(record.privateServerId)
-			and text(record.partyId)
-			and positiveInteger(record.leaderUserId)
-			and type(record.request) == "table"
-			and type(record.rows) == "table"
-			and validMembers(record.members) ~= nil
-			and instant(record.createdAtSec)
-			and instant(record.expiresAtSec)
-			and type(record.stateRevision) == "number"
-			and (record.runState == nil or type(record.runState) == "table")
-			and (record.replacementInvitation == nil or type(record.replacementInvitation) == "table")
-			and (record.claimedByJobId == nil or type(record.claimedByJobId) == "string")
-			and (record.claimedAtSec == nil or type(record.claimedAtSec) == "number")
-			and (record.status == "reserved" or record.status == "active" or record.status == "closed")
+		return Core.readRecord(value) ~= nil
 	end
 
-	function Core.readRecord(value: unknown): Record?
-		return if Core.validRecord(value) then value :: Record else nil
+	function Core.newRecord(input: unknown, nowSec: number): (Record?, string?)
+		local raw = Value.raw(input)
+		if raw == nil or not (type(nowSec) == "number" and instant(nowSec)) then
+			return nil, "record_invalid"
+		end
+		local state = Value.raw(raw.runState)
+		if state == nil or state.runId ~= raw.runId or type(state.revision) ~= "number" or state.revision < 1 then
+			return nil, "record_invalid"
+		end
+		local record = Core.readRecord({
+			schemaVersion = SCHEMA_VERSION,
+			runId = raw.runId,
+			packageId = raw.packageId,
+			placeId = raw.placeId,
+			accessCode = raw.accessCode,
+			privateServerId = raw.privateServerId,
+			partyId = raw.partyId,
+			leaderUserId = raw.leaderUserId,
+			request = raw.request,
+			rows = raw.rows,
+			members = raw.members,
+			createdAtSec = nowSec,
+			expiresAtSec = nowSec + RECORD_TTL_SEC,
+			stateRevision = state.revision,
+			runState = state,
+			status = "reserved",
+		})
+		if record == nil then
+			return nil, "record_invalid"
+		end
+		for _, member in record.members do
+			if member.userId == record.leaderUserId then
+				return copyRecord(record), nil
+			end
+		end
+		return nil, "record_invalid"
 	end
 
 	function Core.readReplacementIdentity(value: unknown): ReplacementIdentity?
 		if type(value) ~= "table" then
 			return nil
 		end
-		local row = value :: Raw
+		local row = assert(Value.raw(value))
 		if type(row.userId) ~= "number" or type(row.priorId) ~= "string" or type(row.leaderUserId) ~= "number" then
 			return nil
 		end
@@ -240,8 +313,8 @@ function System.claims(config: Config)
 	end
 
 	function Core.createTransform(record: Record): Transform
-		return function(current: unknown): Record?
-			if current ~= nil then
+		return function(currentValue: unknown): Record?
+			if currentValue ~= nil then
 				return nil
 			end
 			return record
@@ -253,125 +326,133 @@ function System.claims(config: Config)
 	end
 
 	function Core.claimTransform(privateServerId: string, jobId: string, nowSec: number): Transform
-		return function(current: unknown): Record?
+		return function(currentValue: unknown): Record?
+			local current = Core.readRecord(currentValue)
 			if
-				not Core.validRecord(current)
-				or (current :: Record).privateServerId ~= privateServerId
-				or (current :: Record).status == "closed"
-				or not text(jobId)
+				current == nil
+				or (current).privateServerId ~= privateServerId
+				or (current).status == "closed"
+				or not (type(jobId) == "string" and text(jobId))
 				or (
-					(current :: Record).claimedByJobId ~= nil
-					and (current :: Record).claimedByJobId ~= jobId
-					and nowSec <= ((current :: Record).claimedAtSec or 0) + CLAIM_LEASE_SEC
+					(current).claimedByJobId ~= nil
+					and (current).claimedByJobId ~= jobId
+					and nowSec <= ((current).claimedAtSec or 0) + CLAIM_LEASE_SEC
 				)
 			then
 				return nil
 			end
-			local nextRecord = table.clone(current :: Record)
+			local nextRecord = table.clone(current)
 			nextRecord.claimedByJobId = jobId
 			nextRecord.claimedAtSec = nowSec
-			return deepFreezeCopy(nextRecord)
+			return copyRecord(nextRecord)
 		end
 	end
 
 	function Core.renewTransform(runId: string, jobId: string, nowSec: number): Transform
-		return function(current: unknown): Record?
+		return function(currentValue: unknown): Record?
+			local current = Core.readRecord(currentValue)
 			if
-				not Core.validRecord(current)
-				or (current :: Record).runId ~= runId
-				or (current :: Record).status == "closed"
-				or not claimHeld(current :: Record, jobId, nowSec)
+				current == nil
+				or (current).runId ~= runId
+				or (current).status == "closed"
+				or not claimHeld(current, jobId, nowSec)
 			then
 				return nil
 			end
-			local nextRecord = table.clone(current :: Record)
+			local nextRecord = table.clone(current)
 			nextRecord.claimedAtSec = nowSec
-			return deepFreezeCopy(nextRecord)
+			return copyRecord(nextRecord)
 		end
 	end
 
 	function Core.closeTransform(runId: string): Transform
-		return function(current: unknown): Record?
-			if
-				not Core.validRecord(current)
-				or (current :: Record).runId ~= runId
-				or (current :: Record).status == "closed"
-			then
+		return function(currentValue: unknown): Record?
+			local current = Core.readRecord(currentValue)
+			if current == nil or (current).runId ~= runId or (current).status == "closed" then
 				return nil
 			end
-			local nextRecord = table.clone(current :: Record)
+			local nextRecord = table.clone(current)
 			nextRecord.status = "closed"
-			return deepFreezeCopy(nextRecord)
+			return copyRecord(nextRecord)
 		end
 	end
 
-	function Core.writeThroughTransform(runId: string, runState: unknown, jobId: string, nowSec: number): Transform
-		return function(current: unknown): Record?
-			if
-				not Core.validRecord(current)
-				or (current :: Record).runId ~= runId
-				or (current :: Record).status == "closed"
-				or not claimHeld(current :: Record, jobId, nowSec)
-				or type(runState) ~= "table"
-				or (runState :: Raw).runId ~= runId
-				or type((runState :: Raw).revision) ~= "number"
-				or ((runState :: Raw).revision :: number) <= (current :: Record).stateRevision
-			then
-				return nil
-			end
-			local nextRecord = table.clone(current :: Record)
-			nextRecord.runState = runState :: Raw
-			nextRecord.stateRevision = (runState :: Raw).revision :: number
-			nextRecord.status = if (runState :: Raw).status == "completed" then "closed" else "active"
-			nextRecord.claimedAtSec = nowSec
-			return deepFreezeCopy(nextRecord)
-		end
-	end
-
-	function Core.inviteReplacementTransform(invitation: unknown, jobId: string, nowSec: number): Transform
-		return function(current: unknown): Record?
+	function Core.writeThroughTransform(runId: string, runStateValue: unknown, jobId: string, nowSec: number): Transform
+		return function(currentValue: unknown): Record?
+			local runState = Value.raw(runStateValue)
+			local current = Core.readRecord(currentValue)
 			if
 				current == nil
-				or not Core.validRecord(current)
-				or not claimHeld(current :: Record, jobId, nowSec)
-				or (current :: Record).status == "closed"
-				or type(invitation) ~= "table"
-				or not positiveInteger((invitation :: Raw).userId)
-				or not text((invitation :: Raw).priorId)
+				or (current).runId ~= runId
+				or (current).status == "closed"
+				or not claimHeld(current, jobId, nowSec)
+				or type(runState) ~= "table"
+				or (runState).runId ~= runId
+				or type((runState).revision) ~= "number"
+				or (runState).revision <= (current).stateRevision
 			then
 				return nil
 			end
-			local state = (current :: Record).runState
+			local nextRecord = table.clone(current)
+			nextRecord.runState = runState
+			nextRecord.stateRevision = (runState).revision
+			nextRecord.status = if (runState).status == "completed" then "closed" else "active"
+			nextRecord.claimedAtSec = nowSec
+			return copyRecord(nextRecord)
+		end
+	end
+
+	function Core.inviteReplacementTransform(invitationValue: unknown, jobId: string, nowSec: number): Transform
+		return function(currentValue: unknown): Record?
+			local invitation = Value.raw(invitationValue)
+			local current = Core.readRecord(currentValue)
+			if
+				current == nil
+				or not claimHeld(current, jobId, nowSec)
+				or (current).status == "closed"
+				or type(invitation) ~= "table"
+				or not (type((invitation).userId) == "number" and positiveInteger((invitation).userId))
+				or not (type((invitation).priorId) == "string" and text((invitation).priorId))
+			then
+				return nil
+			end
+			local state = current.runState
 			if
 				type(state) ~= "table"
-				or (state :: RunState).status ~= "active"
-				or (state :: RunState).checkpointId == nil
-				or (state :: RunState).revision ~= (invitation :: Raw).expectedRevision
+				or (state).status ~= "active"
+				or (state).checkpointId == nil
+				or type(state.members) ~= "table"
+				or (state).revision ~= (invitation).expectedRevision
+				or type(invitation.recoveryWindowSec) ~= "number"
 			then
 				return nil
 			end
 			local held = false
-			for _, member in (state :: RunState).members do
+			for _, candidate in assert(Value.raw(state.members)) do
+				local member = Value.raw(candidate)
+				if member == nil then
+					return nil
+				end
 				if
-					member.id == (invitation :: Raw).priorId
+					member.id == (invitation).priorId
 					and not member.connected
 					and type(member.disconnectedAtSec) == "number"
-					and nowSec > member.disconnectedAtSec + ((invitation :: Raw).recoveryWindowSec :: number)
+					and nowSec > member.disconnectedAtSec + (invitation).recoveryWindowSec
 				then
 					held = true
 				end
 			end
-			for _, member in (current :: Record).members do
-				if member.userId == (invitation :: Raw).userId then
+			for _, member in (current).members do
+				if member.userId == (invitation).userId then
 					return nil
 				end
 			end
 			if not held then
 				return nil
 			end
-			local nextRecord = table.clone(current :: Record)
-			nextRecord.replacementInvitation = invitation :: Raw
-			return deepFreezeCopy(nextRecord)
+			local nextRecord = table.clone(current)
+			nextRecord.replacementInvitation = invitation
+			return copyRecord(nextRecord)
 		end
 	end
 
@@ -382,46 +463,44 @@ function System.claims(config: Config)
 		jobId: string,
 		nowSec: number
 	): Transform
-		return function(current: unknown): Record?
+		return function(currentValue: unknown): Record?
+			local current = Core.readRecord(currentValue)
 			if type(rawPlan) ~= "table" then
 				return nil
 			end
-			local plan = rawPlan :: Raw
-			local state = plan.state
-			local acceptance = plan.acceptance
+			local plan = assert(Value.raw(rawPlan))
+			local state = Value.raw(plan.state)
+			local acceptance = Value.raw(plan.acceptance)
 			local rows = validMembers(rawRows)
 			if type(state) ~= "table" or type(acceptance) ~= "table" or rows == nil then
 				return nil
 			end
-			local nextState = state :: Raw
-			local accepted = acceptance :: Raw
+			local nextState = state
+			local accepted = acceptance
 			if
 				current == nil
-				or not Core.validRecord(current)
-				or (current :: Record).runId ~= runId
-				or not claimHeld(current :: Record, jobId, nowSec)
-				or (current :: Record).status == "closed"
-				or (current :: Record).stateRevision ~= plan.expectedRevision
+				or (current).runId ~= runId
+				or not claimHeld(current, jobId, nowSec)
+				or (current).status == "closed"
+				or (current).stateRevision ~= plan.expectedRevision
 				or type(plan.expectedRevision) ~= "number"
+				or type(nextState.revision) ~= "number"
 				or nextState.revision ~= plan.expectedRevision + 1
 				or type(nextState.members) ~= "table"
 			then
 				return nil
 			end
-			local invitation = (current :: Record).replacementInvitation
-			if
-				type(invitation) ~= "table"
-				or accepted.runId ~= runId
-				or accepted.packageId ~= (current :: Record).packageId
-			then
+			local invitation = (current).replacementInvitation
+			if type(invitation) ~= "table" or accepted.runId ~= runId or accepted.packageId ~= (current).packageId then
 				return nil
 			end
 			local selected = {}
-			for _, candidate in nextState.members :: Raw do
-				if type(candidate) ~= "table" or type((candidate :: Raw).id) ~= "string" then
+			for _, value in assert(Value.raw(nextState.members)) do
+				local candidate = Value.raw(value)
+				if type(candidate) ~= "table" or type((candidate).id) ~= "string" then
 					return nil
 				end
-				selected[(candidate :: Raw).id :: string] = true
+				selected[(candidate).id] = true
 			end
 			local invited = false
 			local members = rows
@@ -437,7 +516,7 @@ function System.claims(config: Config)
 			if #members ~= config.memberCount then
 				return nil
 			end
-			local nextRecord = table.clone(current :: Record)
+			local nextRecord = table.clone(current)
 			nextRecord.request = {
 				requestId = accepted.requestId,
 				runId = runId,
@@ -446,20 +525,20 @@ function System.claims(config: Config)
 				members = accepted.members,
 			}
 			nextRecord.members = members
-			nextRecord.rows = rawRows :: Raw
+			nextRecord.rows = assert(Value.raw(rawRows))
 			nextRecord.runState = nextState
-			nextRecord.stateRevision = nextState.revision :: number
+			nextRecord.stateRevision = nextState.revision
 			nextRecord.replacementInvitation = nil
 			nextRecord.claimedAtSec = nowSec
-			return deepFreezeCopy(nextRecord)
+			return copyRecord(nextRecord)
 		end
 	end
 
 	function Core.rejoinTarget(record: unknown, userId: number, nowSec: number): (Target?, string?)
-		if not Core.validRecord(record) then
+		local current = Core.readRecord(record)
+		if current == nil then
 			return nil, "run_missing"
 		end
-		local current = record :: Record
 		if nowSec > current.expiresAtSec then
 			return nil, "run_expired"
 		end
@@ -481,13 +560,17 @@ function System.claims(config: Config)
 		if
 			characterId ~= nil
 			and type(current.replacementInvitation) == "table"
-			and (current.replacementInvitation :: Raw).priorId == characterId
+			and (current.replacementInvitation).priorId == characterId
 		then
 			return nil, "recovery_expired"
 		end
 		if characterId ~= nil and type(current.runState) == "table" and type(current.runState.members) == "table" then
 			local found = false
-			for _, member in current.runState.members :: { RunMember } do
+			for _, value in assert(Value.raw(current.runState.members)) do
+				local member = Value.raw(value)
+				if member == nil then
+					return nil, "not_member"
+				end
 				if member.id == characterId then
 					found = true
 				end
@@ -505,8 +588,8 @@ function System.claims(config: Config)
 			privateServerId = current.privateServerId,
 			runId = current.runId,
 		}
-		table.freeze(target)
-		return target :: Target?, nil
+		Value.freezeDeep(target)
+		return target, nil
 	end
 
 	function Core.teleportData<T>(carriers: { [number]: T }): { contract: string, carriers: { [string]: T } }
@@ -521,14 +604,12 @@ function System.claims(config: Config)
 		if type(teleportData) ~= "table" then
 			return nil
 		end
-		local data = teleportData :: Raw
+		local data = assert(Value.raw(teleportData))
 		if data.contract ~= CARRIER_CONTRACT or type(data.carriers) ~= "table" then
 			return nil
 		end
-		return (data.carriers :: Raw)[tostring(userId)]
+		return assert(Value.raw(data.carriers))[tostring(userId)]
 	end
-
-	Core.Types = (nil :: unknown) :: { Record: Record, Member: Member, Target: Target, Transform: Transform }
 
 	Core.SCHEMA_VERSION = SCHEMA_VERSION
 	Core.RECORD_TTL_SEC = RECORD_TTL_SEC

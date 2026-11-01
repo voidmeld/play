@@ -2,6 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Lease = require("./account-lease")
+local Value = require("../internal/value")
 
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
@@ -36,7 +37,7 @@ return function(suite: Verify.Harness)
 		end)
 
 		it("renews without changing its fence and releases only exact ownership", function()
-			local acquired = Lease.acquire(nil, 101, "session", "acquisition", 100, 180) :: Record
+			local acquired = (Lease.acquire(nil, 101, "session", "acquisition", 100, 180))
 			local renewed, renewStatus = Lease.renew(acquired, 101, "session", "acquisition", 1, 1, 120, 180)
 			expect(renewStatus):toBe("renewed")
 			assert(renewed ~= nil, "renewed lease missing")
@@ -56,14 +57,14 @@ return function(suite: Verify.Harness)
 		end)
 
 		it("classifies stale, expired, foreign, absent, and exhausted records without mutation", function()
-			local active = Lease.acquire(nil, 101, "session", "acquisition", 100, 20) :: Record
+			local active = (Lease.acquire(nil, 101, "session", "acquisition", 100, 20))
 			local before = Lease.copy(active)
 			expect(select(2, Lease.renew(active, 101, "session", "acquisition", 0, 1, 101, 20))):toBe("stale")
 			expect(select(2, Lease.renew(active, 101, "session", "acquisition", 1, 1, 120, 20))):toBe("expired")
 			expect(select(2, Lease.release(active, 202, "session", "acquisition", 1, 1))):toBe("identity_mismatch")
 			expect(select(2, Lease.renew(nil, 101, "session", "acquisition", 1, 1, 100, 20))):toBe("absent")
 			expect(Lease.equal(active, before)):toBe(true)
-			local maximum = table.clone(active)
+			local maximum = assert(Value.raw(active))
 			maximum.revision = Lease.MAX_REVISION
 			maximum.fence = Lease.MAX_FENCE
 			maximum.expiresAtUnix = 100
@@ -76,7 +77,7 @@ return function(suite: Verify.Harness)
 		it(
 			"refuses a release or renewal that does not name the exact session, acquisition, fence, and revision",
 			function()
-				local acquired = Lease.acquire(nil, 101, "session", "acquisition", 100, 180) :: Record
+				local acquired = (Lease.acquire(nil, 101, "session", "acquisition", 100, 180))
 				expect(select(2, Lease.release(acquired, 101, "foreign", "acquisition", 1, 1))):toBe("not_owned")
 				expect(select(2, Lease.release(acquired, 101, "session", "foreign", 1, 1))):toBe("not_owned")
 				expect(select(2, Lease.release(acquired, 101, "session", "acquisition", 1, 2))):toBe("not_owned")
@@ -89,64 +90,64 @@ return function(suite: Verify.Harness)
 		)
 
 		it("exhausts an acquisition on a spent fence and on a spent revision independently", function()
-			local active = Lease.acquire(nil, 101, "session", "acquisition", 100, 20) :: Record
-			local spentFence = table.clone(active)
+			local active = (Lease.acquire(nil, 101, "session", "acquisition", 100, 20))
+			local spentFence = assert(Value.raw(active))
 			spentFence.fence = Lease.MAX_FENCE
 			spentFence.expiresAtUnix = 100
 			expect(select(2, Lease.acquire(spentFence, 101, "next", "next", 100, 20))):toBe("exhausted")
-			local spentRevision = table.clone(active)
+			local spentRevision = assert(Value.raw(active))
 			spentRevision.revision = Lease.MAX_REVISION
 			spentRevision.expiresAtUnix = 100
 			expect(select(2, Lease.acquire(spentRevision, 101, "next", "next", 100, 20))):toBe("exhausted")
 		end)
 
 		it("rejects sparse, extra, unsafe, nonfinite, and contradictory carriers", function()
-			local valid = (Lease.empty(101) :: unknown) :: Raw
+			local valid = (Lease.empty(101))
 			for _, edit in
 				{
-					function(value)
+					function(value: Raw)
 						value.schemaVersion = 2
 					end,
-					function(value)
+					function(value: Raw)
 						value.userId = 9007199254740992
 					end,
-					function(value)
+					function(value: Raw)
 						value.revision = math.nan
 					end,
-					function(value)
+					function(value: Raw)
 						value.fence = math.huge
 					end,
-					function(value)
+					function(value: Raw)
 						value.sessionId = "session"
 					end,
-					function(value)
+					function(value: Raw)
 						value.extra = true
 					end,
-				} :: { (Raw) -> () }
+				}
 			do
-				local changed = table.clone(valid)
+				local changed = assert(Value.raw(valid))
 				edit(changed)
 				expect(Lease.validate(changed)):toBeNil()
 			end
-			local sparse = table.clone(valid)
+			local sparse = assert(Value.raw(valid))
 			sparse.acquisitionId = nil
 			expect(Lease.validate(sparse)):toBeNil()
-			local meta = table.clone(valid)
+			local meta = assert(Value.raw(valid))
 			setmetatable(meta, {})
 			expect(Lease.validate(meta)):toBeNil()
 		end)
 
 		it("fails invalid requests before transitions and preserves detached immutable outputs", function()
-			local current = Lease.acquire(nil, 101, "session", "acquisition", 100, 20) :: Record
+			local current = (Lease.acquire(nil, 101, "session", "acquisition", 100, 20))
 			for _, value in { math.nan, math.huge, -1, 9007199254740992 } do
 				expect(select(2, Lease.acquire(current, 101, "session", "acquisition", value, 20))):toBe("invalid")
 			end
 			expect(select(2, Lease.acquire(current, 101, "", "acquisition", 100, 20))):toBe("invalid")
-			local copy = Lease.copy(current)
+			local copy = assert(Lease.copy(current))
 			expect(copy).never:toBe(current)
 			expect(Lease.equal(copy, current)):toBe(true)
 			expect(function()
-				(copy :: Record).revision = 5
+				(copy).revision = 5
 			end):toThrow()
 		end)
 	end)

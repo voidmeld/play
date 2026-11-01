@@ -21,11 +21,11 @@ local function finite(value: unknown): boolean
 end
 
 local function normalized(value: unknown): boolean
-	return finite(value) and (value :: number) >= 0 and (value :: number) <= 1
+	return (type(value) == "number" and finite(value)) and value >= 0 and value <= 1
 end
 
 local function oversizedScale(value: unknown): boolean
-	return finite(value) and (value :: number) > 1
+	return (type(value) == "number" and finite(value)) and value > 1
 end
 
 local function project(
@@ -36,16 +36,16 @@ local function project(
 	imageScale: unknown
 ): MarkerProjection?
 	if
-		not normalized(playerU)
-		or not normalized(playerV)
-		or not normalized(markerU)
-		or not normalized(markerV)
-		or not oversizedScale(imageScale)
+		not (type(playerU) == "number" and normalized(playerU))
+		or not (type(playerV) == "number" and normalized(playerV))
+		or not (type(markerU) == "number" and normalized(markerU))
+		or not (type(markerV) == "number" and normalized(markerV))
+		or not (type(imageScale) == "number" and oversizedScale(imageScale))
 	then
 		return nil
 	end
-	local x = 0.5 + ((markerU :: number) - (playerU :: number)) * (imageScale :: number)
-	local y = 0.5 + ((markerV :: number) - (playerV :: number)) * (imageScale :: number)
+	local x = 0.5 + (markerU - playerU) * imageScale
+	local y = 0.5 + (markerV - playerV) * imageScale
 	local deltaX = x - 0.5
 	local deltaY = y - 0.5
 	local distance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
@@ -58,12 +58,16 @@ local function project(
 end
 
 function MinimapGeometry.imagePan(playerU: unknown, playerV: unknown, imageScale: unknown): PanOffset?
-	if not normalized(playerU) or not normalized(playerV) or not oversizedScale(imageScale) then
+	if
+		not (type(playerU) == "number" and normalized(playerU))
+		or not (type(playerV) == "number" and normalized(playerV))
+		or not (type(imageScale) == "number" and oversizedScale(imageScale))
+	then
 		return nil
 	end
 	return {
-		x = 0.5 - (playerU :: number) * (imageScale :: number),
-		y = 0.5 - (playerV :: number) * (imageScale :: number),
+		x = 0.5 - playerU * imageScale,
+		y = 0.5 - playerV * imageScale,
 	}
 end
 

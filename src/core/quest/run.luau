@@ -1,5 +1,6 @@
 --!strict
-type Raw = { [unknown]: unknown }
+local Value = require("../internal/value")
+type Raw = Value.Raw
 
 export type Package = {
 	id: string,
@@ -86,6 +87,12 @@ export type TransitionRejected = {
 
 export type TransitionResult = TransitionApplied | TransitionRejected
 
+export type Core = {
+	transition: (unknown, unknown, unknown, unknown) -> TransitionResult,
+	projectRunState: (unknown, unknown) -> RunState?,
+	Reason: { [string]: string },
+}
+
 export type Config<P> = {
 	readPackage: (unknown) -> P?,
 	describe: (P) -> Package,
@@ -96,7 +103,7 @@ export type Config<P> = {
 }
 local SCHEMA_VERSION = 1
 local System = {}
-function System.run<P>(config: Config<P>)
+function System.run<P>(config: Config<P>): Core
 	local RUN_FIELDS: { [string]: boolean } = {
 		schemaVersion = true,
 		expeditionId = true,
@@ -149,7 +156,7 @@ function System.run<P>(config: Config<P>)
 		memberIds = true,
 	}
 
-	local Reason = table.freeze({
+	local Reason: { [string]: string } = {
 		invalidPackage = "invalid_package",
 		invalidState = "invalid_state",
 		invalidEvent = "invalid_event",
@@ -178,25 +185,22 @@ function System.run<P>(config: Config<P>)
 		runAlreadyRewarded = "run_already_rewarded",
 		receiptStateMismatch = "receipt_state_mismatch",
 		personalTransactionRejected = "personal_transaction_rejected",
-	})
+	}
+	table.freeze(Reason)
 
 	local function finite(value: unknown): boolean
 		return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 	end
 
 	local function whole(value: unknown): boolean
-		return finite(value) and (value :: number) >= 0 and value == math.floor(value :: number)
-	end
-
-	local function nonempty(value: unknown): boolean
-		return type(value) == "string" and #value > 0
+		return (type(value) == "number" and finite(value)) and value >= 0 and value == math.floor(value)
 	end
 
 	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: Raw do
+		for key in value do
 			if type(key) ~= "string" or not fields[key] then
 				return false
 			end
@@ -204,50 +208,19 @@ function System.run<P>(config: Config<P>)
 		return true
 	end
 
-	local function denseLength(value: unknown): number?
-		if type(value) ~= "table" then
-			return nil
-		end
-		local count = 0
-		for key in value :: Raw do
-			if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-				return nil
-			end
-			count += 1
-		end
-		for index = 1, count do
-			if (value :: Raw)[index] == nil then
-				return nil
-			end
-		end
-		return count
-	end
-
-	local function deepFreezeCopy<T>(value: T): T
-		local probe: unknown = value
-		if type(probe) ~= "table" then
-			return value
-		end
-		local result: { [unknown]: unknown } = {}
-		for key, child in (value :: unknown) :: { [unknown]: unknown } do
-			result[deepFreezeCopy(key)] = deepFreezeCopy(child)
-		end
-		return (table.freeze(result) :: unknown) :: T
-	end
-
 	local function sortedUniqueStrings(value: unknown, minimum: number?): { string }?
-		local count = denseLength(value)
-		if count == nil or count < (minimum or 0) then
+		local rows = Value.dense(value, math.huge, false)
+		if rows == nil or #rows < (minimum or 0) then
 			return nil
 		end
 		local result: { string } = {}
 		local seen: { [string]: boolean } = {}
-		for _, id in value :: { unknown } do
-			if not nonempty(id) or seen[id :: string] then
+		for _, id in rows do
+			if type(id) ~= "string" or id == "" or seen[id] then
 				return nil
 			end
-			seen[id :: string] = true
-			result[#result + 1] = id :: string
+			seen[id] = true
+			table.insert(result, id)
 		end
 		table.sort(result)
 		return result
@@ -291,183 +264,226 @@ function System.run<P>(config: Config<P>)
 	end
 
 	local function copyRunState(value: unknown, package: P): RunState?
-		if not hasOnlyFields(value, RUN_FIELDS) then
+		local source = Value.record(value, RUN_FIELDS, false, false)
+		if source == nil then
 			return nil
 		end
-		local source = value :: RunState
+		local runId = source.runId
+		local revision = source.revision
+		local started = source.startedAtSec
+		local clock = source.lastClockSec
+		local status = source.status
+		local phase = source.phaseIndex
+		local checkpoint = source.checkpointId
+		local attempt = source.attempt
+		local leader = source.leaderId
+		local description = config.describe(package)
 		if
 			source.schemaVersion ~= SCHEMA_VERSION
-			or source.expeditionId ~= config.describe(package).id
-			or not nonempty(source.runId)
-			or not whole(source.revision)
-			or source.revision < 1
-			or not finite(source.startedAtSec)
-			or source.startedAtSec < 0
-			or not finite(source.lastClockSec)
-			or source.lastClockSec < source.startedAtSec
-			or (source.status ~= "active" and source.status ~= "completed")
-			or not whole(source.phaseIndex)
-			or source.phaseIndex < 1
-			or source.phaseIndex > #config.describe(package).phases
-			or not whole(source.attempt)
-			or source.attempt < 1
-			or not nonempty(source.leaderId)
+			or source.expeditionId ~= description.id
+			or type(runId) ~= "string"
+			or runId == ""
+			or type(revision) ~= "number"
+			or not (type(revision) == "number" and whole(revision))
+			or revision < 1
+			or type(started) ~= "number"
+			or not (type(started) == "number" and finite(started))
+			or started < 0
+			or type(clock) ~= "number"
+			or not (type(clock) == "number" and finite(clock))
+			or clock < started
+			or (status ~= "active" and status ~= "completed")
+			or type(phase) ~= "number"
+			or not (type(phase) == "number" and whole(phase))
+			or phase < 1
+			or phase > #description.phases
+			or (checkpoint ~= nil and type(checkpoint) ~= "string")
+			or type(attempt) ~= "number"
+			or not (type(attempt) == "number" and whole(attempt))
+			or attempt < 1
+			or type(leader) ~= "string"
+			or leader == ""
 		then
 			return nil
 		end
-		local memberCount = denseLength(source.members)
-		if
-			memberCount == nil
-			or memberCount < config.describe(package).group.minPlayers
-			or memberCount > config.describe(package).group.maxPlayers
-		then
+		local rows = Value.dense(source.members, description.group.maxPlayers, false)
+		if rows == nil or #rows < description.group.minPlayers then
 			return nil
 		end
 		local members: { Member } = {}
 		local priorId: string? = nil
 		local leaderConnected = false
-		for _, row in source.members do
+		for _, raw in rows do
+			local row = Value.record(raw, MEMBER_FIELDS, false, false)
+			if row == nil then
+				return nil
+			end
+			local id, connected, departed, disconnected = row.id, row.connected, row.departed, row.disconnectedAtSec
 			if
-				not hasOnlyFields(row, MEMBER_FIELDS)
-				or not nonempty(row.id)
-				or type(row.connected) ~= "boolean"
-				or type(row.departed) ~= "boolean"
-				or (row.connected and (row.disconnectedAtSec ~= nil or row.departed))
-				or (not row.connected and (not finite(row.disconnectedAtSec) or row.disconnectedAtSec == nil or row.disconnectedAtSec < source.startedAtSec or row.disconnectedAtSec > source.lastClockSec))
-				or (priorId ~= nil and row.id <= priorId)
+				type(id) ~= "string"
+				or id == ""
+				or type(connected) ~= "boolean"
+				or type(departed) ~= "boolean"
+				or (disconnected ~= nil and type(disconnected) ~= "number")
+				or (connected and (disconnected ~= nil or departed))
+				or (not connected and (disconnected == nil or not (type(disconnected) == "number" and finite(
+					disconnected
+				)) or disconnected < started or disconnected > clock))
+				or (priorId ~= nil and id <= priorId)
 			then
 				return nil
 			end
-			priorId = row.id
-			if row.id == source.leaderId then
-				leaderConnected = row.connected
+			priorId = id
+			if id == leader then
+				leaderConnected = connected
 			end
-			members[#members + 1] = {
-				id = row.id,
-				connected = row.connected,
-				disconnectedAtSec = row.disconnectedAtSec,
-				departed = row.departed,
-			}
+			table.insert(
+				members,
+				{ id = id, connected = connected, departed = departed, disconnectedAtSec = disconnected }
+			)
 		end
-		if not leaderConnected or not config.validCheckpoint(package, source) then
-			return nil
-		end
-		if type(source.receipts) ~= "table" then
+		local rawReceipts = Value.raw(source.receipts)
+		if rawReceipts == nil then
 			return nil
 		end
 		local receipts: { [string]: string } = {}
-		local receiptCount = 0
-		for eventId, fingerprint in source.receipts do
-			if not nonempty(eventId) or not nonempty(fingerprint) then
+		local count = 0
+		for id, fingerprint in rawReceipts do
+			if type(id) ~= "string" or id == "" or type(fingerprint) ~= "string" or fingerprint == "" then
 				return nil
 			end
-			local eventIdString = eventId
-			local fingerprintString = fingerprint
-			receiptCount += 1
-			receipts[eventIdString] = fingerprintString
+			receipts[id] = fingerprint
+			count += 1
 		end
-		if receiptCount ~= source.revision then
+		if count ~= revision or not leaderConnected then
 			return nil
 		end
-		local expeditionId = source.expeditionId
-		local runId = source.runId
-		local revision = source.revision
-		local startedAtSec = source.startedAtSec
-		local lastClockSec = source.lastClockSec
-		local status: RunStatus
-		if source.status == "active" then
-			status = "active"
-		else
-			status = "completed"
-		end
-		local phaseIndex = source.phaseIndex
-		local checkpointId = source.checkpointId :: string?
-		local attempt = source.attempt
-		local leaderId = source.leaderId
-		local copiedState: RunState = {
+		local state: RunState = {
 			schemaVersion = SCHEMA_VERSION,
-			expeditionId = expeditionId,
+			expeditionId = description.id,
 			runId = runId,
 			revision = revision,
-			startedAtSec = startedAtSec,
-			lastClockSec = lastClockSec,
+			startedAtSec = started,
+			lastClockSec = clock,
 			status = status,
-			phaseIndex = phaseIndex,
-			checkpointId = checkpointId,
+			phaseIndex = phase,
+			checkpointId = checkpoint,
 			attempt = attempt,
-			leaderId = leaderId,
+			leaderId = leader,
 			members = members,
 			receipts = receipts,
 		}
-		return copiedState
+		return if config.validCheckpoint(package, state) then state else nil
 	end
 
-	local function validEvent(value: unknown): boolean
-		if type(value) ~= "table" then
-			return false
+	local function readEvent(value: unknown): Event?
+		local event = Value.raw(value)
+		if event == nil then
+			return nil
 		end
-		local event = value :: Event
-		if not nonempty(event.eventId) then
-			return false
+		local eventId = event.eventId
+		if type(eventId) ~= "string" or eventId == "" then
+			return nil
 		end
-		if event.kind == "start" then
-			local memberIds = sortedUniqueStrings(event.memberIds, 1)
-			return hasOnlyFields(event, START_FIELDS)
-				and nonempty(event.runId)
-				and nonempty(event.leaderId)
-				and memberIds ~= nil
-				and #memberIds <= config.maxMembers
-				and table.find(memberIds, event.leaderId) ~= nil
-		elseif event.kind == "complete_phase" then
-			return hasOnlyFields(event, COMPLETE_FIELDS) and whole(event.expectedRevision) and nonempty(event.phaseId)
+		local kind = event.kind
+		if kind == "start" then
+			local members = sortedUniqueStrings(event.memberIds, 1)
+			local runId, leader = event.runId, event.leaderId
+			if
+				not hasOnlyFields(value, START_FIELDS)
+				or type(runId) ~= "string"
+				or runId == ""
+				or type(leader) ~= "string"
+				or leader == ""
+				or members == nil
+				or #members > config.maxMembers
+				or table.find(members, leader) == nil
+			then
+				return nil
+			end
+			local result: StartEvent =
+				{ kind = "start", eventId = eventId, runId = runId, leaderId = leader, memberIds = members }
+			return result
+		end
+		local revision = event.expectedRevision
+		if type(revision) ~= "number" or not (type(revision) == "number" and whole(revision)) then
+			return nil
+		end
+		if kind == "complete_phase" then
+			local phase = event.phaseId
+			if not hasOnlyFields(value, COMPLETE_FIELDS) or type(phase) ~= "string" or phase == "" then
+				return nil
+			end
+			local result: CompletePhaseEvent =
+				{ kind = "complete_phase", eventId = eventId, expectedRevision = revision, phaseId = phase }
+			return result
+		elseif kind == "wipe" then
+			local members = sortedUniqueStrings(event.memberIds, 1)
+			if not hasOnlyFields(value, WIPE_FIELDS) or members == nil then
+				return nil
+			end
+			local result: WipeEvent =
+				{ kind = "wipe", eventId = eventId, expectedRevision = revision, memberIds = members }
+			return result
 		elseif
-			event.kind == "disconnect"
-			or event.kind == "reconnect"
-			or event.kind == "leader_departure"
-			or event.kind == "depart"
+			kind == "disconnect"
+			or kind == "reconnect"
+			or kind == "leader_departure"
+			or kind == "depart"
+			or kind == "replace"
 		then
-			return hasOnlyFields(event, MEMBER_EVENT_FIELDS)
-				and whole(event.expectedRevision)
-				and nonempty(event.memberId)
-		elseif event.kind == "replace" then
-			return hasOnlyFields(
-				event,
-				{ kind = true, eventId = true, expectedRevision = true, memberId = true, replacementId = true }
-			) and whole(event.expectedRevision) and nonempty(event.memberId) and nonempty(event.replacementId)
-		elseif event.kind == "wipe" then
-			return hasOnlyFields(event, WIPE_FIELDS)
-				and whole(event.expectedRevision)
-				and sortedUniqueStrings(event.memberIds, 1) ~= nil
+			local member = event.memberId
+			local replacement = event.replacementId
+			local fields = if kind == "replace"
+				then { kind = true, eventId = true, expectedRevision = true, memberId = true, replacementId = true }
+				else MEMBER_EVENT_FIELDS
+			if
+				not hasOnlyFields(value, fields)
+				or type(member) ~= "string"
+				or member == ""
+				or (replacement ~= nil and type(replacement) ~= "string")
+				or (kind == "replace" and (replacement == nil or replacement == ""))
+			then
+				return nil
+			end
+			local result: MemberEvent = {
+				kind = kind,
+				eventId = eventId,
+				expectedRevision = revision,
+				memberId = member,
+				replacementId = replacement,
+			}
+			return result
 		end
-		return false
+		return nil
 	end
 
 	local function eventFingerprint(event: Event): string
 		if event.kind == "replace" then
-			return segment(event.kind) .. segment(event.memberId) .. segment(event.replacementId :: string)
+			return segment(event.kind) .. segment(event.memberId) .. segment(assert(event.replacementId))
 		elseif event.kind == "start" then
-			local members = sortedUniqueStrings(event.memberIds, 1) :: { string }
+			local members = assert(sortedUniqueStrings(event.memberIds, 1))
 			return segment(event.kind) .. segment(event.runId) .. segment(event.leaderId) .. stringListSegment(members)
 		elseif event.kind == "complete_phase" then
 			return segment(event.kind) .. segment(event.phaseId)
 		elseif event.kind == "wipe" then
-			local members = sortedUniqueStrings(event.memberIds, 1) :: { string }
+			local members = assert(sortedUniqueStrings(event.memberIds, 1))
 			return segment(event.kind) .. stringListSegment(members)
 		end
 		return segment(event.kind) .. segment(event.memberId)
 	end
 
 	local function rejectedTransition(state: RunState?, reason: string): TransitionRejected
-		return deepFreezeCopy({ ok = false :: false, state = state, reason = reason }) :: TransitionRejected
+		return (Value.freezeDeep({ ok = false, state = state, reason = reason }))
 	end
 
 	local function appliedTransition(state: RunState, replayed: boolean, recovery: Recovery?): TransitionApplied
-		return deepFreezeCopy({
-			ok = true :: true,
+		return (Value.freezeDeep({
+			ok = true,
 			state = state,
 			replayed = replayed,
 			recovery = recovery,
-		}) :: TransitionApplied
+		}))
 	end
 
 	local function connectedMemberIds(state: RunState): { string }
@@ -494,7 +510,7 @@ function System.run<P>(config: Config<P>)
 	end
 
 	local function startRun(package: P, event: StartEvent, nowSec: number): TransitionResult
-		local memberIds = sortedUniqueStrings(event.memberIds, 1) :: { string }
+		local memberIds = assert(sortedUniqueStrings(event.memberIds, 1))
 		if #memberIds < config.describe(package).group.minPlayers then
 			return rejectedTransition(nil, "group_too_small")
 		end
@@ -634,7 +650,7 @@ function System.run<P>(config: Config<P>)
 		if state.status ~= "active" then
 			return Reason.runNotActive
 		end
-		local wiped = sortedUniqueStrings(event.memberIds, 1) :: { string }
+		local wiped = assert(sortedUniqueStrings(event.memberIds, 1))
 		if not sameStrings(wiped, connectedMemberIds(state)) then
 			return Reason.wipeRosterMismatch
 		end
@@ -653,19 +669,23 @@ function System.run<P>(config: Config<P>)
 		if package == nil then
 			return rejectedTransition(nil, Reason.invalidPackage)
 		end
-		if not validEvent(eventValue) then
+		local event = readEvent(eventValue)
+		if event == nil then
 			return rejectedTransition(nil, Reason.invalidEvent)
 		end
-		if not finite(nowSecValue) or (nowSecValue :: number) < 0 then
+		if
+			type(nowSecValue) ~= "number"
+			or not (type(nowSecValue) == "number" and finite(nowSecValue))
+			or nowSecValue < 0
+		then
 			return rejectedTransition(nil, Reason.invalidClock)
 		end
-		local event = eventValue :: Event
-		local nowSec = nowSecValue :: number
+		local nowSec = nowSecValue
 		if previousStateValue == nil then
 			if event.kind ~= "start" then
 				return rejectedTransition(nil, Reason.missingState)
 			end
-			return startRun(package, event :: StartEvent, nowSec)
+			return startRun(package, event, nowSec)
 		end
 
 		local state = copyRunState(previousStateValue, package)
@@ -693,9 +713,9 @@ function System.run<P>(config: Config<P>)
 		local reason: string? = nil
 		local recovery: Recovery? = nil
 		if event.kind == "complete_phase" then
-			reason = applyCompletePhase(package, state, event :: CompletePhaseEvent)
+			reason = applyCompletePhase(package, state, event)
 		elseif event.kind == "disconnect" then
-			reason = applyDisconnect(state, event :: MemberEvent, nowSec)
+			reason = applyDisconnect(state, event, nowSec)
 		elseif event.kind == "replace" then
 			local index = memberIndex(state.members, event.memberId)
 			local prior = if index ~= nil then state.members[index] else nil
@@ -715,17 +735,20 @@ function System.run<P>(config: Config<P>)
 					end
 				end
 				if reason == nil then
-					state.members[index :: number] =
-						{ id = event.replacementId :: string, connected = true, departed = false }
+					state.members[assert(index)] = {
+						id = event.replacementId or error("validated replacement missing"),
+						connected = true,
+						departed = false,
+					}
 					table.sort(state.members, function(left: Member, right: Member): boolean
 						return left.id < right.id
 					end)
 				end
 			end
 		elseif event.kind == "depart" then
-			reason = applyDepart(state, event :: MemberEvent, nowSec)
+			reason = applyDepart(state, event, nowSec)
 		elseif event.kind == "reconnect" then
-			reason = applyReconnect(package, state, event :: MemberEvent, nowSec)
+			reason = applyReconnect(package, state, event, nowSec)
 			if reason == nil then
 				recovery = {
 					kind = "reconnect",
@@ -734,7 +757,7 @@ function System.run<P>(config: Config<P>)
 				}
 			end
 		elseif event.kind == "leader_departure" then
-			reason = applyLeaderDeparture(state, event :: MemberEvent, nowSec)
+			reason = applyLeaderDeparture(state, event, nowSec)
 			if reason == nil then
 				recovery = {
 					kind = "leader_departure",
@@ -743,7 +766,7 @@ function System.run<P>(config: Config<P>)
 				}
 			end
 		else
-			reason = applyWipe(package, state, event :: WipeEvent)
+			reason = applyWipe(package, state, event)
 			if reason == nil then
 				recovery = {
 					kind = "wipe",
@@ -753,7 +776,8 @@ function System.run<P>(config: Config<P>)
 			end
 		end
 		if reason ~= nil then
-			return rejectedTransition(state, reason :: string)
+			local rejected: TransitionRejected = { ok = false, state = state, reason = tostring(reason) }
+			return Value.freezeDeep(rejected)
 		end
 		commitEvent(state, event, fingerprint, nowSec)
 		return appliedTransition(state, false, recovery)
@@ -765,8 +789,9 @@ function System.run<P>(config: Config<P>)
 			return nil
 		end
 		local state = copyRunState(stateValue, package)
-		return if state == nil then nil else deepFreezeCopy(state)
+		return if state == nil then nil else Value.freezeDeep(state)
 	end
-	return table.freeze({ transition = transition, projectRunState = projectRunState, Reason = Reason })
+	local core: Core = { transition = transition, projectRunState = projectRunState, Reason = Reason }
+	return Value.freezeDeep(core)
 end
 return table.freeze(System)

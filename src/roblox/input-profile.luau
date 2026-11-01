@@ -48,10 +48,10 @@ local function validAction(value: unknown): boolean
 	if type(value) ~= "table" then
 		return false
 	end
-	local row = value :: { [string]: unknown }
-	return nonempty(row.id)
-		and nonempty(row.keyboard)
-		and nonempty(row.gamepad)
+	local row = assert(Value.raw(value))
+	return (type(row.id) == "string" and nonempty(row.id))
+		and (type(row.keyboard) == "string" and nonempty(row.keyboard))
+		and (type(row.gamepad) == "string" and nonempty(row.gamepad))
 		and type(row.touch) == "string"
 		and TOUCH_AFFORDANCES[row.touch] == true
 end
@@ -69,23 +69,23 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 		if type(profile) ~= "table" or (device ~= "keyboard" and device ~= "gamepad" and device ~= "touch") then
 			return reached
 		end
-		local fields = profile :: { [string]: unknown }
+		local fields = assert(Value.raw(profile))
 		if type(fields.actions) ~= "table" then
 			return reached
 		end
-		for _, value in fields.actions :: { unknown } do
+		for _, value in fields.actions do
 			if type(value) == "table" then
-				local action = value :: { [string]: unknown }
+				local action = assert(Value.raw(value))
 				local binding = action[if device == "keyboard"
 					then "keyboard"
 					elseif device == "gamepad" then "gamepad"
 					else "touch"]
 				if
-					nonempty(action.id)
-					and nonempty(binding)
-					and (device ~= "touch" or TOUCH_AFFORDANCES[binding :: string])
+					(type(action.id) == "string" and nonempty(action.id))
+					and (type(binding) == "string" and nonempty(binding))
+					and (device ~= "touch" or TOUCH_AFFORDANCES[binding])
 				then
-					table.insert(reached, action.id :: string)
+					table.insert(reached, action.id)
 				end
 			end
 		end
@@ -97,7 +97,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 		if type(profile) ~= "table" then
 			return false
 		end
-		local actions = (profile :: { [string]: unknown }).actions
+		local actions = assert(Value.raw(profile)).actions
 		if type(actions) ~= "table" or #actions == 0 then
 			return false
 		end
@@ -113,29 +113,29 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 		if type(profile) ~= "table" or type(hosts) ~= "table" then
 			return false
 		end
-		local fields = profile :: { [string]: unknown }
+		local fields = assert(Value.raw(profile))
 		if type(fields.actions) ~= "table" then
 			return false
 		end
 		local remaining: { [string]: boolean } = {}
 		local count = 0
-		for _, value in fields.actions :: { unknown } do
+		for _, value in fields.actions do
 			if not validAction(value) then
 				return false
 			end
-			local action = value :: Action
-			if remaining[action.id] ~= nil then
+			local action = assert(Value.raw(value))
+			if remaining[assert(Value.opaque(action.id, math.huge))] ~= nil then
 				return false
 			end
-			remaining[action.id] = true
+			remaining[assert(Value.opaque(action.id, math.huge))] = true
 			count += 1
 		end
 		local claimed = 0
-		for _, owned in hosts :: { unknown } do
+		for _, owned in hosts do
 			if type(owned) ~= "table" then
 				return false
 			end
-			for _, id in owned :: { unknown } do
+			for _, id in owned do
 				if type(id) ~= "string" or id == "" or remaining[id] ~= true then
 					return false
 				end
@@ -170,16 +170,16 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 
 	type Dependencies = {
 		profile: unknown,
-		owns: { unknown },
-		bind: (Action, boolean, (Device) -> ()) -> () -> (),
-		thumbstick: (({ x: number, y: number }) -> ()) -> () -> (),
-		dispatch: (string, Device) -> (),
-		intent: ({ x: number, y: number }, Device) -> (),
+		owns: { string }?,
+		bind: ((Action, boolean, (Device) -> ()) -> () -> ()) | false | nil,
+		thumbstick: ((({ x: number, y: number }) -> ()) -> () -> ()) | false | nil,
+		dispatch: ((string, Device) -> ()) | false | nil,
+		intent: (({ x: number, y: number }, Device) -> ()) | false | nil,
 	}
 
-	function Input.start(rawDependencies: unknown): Session
-		local fields = Value.record(rawDependencies, DEPENDENCY_FIELDS, true)
-		if fields == nil then
+	function Input.start(rawDependencies: Dependencies): Session
+		local fields = rawDependencies
+		if Value.record(fields, DEPENDENCY_FIELDS, true) == nil then
 			return refusal("dependencies_invalid")
 		end
 		local profile = Input.profile(fields.profile)
@@ -198,7 +198,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 		then
 			return refusal("dependencies_invalid")
 		end
-		local dependencies = (fields :: unknown) :: Dependencies
+		local dependencies = fields
 		local owned: { Action } = {}
 		local byId: { [string]: Action } = {}
 		for _, id in dependencies.owns do
@@ -238,7 +238,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 			if type(vector) ~= "table" then
 				return false
 			end
-			local fields = vector :: { [unknown]: unknown }
+			local fields = assert(Value.raw(vector))
 			if type(fields.x) ~= "number" or type(fields.y) ~= "number" then
 				return false
 			end

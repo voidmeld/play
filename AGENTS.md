@@ -27,3 +27,6 @@ CI runs the same gate on every pull request and push.
 
 Use author and committer `voidmeld <158495725+voidmeld@users.noreply.github.com>`.
 Add no attribution trailers.
+
+Every maintained Luau file requires `--!strict`, zero explicit `any` and zero type assertions
+(`::`), including concrete casts. The required gate rejects violations without a baseline or exemptions.

@@ -3,7 +3,7 @@ local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Credit = require("./standing-credit")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 local function fixture()
-	local state = { now = 0, authority = true, ready = true, totals = {} :: { [string]: number } }
+	local state = { now = 0, authority = true, ready = true, totals = {} }
 	local delivery = Credit.create({
 		clock = function()
 			return state.now

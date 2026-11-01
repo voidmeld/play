@@ -55,6 +55,10 @@ export type GatherEntry = WorkMetadata & { kind: "gather", payload: GatherPayloa
 export type SkinEntry = WorkMetadata & { kind: "skin", payload: SkinPayload }
 export type CraftEntry = WorkMetadata & { kind: "craft", payload: CraftPayload }
 export type WorkEntry = GatherEntry | SkinEntry | CraftEntry
+type WorkRequest =
+	{ kind: "gather", payload: GatherPayload }
+	| { kind: "skin", payload: SkinPayload }
+	| { kind: "craft", payload: CraftPayload }
 export type RecipeView = {
 	id: string,
 	name: string,
@@ -255,7 +259,7 @@ function Service.decodeIntent(action: unknown, arg: unknown, extra: unknown): In
 	if type(extra) ~= "string" and extra ~= nil then
 		return nil
 	end
-	return { action = action, arg = arg :: string?, extra = extra :: string? }
+	return { action = action, arg = arg, extra = extra }
 end
 
 function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy<F & Fields, X>): Handle<P>
@@ -338,7 +342,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 	end
 
 	local function result(player: P, action: string, ok: boolean, reason: string?, extra: ResultExtras?)
-		local payload: ResultMessage = { kind = "result" :: "result", action = action, ok = ok, reason = reason }
+		local payload: ResultMessage = { kind = "result", action = action, ok = ok, reason = reason }
 		if extra ~= nil then
 			payload.yields = extra.yields
 			payload.produced = extra.produced
@@ -601,7 +605,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 									profession = professionId,
 									status = (if entry.status == "learnable" and profile.gold < entry.cost
 										then "cannot_afford"
-										else entry.status) :: string,
+										else entry.status),
 									cost = entry.cost,
 									requiredSkill = entry.recipe.requiredSkill,
 									preview = lessonPreview(entry.recipe),
@@ -670,7 +674,8 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		lines[player] = nil
 	end
 
-	local function begin(player: P, kind: WorkKind, key: string, duration: number, payload: WorkPayload): boolean
+	local function begin(player: P, work: WorkRequest, key: string, duration: number): boolean
+		local kind = work.kind
 		local sample = sampleOf(player)
 		if sample == nil then
 			result(player, kind, false, "unavailable", nil)
@@ -683,23 +688,18 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		end
 		cancelFishing(player)
 		local receipt = trackReceipt()
-		if kind == "gather" then
-			active[player] = {
-				session = session,
-				kind = "gather" :: "gather",
-				payload = payload :: GatherPayload,
-				trackReceipt = receipt,
-			}
-		elseif kind == "skin" then
-			active[player] =
-				{ session = session, kind = "skin" :: "skin", payload = payload :: SkinPayload, trackReceipt = receipt }
+		if work.kind == "gather" then
+			local entry: GatherEntry =
+				{ session = session, kind = "gather", payload = work.payload, trackReceipt = receipt }
+			active[player] = entry
+		elseif work.kind == "skin" then
+			local entry: SkinEntry =
+				{ session = session, kind = "skin", payload = work.payload, trackReceipt = receipt }
+			active[player] = entry
 		else
-			active[player] = {
-				session = session,
-				kind = "craft" :: "craft",
-				payload = payload :: CraftPayload,
-				trackReceipt = receipt,
-			}
+			local entry: CraftEntry =
+				{ session = session, kind = "craft", payload = work.payload, trackReceipt = receipt }
+			active[player] = entry
 		end
 		say(player, { kind = "cast", action = kind, key = key, duration = duration, endsAt = session.endsAt })
 		return true
@@ -707,10 +707,10 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 
 	local function finishGather(player: P, entry: GatherEntry)
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local nodeKind = entry.payload.nodeKind
 		local nodeId = entry.payload.nodeId
 		local at = now()
@@ -756,10 +756,10 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 
 	local function finishSkin(player: P, entry: SkinEntry)
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local key = entry.payload.corpseKey
 		if skinned[key] == true then
 			result(player, "skin", false, "already_skinned", nil)
@@ -802,10 +802,10 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 
 	local function finishCraft(player: P, entry: CraftEntry)
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local recipe = Recipes.get(entry.payload.recipeId)
 		if recipe ~= nil and not policy.recipeAllowed(profile, recipe) then
 			return result(player, "craft", false, "wrong_realm", nil)
@@ -861,7 +861,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 	end
 
 	local handlers: { [string]: (P, unknown, unknown) -> () } = {}
-	handlers.repair = function(player, rawId, _extra)
+	handlers.repair = function(player: P, rawId: unknown, _extra: unknown)
 		local context, profile = resolve(player)
 		local request = repairs[player]
 		local save = deps.profiles.saveProfile
@@ -899,14 +899,14 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		end
 	end
 
-	handlers.open = function(player, _arg, _extra)
+	handlers.open = function(player: P, _arg: unknown, _extra: unknown)
 		local _, profile = resolve(player)
 		if profile ~= nil then
 			say(player, { kind = "book", book = book(player, profile), open = true })
 		end
 	end
 
-	handlers.cancel = function(player, _arg, _extra)
+	handlers.cancel = function(player: P, _arg: unknown, _extra: unknown)
 		if active[player] ~= nil then
 			endSession(player)
 			result(player, "cancel", true, "cancelled", nil)
@@ -917,16 +917,16 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		end
 	end
 
-	handlers.learn = function(player, rawId, _extra)
-		if not validId(rawId) then
+	handlers.learn = function(player: P, rawId: unknown, _extra: unknown)
+		if not (type(rawId) == "string" and validId(rawId)) then
 			return result(player, "learn", false, "invalid_request", nil)
 		end
-		local professionId = rawId :: string
+		local professionId = rawId
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return result(player, "learn", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local group = nearestGroup(player)
 		if group == nil or Trainers.groupOfProfession(professionId) ~= group then
 			return result(player, "learn", false, "seek_trainer", nil)
@@ -967,19 +967,19 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		end
 	end
 
-	handlers.unlearn = function(player, rawId, confirm)
-		if not validId(rawId) then
+	handlers.unlearn = function(player: P, rawId: unknown, confirm: unknown)
+		if not (type(rawId) == "string" and validId(rawId)) then
 			return result(player, "unlearn", false, "invalid_request", nil)
 		end
-		local professionId = rawId :: string
+		local professionId = rawId
 		if confirm ~= "confirm" then
 			return result(player, "unlearn", false, "confirm_required", nil)
 		end
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return result(player, "unlearn", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local nextState, reason = Core.unlearn(stateOf(profile), professionId)
 		if nextState == nil then
 			return result(player, "unlearn", false, reason, nil)
@@ -1004,16 +1004,16 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		end
 	end
 
-	handlers.train = function(player, rawId, _extra)
-		if not validId(rawId) then
+	handlers.train = function(player: P, rawId: unknown, _extra: unknown)
+		if not (type(rawId) == "string" and validId(rawId)) then
 			return result(player, "train", false, "invalid_request", nil)
 		end
-		local recipeId = rawId :: string
+		local recipeId = rawId
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return result(player, "train", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local recipe = Recipes.get(recipeId)
 		if recipe == nil then
 			return result(player, "train", false, "unknown_recipe", nil)
@@ -1062,21 +1062,21 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		end
 	end
 
-	handlers.recipe_item = function(player, rawId, _extra)
-		if not validId(rawId) then
+	handlers.recipe_item = function(player: P, rawId: unknown, _extra: unknown)
+		if not (type(rawId) == "string" and validId(rawId)) then
 			return result(player, "recipe_item", false, "invalid_request", nil)
 		end
-		local itemId = rawId :: string
+		local itemId = rawId
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return result(player, "recipe_item", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		if (profile.inventory or {})[itemId] == nil then
 			return result(player, "recipe_item", false, "not_owned", nil)
 		end
 		local nextState, reason, recipe = Core.learnFromItem(stateOf(profile), itemId)
-		if nextState == nil then
+		if nextState == nil or recipe == nil then
 			return result(player, "recipe_item", false, reason, nil)
 		end
 		local stored = mutate(player, context, function(updated): boolean
@@ -1090,18 +1090,18 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not stored then
 			return result(player, "recipe_item", false, "not_saved", nil)
 		end
-		result(player, "recipe_item", true, nil, { recipeId = (recipe :: Types.Recipe).id })
+		result(player, "recipe_item", true, nil, { recipeId = (recipe).id })
 		local _, fresh = resolve(player)
 		if fresh ~= nil then
 			publish(player, fresh)
 		end
 	end
 
-	handlers.buy = function(player, rawId, _extra)
-		if not validId(rawId) then
+	handlers.buy = function(player: P, rawId: unknown, _extra: unknown)
+		if not (type(rawId) == "string" and validId(rawId)) then
 			return result(player, "buy", false, "invalid_request", nil)
 		end
-		local itemId = rawId :: string
+		local itemId = rawId
 		local context = resolve(player)
 		if context == nil then
 			return result(player, "buy", false, "session_absent", nil)
@@ -1117,7 +1117,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 			if recipe ~= nil and recipe.vendor ~= nil and Trainers.groupOfProfession(recipe.profession) == group then
 				price = recipe.vendor.price
 				stock = stockFor(itemId, now())
-				if (stock :: Stock).remaining <= 0 then
+				if (stock).remaining <= 0 then
 					return result(player, "buy", false, "sold_out", nil)
 				end
 			end
@@ -1145,16 +1145,16 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		end
 	end
 
-	handlers.gather = function(player, rawId, _extra)
-		if not validId(rawId) then
+	handlers.gather = function(player: P, rawId: unknown, _extra: unknown)
+		if not (type(rawId) == "string" and validId(rawId)) then
 			return result(player, "gather", false, "invalid_request", nil)
 		end
-		local nodeId = rawId :: string
+		local nodeId = rawId
 		local context, loadedProfile = resolve(player)
-		if context == nil then
+		if context == nil or loadedProfile == nil then
 			return result(player, "gather", false, "session_absent", nil)
 		end
-		local profile = loadedProfile :: Profile
+		local profile = loadedProfile
 		local node = deps.world.node(nodeId)
 		local nodeKind = if node ~= nil then Nodes.kind(node.kindId) else nil
 		if node == nil or nodeKind == nil then
@@ -1171,10 +1171,15 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not ok then
 			return result(player, "gather", false, reason, nil)
 		end
-		begin(player, "gather", nodeId, nodeKind.gatherSec, { nodeId = nodeId, nodeKind = nodeKind })
+		begin(
+			player,
+			{ kind = "gather", payload = { nodeId = nodeId, nodeKind = nodeKind } },
+			nodeId,
+			nodeKind.gatherSec
+		)
 	end
 
-	handlers.skin = function(player, _arg, _extra)
+	handlers.skin = function(player: P, _arg: unknown, _extra: unknown)
 		local _, profile = resolve(player)
 		if profile == nil then
 			return result(player, "skin", false, "session_absent", nil)
@@ -1198,14 +1203,19 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not ok then
 			return result(player, "skin", false, reason, nil)
 		end
-		begin(player, "skin", corpse.key, skinRow.skinSec, { corpseKey = corpse.key, skinRow = skinRow })
+		begin(
+			player,
+			{ kind = "skin", payload = { corpseKey = corpse.key, skinRow = skinRow } },
+			corpse.key,
+			skinRow.skinSec
+		)
 	end
 
-	handlers.craft = function(player, rawId, _extra)
-		if not validId(rawId) then
+	handlers.craft = function(player: P, rawId: unknown, _extra: unknown)
+		if not (type(rawId) == "string" and validId(rawId)) then
 			return result(player, "craft", false, "invalid_request", nil)
 		end
-		local recipeId = rawId :: string
+		local recipeId = rawId
 		local _, profile = resolve(player)
 		if profile == nil then
 			return result(player, "craft", false, "session_absent", nil)
@@ -1217,10 +1227,10 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		if not plan.ok then
 			return result(player, "craft", false, plan.reason, nil)
 		end
-		begin(player, "craft", recipeId, Nodes.CRAFT_SEC, { recipeId = recipeId })
+		begin(player, { kind = "craft", payload = { recipeId = recipeId } }, recipeId, Nodes.CRAFT_SEC)
 	end
 
-	handlers.cast = function(player, _arg, _extra)
+	handlers.cast = function(player: P, _arg: unknown, _extra: unknown)
 		local _, profile = resolve(player)
 		if profile == nil then
 			return result(player, "fish", false, "session_absent", nil)
@@ -1253,7 +1263,7 @@ function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy
 		)
 	end
 
-	handlers.hook = function(player, _arg, _extra)
+	handlers.hook = function(player: P, _arg: unknown, _extra: unknown)
 		local entry = lines[player]
 		if entry == nil then
 			return

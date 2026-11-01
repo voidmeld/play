@@ -40,756 +40,395 @@ function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revea
 		config.revealRadius == config.revealRadius and config.revealRadius >= 0 and config.revealRadius < math.huge,
 		"invalid reveal radius"
 	)
-	type MarkerRecord = Record<K>
 	type Catalog = CatalogValue<K>
-	type ZoneIndex = { [string]: { MarkerRecord } }
-	type ExploredIdentity = Identity
-	type Discovery = Identity
-	type ExploredMap = ExploredState
-	type PoiRow = Poi
-	type Point = WorldPoint
-	type PresentationRecord = Presentation<K>
-	type Raw = { [unknown]: unknown }
-	local MapMarkerCatalogCore = (function()
-		type Raw = { [unknown]: unknown }
-
-		local ROW_FIELDS: { [string]: boolean } = {
-			zoneId = true,
-			poiId = true,
-			displayName = true,
-			kind = true,
-			position = true,
-			hub = true,
-		}
-
-		local POSITION_FIELDS: { [string]: boolean } = {
-			u = true,
-			v = true,
-		}
-
-		local function finite(value: unknown): boolean
-			return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
-		end
-
-		local function normalized(value: unknown): boolean
-			return finite(value) and (value :: number) >= 0 and (value :: number) <= 1
-		end
-
-		local function nonempty(value: unknown): boolean
-			return type(value) == "string" and #value > 0
-		end
-
-		local function hasOnlyFields(value: unknown, allowed: { [string]: boolean }): boolean
-			if type(value) ~= "table" then
-				return false
-			end
-			for key in value :: Raw do
-				if type(key) ~= "string" or not allowed[key] then
-					return false
-				end
-			end
-			return true
-		end
-
-		local function denseLength(value: unknown): number?
-			if type(value) ~= "table" then
-				return nil
-			end
-			local count = 0
-			for key in value :: Raw do
-				if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-					return nil
-				end
-				count += 1
-			end
-			for index = 1, count do
-				if (value :: Raw)[index] == nil then
-					return nil
-				end
-			end
-			return count
-		end
-
-		local function validPosition(value: unknown): boolean
-			return hasOnlyFields(value, POSITION_FIELDS)
-				and normalized((value :: Raw).u)
-				and normalized((value :: Raw).v)
-		end
-
-		local function validRow(value: unknown): boolean
-			local row = value :: Raw
-			return hasOnlyFields(value, ROW_FIELDS)
-				and nonempty(row.zoneId)
-				and nonempty(row.poiId)
-				and nonempty(row.displayName)
-				and type(row.kind) == "string"
-				and config.readKind(row.kind) == row.kind
-				and validPosition(row.position)
-				and (row.hub == nil or type(row.hub) == "boolean")
-		end
-
-		local function copyRow(row: MarkerRecord): MarkerRecord
-			return {
-				zoneId = row.zoneId,
-				poiId = row.poiId,
-				displayName = row.displayName,
-				kind = assert(config.readKind(row.kind)),
-				position = {
-					u = row.position.u,
-					v = row.position.v,
-				},
-				hub = row.hub,
-			}
-		end
-
-		local MapMarkerCatalogCore = {}
-
-		function MapMarkerCatalogCore.normalize(rows: unknown): Catalog?
-			local count = denseLength(rows)
-			if count == nil then
-				return nil
-			end
-
-			local source = rows :: Raw
-			local records: { MarkerRecord } = {}
-			local byZone: ZoneIndex = {}
-			local seen: { [string]: { [string]: boolean } } = {}
-
-			for index = 1, count do
-				local rowValue = source[index]
-				if not validRow(rowValue) then
-					return nil
-				end
-				local row = rowValue :: MarkerRecord
-
-				local zoneSeen = seen[row.zoneId]
-				if zoneSeen == nil then
-					zoneSeen = {}
-					seen[row.zoneId] = zoneSeen
-				end
-				if zoneSeen[row.poiId] then
-					return nil
-				end
-				zoneSeen[row.poiId] = true
-
-				local record = copyRow(row :: MarkerRecord)
-				records[#records + 1] = record
-				local zoneRecords = byZone[record.zoneId]
-				if zoneRecords == nil then
-					zoneRecords = {}
-					byZone[record.zoneId] = zoneRecords
-				end
-				zoneRecords[#zoneRecords + 1] = copyRow(record)
-			end
-
-			return {
-				records = records,
-				byZone = byZone,
-			}
-		end
-
-		return Value.freezeDeep(MapMarkerCatalogCore)
-	end)()
-	local MapRevealCore = (function()
-		type Result = RevealResult
-		local REVEAL_RADIUS_STUDS = config.revealRadius
-		local REVEAL_RADIUS_SQUARED = REVEAL_RADIUS_STUDS * REVEAL_RADIUS_STUDS
-
-		local ROW_FIELDS: { [string]: boolean } = {
-			zoneId = true,
-			poiId = true,
-			position = true,
-		}
-
-		local OBSERVATION_FIELDS: { [string]: boolean } = {
-			zoneId = true,
-			position = true,
-		}
-
-		local POINT_FIELDS: { [string]: boolean } = {
-			x = true,
-			z = true,
-		}
-
-		type CatalogIndex = { [string]: { [string]: boolean } }
-		type Raw = { [unknown]: unknown }
-
-		local function finite(value: unknown): boolean
-			return type(value) == "number" and value == value and math.abs(value) ~= math.huge
-		end
-
-		local function validId(value: unknown): boolean
-			return type(value) == "string" and value ~= ""
-		end
-
-		local function validatePoint(value: unknown): boolean
-			if type(value) ~= "table" then
-				return false
-			end
-			for key in value :: Raw do
-				if type(key) ~= "string" or not POINT_FIELDS[key] then
-					return false
-				end
-			end
-			return finite((value :: Raw).x) and finite((value :: Raw).z)
-		end
-
-		local function catalogIndex(rows: unknown): (CatalogIndex?, string?)
-			if type(rows) ~= "table" then
-				return nil, "poi_rows_not_table"
-			end
-			local count = 0
-			for key in rows :: Raw do
-				if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
-					return nil, "poi_rows_not_array"
-				end
-				count += 1
-			end
-			if count == 0 then
-				return nil, "poi_rows_empty"
-			end
-			for rowIndex = 1, count do
-				if (rows :: Raw)[rowIndex] == nil then
-					return nil, "poi_rows_not_contiguous"
-				end
-			end
-			local index: CatalogIndex = {}
-			for rowIndex = 1, count do
-				local rowValue = (rows :: Raw)[rowIndex]
-				if type(rowValue) ~= "table" then
-					return nil, "poi_row_not_table"
-				end
-				local row = rowValue :: Raw
-				for key in row do
-					if type(key) ~= "string" or not ROW_FIELDS[key] then
-						return nil, "poi_row_unknown_field"
-					end
-				end
-				if not validId(row.zoneId) then
-					return nil, "invalid_poi_zone_id"
-				end
-				if not validId(row.poiId) then
-					return nil, "invalid_poi_id"
-				end
-				if not validatePoint(row.position) then
-					return nil, "invalid_poi_position"
-				end
-				local zone = index[row.zoneId :: string]
-				if zone == nil then
-					zone = {}
-					index[row.zoneId :: string] = zone
-				end
-				if zone[row.poiId :: string] then
-					return nil, "duplicate_poi"
-				end
-				zone[row.poiId :: string] = true
-			end
-			return index, nil
-		end
-
-		local function stateReason(state: unknown, index: CatalogIndex): string?
-			if type(state) ~= "table" then
-				return "explored_map_not_table"
-			end
-			for zoneId, exploredPois in state :: Raw do
-				if not validId(zoneId) or index[zoneId :: string] == nil then
-					return "unknown_explored_zone"
-				end
-				if type(exploredPois) ~= "table" then
-					return "explored_zone_not_table"
-				end
-				for poiId, revealed in exploredPois :: Raw do
-					if not validId(poiId) or index[zoneId :: string][poiId :: string] == nil then
-						return "unknown_explored_poi"
-					end
-					if revealed ~= true then
-						return "explored_value_not_true"
-					end
-				end
-			end
+	type Marker = Record<K>
+	type Index = { [string]: { [string]: boolean } }
+	local markerFields = { zoneId = true, poiId = true, displayName = true, kind = true, position = true, hub = true }
+	local poiFields = { zoneId = true, poiId = true, position = true }
+	local observationFields = { zoneId = true, position = true }
+	local identityFields = { zoneId = true, poiId = true }
+	local normalizedFields = { u = true, v = true }
+	local worldFields = { x = true, z = true }
+	local function finite(value: unknown): number?
+		return if type(value) == "number" and value == value and math.abs(value) ~= math.huge then value else nil
+	end
+	local function text(value: unknown): string?
+		return if type(value) == "string" and value ~= "" then value else nil
+	end
+	local function worldPoint(value: unknown): WorldPoint?
+		local raw = Value.record(value, worldFields, false, false)
+		if raw == nil then
 			return nil
 		end
-
-		local function observationReason(value: unknown, index: CatalogIndex): string?
-			if type(value) ~= "table" then
-				return "observation_not_table"
-			end
-			local observation = value :: Raw
-			for key in observation do
-				if type(key) ~= "string" or not OBSERVATION_FIELDS[key] then
-					return "observation_unknown_field"
-				end
-			end
-			if not validId(observation.zoneId) then
-				return "invalid_observation_zone_id"
-			end
-			if index[observation.zoneId :: string] == nil then
-				return "unknown_observation_zone"
-			end
-			if not validatePoint(observation.position) then
-				return "invalid_observation_position"
-			end
+		local x, z = finite(raw.x), finite(raw.z)
+		return if x ~= nil and z ~= nil then { x = x, z = z } else nil
+	end
+	local function normalizedPoint(value: unknown): { u: number, v: number }?
+		local raw = Value.record(value, normalizedFields, false, false)
+		if raw == nil then
 			return nil
 		end
-
-		local function copyState(state: ExploredMap): ExploredMap
-			local copy: ExploredMap = {}
-			for zoneId, exploredPois in state do
-				copy[zoneId] = table.clone(exploredPois)
-			end
-			return copy
+		local u, v = finite(raw.u), finite(raw.v)
+		if u == nil or v == nil or u < 0 or u > 1 or v < 0 or v > 1 then
+			return nil
 		end
-
-		local function rejected(state: ExploredMap, reason: string): Result
-			return {
-				ok = false,
-				reason = reason,
-				state = state,
-				discoveries = {},
+		return { u = u, v = v }
+	end
+	local function readMarker(value: unknown): Marker?
+		local raw = Value.record(value, markerFields, false, false)
+		if raw == nil then
+			return nil
+		end
+		local zone, poi, name = text(raw.zoneId), text(raw.poiId), text(raw.displayName)
+		local position, kind, hub = normalizedPoint(raw.position), config.readKind(raw.kind), raw.hub
+		if
+			zone == nil
+			or poi == nil
+			or name == nil
+			or position == nil
+			or type(raw.kind) ~= "string"
+			or kind == nil
+			or kind ~= raw.kind
+			or (hub ~= nil and type(hub) ~= "boolean")
+		then
+			return nil
+		end
+		local marker: Marker =
+			{ zoneId = zone, poiId = poi, displayName = name, kind = kind, position = position, hub = hub }
+		return marker
+	end
+	local function normalize(value: unknown): Catalog?
+		local rows = Value.dense(value, math.huge, false)
+		if rows == nil then
+			return nil
+		end
+		local records: { Marker } = {}
+		local byZone: { [string]: { Marker } } = {}
+		local seen: Index = {}
+		for _, value in rows do
+			local record = readMarker(value)
+			if record == nil then
+				return nil
+			end
+			local zone = seen[record.zoneId]
+			if zone == nil then
+				zone = {}
+				seen[record.zoneId] = zone
+			end
+			if zone[record.poiId] then
+				return nil
+			end
+			zone[record.poiId] = true
+			table.insert(records, record)
+			local bucket = byZone[record.zoneId]
+			if bucket == nil then
+				bucket = {}
+				byZone[record.zoneId] = bucket
+			end
+			local copy: Marker = {
+				zoneId = record.zoneId,
+				poiId = record.poiId,
+				displayName = record.displayName,
+				kind = record.kind,
+				position = table.clone(record.position),
+				hub = record.hub,
 			}
+			table.insert(bucket, copy)
 		end
-
-		local MapRevealCore = {}
-
-		function MapRevealCore.emptyState(): ExploredMap
-			return {}
+		return { records = records, byZone = byZone }
+	end
+	local function markerIndex(catalog: Catalog): Index
+		local index: Index = {}
+		for _, row in catalog.records do
+			local zone = index[row.zoneId]
+			if zone == nil then
+				zone = {}
+				index[row.zoneId] = zone
+			end
+			zone[row.poiId] = true
 		end
-
-		function MapRevealCore.transition(previous: ExploredMap, observation: Observation, poiRows: { PoiRow }): Result
-			local index, catalogReason = catalogIndex(poiRows)
-			if index == nil then
-				return rejected(previous, catalogReason or "invalid_poi_rows")
+		return index
+	end
+	local function readState(value: unknown, index: Index): (ExploredState?, string?)
+		local raw = Value.raw(value)
+		if raw == nil then
+			return nil, "explored_map_not_table"
+		end
+		local state: ExploredState = {}
+		for zoneId, rawPois in raw do
+			if type(zoneId) ~= "string" or zoneId == "" or index[zoneId] == nil then
+				return nil, "unknown_explored_zone"
 			end
-			local invalidState = stateReason(previous, index)
-			if invalidState ~= nil then
-				return rejected(previous, invalidState)
+			local pois = Value.raw(rawPois)
+			if pois == nil then
+				return nil, "explored_zone_not_table"
 			end
-			local invalidObservation = observationReason(observation, index)
-			if invalidObservation ~= nil then
-				return rejected(previous, invalidObservation)
+			local zone: { [string]: true } = {}
+			for poiId, revealed in pois do
+				if type(poiId) ~= "string" or poiId == "" or index[zoneId][poiId] == nil then
+					return nil, "unknown_explored_poi"
+				end
+				if revealed ~= true then
+					return nil, "explored_value_not_true"
+				end
+				zone[poiId] = true
 			end
-
-			local zoneId = observation.zoneId
-			local exploredZone = previous[zoneId]
-			local discoveredIds: { string } = {}
-			for _, row in poiRows do
-				if row.zoneId == zoneId and (exploredZone == nil or exploredZone[row.poiId] ~= true) then
-					local dx = observation.position.x - row.position.x
-					local dz = observation.position.z - row.position.z
-					local distanceSquared = dx * dx + dz * dz
-					if not finite(distanceSquared) then
-						return rejected(previous, "nonfinite_distance")
-					end
-					if distanceSquared <= REVEAL_RADIUS_SQUARED then
-						discoveredIds[#discoveredIds + 1] = row.poiId
-					end
+			state[zoneId] = zone
+		end
+		return state, nil
+	end
+	local function readPois(value: unknown): ({ Poi }?, Index?, string?)
+		local raw = Value.raw(value)
+		if raw == nil then
+			return nil, nil, "poi_rows_not_table"
+		end
+		local count = 0
+		for key in raw do
+			if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
+				return nil, nil, "poi_rows_not_array"
+			end
+			count += 1
+		end
+		if count == 0 then
+			return nil, nil, "poi_rows_empty"
+		end
+		local rows: { Poi } = {}
+		local index: Index = {}
+		for at = 1, count do
+			if raw[at] == nil then
+				return nil, nil, "poi_rows_not_contiguous"
+			end
+			if type(raw[at]) ~= "table" then
+				return nil, nil, "poi_row_not_table"
+			end
+			local row = Value.record(raw[at], poiFields, false, false)
+			if row == nil then
+				return nil, nil, "poi_row_unknown_field"
+			end
+			local zoneId, poiId, position = text(row.zoneId), text(row.poiId), worldPoint(row.position)
+			if zoneId == nil then
+				return nil, nil, "invalid_poi_zone_id"
+			end
+			if poiId == nil then
+				return nil, nil, "invalid_poi_id"
+			end
+			if position == nil then
+				return nil, nil, "invalid_poi_position"
+			end
+			local zone = index[zoneId]
+			if zone == nil then
+				zone = {}
+				index[zoneId] = zone
+			end
+			if zone[poiId] then
+				return nil, nil, "duplicate_poi"
+			end
+			zone[poiId] = true
+			table.insert(rows, { zoneId = zoneId, poiId = poiId, position = position })
+		end
+		return rows, index, nil
+	end
+	local function readObservation(value: unknown, index: Index): (Observation?, string?)
+		if type(value) ~= "table" then
+			return nil, "observation_not_table"
+		end
+		local raw = Value.record(value, observationFields, false, false)
+		if raw == nil then
+			return nil, "observation_unknown_field"
+		end
+		local zone, position = text(raw.zoneId), worldPoint(raw.position)
+		if zone == nil then
+			return nil, "invalid_observation_zone_id"
+		end
+		if index[zone] == nil then
+			return nil, "unknown_observation_zone"
+		end
+		if position == nil then
+			return nil, "invalid_observation_position"
+		end
+		return { zoneId = zone, position = position }, nil
+	end
+	local function reveal(previous: ExploredState, observationValue: Observation, poiValues: { Poi }): RevealResult
+		local function reject(reason: string): RevealResult
+			return { ok = false, reason = reason, state = previous, discoveries = {} }
+		end
+		local rows, index, rowReason = readPois(poiValues)
+		if rows == nil or index == nil then
+			return reject(rowReason or "invalid_poi_rows")
+		end
+		local state, stateReason = readState(previous, index)
+		if state == nil then
+			return reject(stateReason or "explored_map_not_table")
+		end
+		local observation, observationReason = readObservation(observationValue, index)
+		if observation == nil then
+			return reject(observationReason or "observation_not_table")
+		end
+		local discoveries: { Identity } = {}
+		local zone = state[observation.zoneId]
+		for _, row in rows do
+			if row.zoneId == observation.zoneId and (zone == nil or zone[row.poiId] ~= true) then
+				local dx, dz = observation.position.x - row.position.x, observation.position.z - row.position.z
+				local distance = finite(dx * dx + dz * dz)
+				if distance == nil then
+					return reject("nonfinite_distance")
+				end
+				if distance <= config.revealRadius * config.revealRadius then
+					table.insert(discoveries, { zoneId = row.zoneId, poiId = row.poiId })
 				end
 			end
-
-			if #discoveredIds == 0 then
-				return {
-					ok = true,
-					state = previous,
-					discoveries = {},
-				}
-			end
-
-			local nextState = copyState(previous)
-			local nextZone = nextState[zoneId] or {}
-			nextState[zoneId] = nextZone
-			local discoveries: { Discovery } = {}
-			for _, poiId in discoveredIds do
-				nextZone[poiId] = true
-				discoveries[#discoveries + 1] = { zoneId = zoneId, poiId = poiId }
-			end
-			return {
-				ok = true,
-				state = nextState,
-				discoveries = discoveries,
-			}
 		end
-
-		MapRevealCore.REVEAL_RADIUS_STUDS = REVEAL_RADIUS_STUDS
-
-		return MapRevealCore
-	end)()
-	local MapExploredStateCore = (function()
-		type CatalogIndex = { [string]: { [string]: boolean } }
-
-		local function catalogIndex(markerRowsValue: unknown): (CatalogIndex?, Catalog?)
-			local catalog = MapMarkerCatalogCore.normalize(markerRowsValue)
-			if catalog == nil then
-				return nil, nil
-			end
-
-			local index: CatalogIndex = {}
-			for _, record in catalog.records do
-				local zone = index[record.zoneId]
-				if zone == nil then
-					zone = {}
-					index[record.zoneId] = zone
-				end
-				zone[record.poiId] = true
-			end
-			return index, catalog
+		if #discoveries == 0 then
+			return { ok = true, state = previous, discoveries = {} }
 		end
-
-		local function copyValidated(value: unknown, index: CatalogIndex): ExploredState?
-			if type(value) ~= "table" then
+		if zone == nil then
+			zone = {}
+			state[observation.zoneId] = zone
+		end
+		for _, row in discoveries do
+			zone[row.poiId] = true
+		end
+		return { ok = true, state = state, discoveries = discoveries }
+	end
+	local function normalizeState(value: unknown, markerRows: unknown): ExploredState?
+		local catalog = normalize(markerRows)
+		if catalog == nil then
+			return nil
+		end
+		local state = readState(value, markerIndex(catalog))
+		return state
+	end
+	local function merge(previousValue: unknown, additionsValue: unknown, markerRows: unknown): ExploredState?
+		local catalog = normalize(markerRows)
+		if catalog == nil then
+			return nil
+		end
+		local index = markerIndex(catalog)
+		local previous, additions = readState(previousValue, index), readState(additionsValue, index)
+		if previous == nil or additions == nil then
+			return nil
+		end
+		for zoneId, entries in additions do
+			local zone = previous[zoneId]
+			if zone == nil then
+				zone = {}
+				previous[zoneId] = zone
+			end
+			for poiId in entries do
+				zone[poiId] = true
+			end
+		end
+		return previous
+	end
+	local function ordered(value: unknown, markerRows: unknown): { Identity }?
+		local catalog = normalize(markerRows)
+		if catalog == nil then
+			return nil
+		end
+		local state = readState(value, markerIndex(catalog))
+		if state == nil then
+			return nil
+		end
+		local result: { Identity } = {}
+		for _, row in catalog.records do
+			local zone = state[row.zoneId]
+			if zone ~= nil and zone[row.poiId] then
+				table.insert(result, { zoneId = row.zoneId, poiId = row.poiId })
+			end
+		end
+		return result
+	end
+	local function presentations(values: unknown, markerRows: unknown): { Presentation<K> }?
+		local catalog, discoveries = normalize(markerRows), Value.dense(values, math.huge, false)
+		if catalog == nil or discoveries == nil then
+			return nil
+		end
+		local seen: Index = {}
+		local result: { Presentation<K> } = {}
+		for _, value in discoveries do
+			local row = Value.record(value, identityFields, false, false)
+			if row == nil then
 				return nil
 			end
-
-			local result: ExploredState = {}
-			for zoneId, zoneValue in value :: { [unknown]: unknown } do
-				if type(zoneId) ~= "string" or index[zoneId] == nil or type(zoneValue) ~= "table" then
-					return nil
-				end
-
-				local zone: { [string]: true } = {}
-				for poiId, explored in zoneValue :: { [unknown]: unknown } do
-					if type(poiId) ~= "string" or index[zoneId][poiId] ~= true or explored ~= true then
-						return nil
-					end
-					zone[poiId] = true
-				end
-				result[zoneId] = zone
-			end
-			return result
-		end
-
-		local MapExploredStateCore = {}
-
-		function MapExploredStateCore.defaultState(): ExploredState
-			return {}
-		end
-
-		function MapExploredStateCore.resetState(): ExploredState
-			return {}
-		end
-
-		function MapExploredStateCore.normalize(value: unknown, markerRowsValue: unknown): ExploredState?
-			local index = catalogIndex(markerRowsValue)
-			if index == nil then
+			local zoneId, poiId = text(row.zoneId), text(row.poiId)
+			if zoneId == nil or poiId == nil then
 				return nil
 			end
-			return copyValidated(value, index)
-		end
-
-		function MapExploredStateCore.merge(
-			previousValue: unknown,
-			additionsValue: unknown,
-			markerRowsValue: unknown
-		): ExploredState?
-			local index = catalogIndex(markerRowsValue)
-			if index == nil then
+			local zone = seen[zoneId]
+			if zone == nil then
+				zone = {}
+				seen[zoneId] = zone
+			end
+			if zone[poiId] then
 				return nil
 			end
-
-			local previous = copyValidated(previousValue, index)
-			local additions = copyValidated(additionsValue, index)
-			if previous == nil or additions == nil then
+			zone[poiId] = true
+			local matched: Marker? = nil
+			for _, marker in catalog.byZone[zoneId] or {} do
+				if marker.poiId == poiId then
+					matched = marker
+					break
+				end
+			end
+			if matched == nil then
 				return nil
 			end
-
-			for zoneId, additionZone in additions do
-				local mergedZone = previous[zoneId]
-				if mergedZone == nil then
-					mergedZone = {}
-					previous[zoneId] = mergedZone
-				end
-				for poiId in additionZone do
-					mergedZone[poiId] = true
-				end
-			end
-			return previous
+			local presentation: Presentation<K> =
+				{ zoneId = zoneId, poiId = poiId, name = matched.displayName, kind = matched.kind, hub = matched.hub }
+			table.insert(result, presentation)
 		end
-
-		function MapExploredStateCore.ordered(value: unknown, markerRowsValue: unknown): { ExploredIdentity }?
-			local index, catalog = catalogIndex(markerRowsValue)
-			if index == nil or catalog == nil then
+		return result
+	end
+	local function transition(
+		previousValue: unknown,
+		observationValue: unknown,
+		poiValues: unknown,
+		markerRows: unknown
+	): Transition<K>?
+		local catalog = normalize(markerRows)
+		local pois, index = readPois(poiValues)
+		if catalog == nil or pois == nil or index == nil or #pois ~= #catalog.records then
+			return nil
+		end
+		local expected = markerIndex(catalog)
+		for _, poi in pois do
+			local zone = expected[poi.zoneId]
+			if zone == nil or not zone[poi.poiId] then
 				return nil
 			end
-
-			local state = copyValidated(value, index)
-			if state == nil then
-				return nil
-			end
-
-			local result: { ExploredIdentity } = {}
-			for _, record in catalog.records do
-				local zone = state[record.zoneId]
-				if zone ~= nil and zone[record.poiId] == true then
-					result[#result + 1] = {
-						zoneId = record.zoneId,
-						poiId = record.poiId,
-					}
-				end
-			end
-			return result
 		end
-
-		return Value.freezeDeep(MapExploredStateCore)
-	end)()
-	local MapDiscoveryProjectionCore = (function()
-		local DISCOVERY_FIELDS: { [string]: boolean } = {
-			zoneId = true,
-			poiId = true,
-		}
-
-		local function nonempty(value: unknown): boolean
-			return type(value) == "string" and #value > 0
+		local previous = readState(previousValue, expected)
+		local observation = readObservation(observationValue, index)
+		if previous == nil or observation == nil then
+			return nil
 		end
-
-		local function denseLength(value: unknown): number?
-			if type(value) ~= "table" then
-				return nil
-			end
-			local count = 0
-			for key in value :: Raw do
-				if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-					return nil
-				end
-				count += 1
-			end
-			for index = 1, count do
-				if (value :: Raw)[index] == nil then
-					return nil
-				end
-			end
-			return count
+		local revealed = reveal(previous, observation, pois)
+		if not revealed.ok then
+			return nil
 		end
-
-		local function validDiscovery(value: unknown): boolean
-			if type(value) ~= "table" then
-				return false
-			end
-			for key in value :: Raw do
-				if type(key) ~= "string" or not DISCOVERY_FIELDS[key] then
-					return false
-				end
-			end
-			local discovery = value :: Raw
-			return nonempty(discovery.zoneId) and nonempty(discovery.poiId)
+		local projected = presentations(revealed.discoveries, markerRows)
+		if projected == nil then
+			return nil
 		end
-
-		local MapDiscoveryProjectionCore = {}
-
-		function MapDiscoveryProjectionCore.project(
-			discoveriesValue: unknown,
-			markerRowsValue: unknown
-		): { PresentationRecord }?
-			local catalog = MapMarkerCatalogCore.normalize(markerRowsValue)
-			if catalog == nil then
-				return nil
-			end
-
-			local count = denseLength(discoveriesValue)
-			if count == nil then
-				return nil
-			end
-
-			local discoveries = discoveriesValue :: Raw
-			local seen: { [string]: { [string]: boolean } } = {}
-			local presentations: { PresentationRecord } = {}
-			for index = 1, count do
-				local discoveryValue = discoveries[index]
-				if not validDiscovery(discoveryValue) then
-					return nil
-				end
-				local discovery = discoveryValue :: Discovery
-
-				local zoneSeen = seen[discovery.zoneId]
-				if zoneSeen == nil then
-					zoneSeen = {}
-					seen[discovery.zoneId] = zoneSeen
-				end
-				if zoneSeen[discovery.poiId] then
-					return nil
-				end
-				zoneSeen[discovery.poiId] = true
-
-				local matched: MarkerRecord? = nil
-				local zoneRecords = catalog.byZone[discovery.zoneId]
-				if zoneRecords ~= nil then
-					for _, record in zoneRecords do
-						if record.poiId == discovery.poiId then
-							if matched ~= nil then
-								return nil
-							end
-							matched = record
-						end
-					end
-				end
-				if matched == nil then
-					return nil
-				end
-
-				presentations[#presentations + 1] = {
-					zoneId = discovery.zoneId,
-					poiId = discovery.poiId,
-					name = matched.displayName,
-					kind = matched.kind,
-					hub = matched.hub,
-				}
-			end
-
-			return presentations
-		end
-
-		return Value.freezeDeep(MapDiscoveryProjectionCore)
-	end)()
-	local MapExplorationPipelineCore = (function()
-		type Raw = { [unknown]: unknown }
-		type Result = Transition<K>
-		local ROW_FIELDS: { [string]: boolean } = {
-			zoneId = true,
-			poiId = true,
-			position = true,
-		}
-
-		local POINT_FIELDS: { [string]: boolean } = {
-			x = true,
-			z = true,
-		}
-
-		local function finite(value: unknown): boolean
-			return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
-		end
-
-		local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
-			if type(value) ~= "table" then
-				return false
-			end
-			for key in value :: Raw do
-				if type(key) ~= "string" or fields[key] ~= true then
-					return false
-				end
-			end
-			return true
-		end
-
-		local function denseLength(value: unknown): number?
-			if type(value) ~= "table" then
-				return nil
-			end
-			local count = 0
-			for key in value :: Raw do
-				if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-					return nil
-				end
-				count += 1
-			end
-			for index = 1, count do
-				if (value :: Raw)[index] == nil then
-					return nil
-				end
-			end
-			return count
-		end
-
-		local function validRevealRow(value: unknown): boolean
-			if not hasOnlyFields(value, ROW_FIELDS) then
-				return false
-			end
-			local row = value :: Raw
-			if type(row.zoneId) ~= "string" or #row.zoneId == 0 or type(row.poiId) ~= "string" or #row.poiId == 0 then
-				return false
-			end
-			if not hasOnlyFields(row.position, POINT_FIELDS) then
-				return false
-			end
-			return finite((row.position :: Raw).x) and finite((row.position :: Raw).z)
-		end
-
-		local function matchingRevealRows(revealRowsValue: unknown, catalog: Catalog): boolean
-			local count = denseLength(revealRowsValue)
-			if count == nil or count ~= #catalog.records then
-				return false
-			end
-
-			local expected: { [string]: { [string]: boolean } } = {}
-			for _, record in catalog.records do
-				local zone = expected[record.zoneId]
-				if zone == nil then
-					zone = {}
-					expected[record.zoneId] = zone
-				end
-				zone[record.poiId] = true
-			end
-
-			for index = 1, count do
-				local row = (revealRowsValue :: { PoiRow })[index]
-				if not validRevealRow(row) then
-					return false
-				end
-				local expectedZone = expected[row.zoneId]
-				if expectedZone == nil or expectedZone[row.poiId] ~= true then
-					return false
-				end
-				expectedZone[row.poiId] = false
-			end
-			return true
-		end
-
-		local function freezeState(state: ExploredState): ExploredState
-			for _, zone in state do
-				table.freeze(zone)
-			end
-			return table.freeze(state)
-		end
-
-		local function freezePresentations(presentations: { PresentationRecord }): { PresentationRecord }
-			for _, presentation in presentations do
-				table.freeze(presentation)
-			end
-			return table.freeze(presentations)
-		end
-
-		local MapExplorationPipelineCore = {}
-
-		function MapExplorationPipelineCore.transition(
-			previousStateValue: unknown,
-			observationValue: unknown,
-			revealRowsValue: unknown,
-			markerRowsValue: unknown
-		): Result?
-			local catalog = MapMarkerCatalogCore.normalize(markerRowsValue)
-			if catalog == nil or not matchingRevealRows(revealRowsValue, catalog) then
-				return nil
-			end
-
-			local previousState = MapExploredStateCore.normalize(previousStateValue, markerRowsValue)
-			if previousState == nil then
-				return nil
-			end
-
-			local revealResult =
-				MapRevealCore.transition(previousState, observationValue :: Observation, revealRowsValue :: { PoiRow })
-			if not revealResult.ok then
-				return nil
-			end
-
-			local presentations = MapDiscoveryProjectionCore.project(revealResult.discoveries, markerRowsValue)
-			if presentations == nil then
-				return nil
-			end
-
-			local result: Result = {
-				state = freezeState(revealResult.state),
-				presentations = freezePresentations(presentations),
-			}
-			return Value.freezeDeep(result)
-		end
-
-		return Value.freezeDeep(MapExplorationPipelineCore)
-	end)()
+		local result: Transition<K> = { state = revealed.state, presentations = projected }
+		return Value.freezeDeep(result)
+	end
+	local function empty(): ExploredState
+		return {}
+	end
 	local result: System<K> = {
-		catalog = MapMarkerCatalogCore,
-		reveal = MapRevealCore,
-		state = MapExploredStateCore,
-		discovery = MapDiscoveryProjectionCore,
-		pipeline = MapExplorationPipelineCore,
+		catalog = { normalize = normalize },
+		reveal = { emptyState = empty, transition = reveal, REVEAL_RADIUS_STUDS = config.revealRadius },
+		state = {
+			defaultState = empty,
+			resetState = empty,
+			normalize = normalizeState,
+			merge = merge,
+			ordered = ordered,
+		},
+		discovery = { project = presentations },
+		pipeline = { transition = transition },
 	}
 	return Value.freezeDeep(result)
 end
-return table.freeze(Exploration)
+return Value.freezeDeep(Exploration)

@@ -152,7 +152,7 @@ function Session.create(config: Config)
 				s.dirtyDueAt = now
 			end
 		end
-		return { ok = ok, kind = kind :: FlightKind }
+		return { ok = ok, kind = kind }
 	end
 	function M.close(s: State, now: number): Outcome
 		if s.leaseLost or s.released then
@@ -172,7 +172,6 @@ function Session.create(config: Config)
 		s.dirtyDueAt = now
 		return { ok = true }
 	end
-	M.Types = (nil :: unknown) :: { State: State, Outcome: Outcome, FlightKind: FlightKind }
 
 	return table.freeze(M)
 end

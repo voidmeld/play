@@ -14,14 +14,14 @@ export type Mounted = typeof(mounted("", {}, nil))
 
 local Contexts = {}
 
-function Contexts.mount(plan: { Template }, raw: unknown, phases: { mounted: string, refused: string }): Mounted
+function Contexts.mount(plan: { Template }, raw: Surfaces?, phases: { mounted: string, refused: string }): Mounted
 	local function refusal(reason: string): Mounted
 		return mounted(phases.refused, {}, reason)
 	end
 	if type(raw) ~= "table" then
 		return refusal("surfaces_invalid")
 	end
-	local fields = raw :: { [string]: unknown }
+	local fields = raw
 	if
 		type(fields.template) ~= "function"
 		or type(fields.existing) ~= "function"
@@ -29,7 +29,7 @@ function Contexts.mount(plan: { Template }, raw: unknown, phases: { mounted: str
 	then
 		return refusal("surfaces_invalid")
 	end
-	local surfaces = fields :: Surfaces
+	local surfaces = fields
 	local names: { string } = {}
 	for _, row in plan do
 		local read, present = pcall(surfaces.existing, row.name)
@@ -67,17 +67,21 @@ function Contexts.create<N, A>(host: {
 		if action == nil then
 			error(("InputActions: missing authored InputAction %q under %s"):format(name, host.name(context)), 3)
 		end
-		return action :: A
+		return action
 	end
 	function Input.context(root: N, path: { string }, required: { string }, deadline: number): N
-		local node = root
-		for _, name in path do
-			local child = host.wait(node, name, math.max(host.minimumWait, deadline - host.clock()))
+		local function waitChild(parent: N, name: string): N
+			local child = host.wait(parent, name, math.max(host.minimumWait, deadline - host.clock()))
 			if child == nil then
 				error("input context did not arrive: " .. table.concat(path, "/"), 2)
 			end
-			node = child :: N
+			return child
 		end
+		local node: N = root
+		for _, name in path do
+			node = waitChild(node, name)
+		end
+
 		if not host.isContext(node) then
 			error("input context has wrong class: " .. table.concat(path, "/"), 2)
 		end

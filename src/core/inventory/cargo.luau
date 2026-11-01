@@ -71,6 +71,8 @@ export type Command = {
 	campId: string?,
 }
 
+type RawCommand = { [string]: unknown, kind: CommandKind }
+
 export type Result = {
 	state: State,
 	replayed: boolean,
@@ -269,7 +271,7 @@ function Cargo.create(config: Config)
 	end
 
 	local function integral(value: unknown): boolean
-		return finite(value) and value == math.floor(value :: number)
+		return (type(value) == "number" and finite(value)) and value == math.floor(value)
 	end
 
 	local function text(value: unknown): boolean
@@ -277,14 +279,14 @@ function Cargo.create(config: Config)
 	end
 
 	local function clock(value: unknown): boolean
-		return finite(value) and (value :: number) >= 0 and (value :: number) <= MAX_AT
+		return (type(value) == "number" and finite(value)) and value >= 0 and value <= MAX_AT
 	end
 
 	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
 		if type(value) ~= "table" then
 			return false
 		end
-		for key in value :: { [unknown]: unknown } do
+		for key in value do
 			if type(key) ~= "string" or fields[key] ~= true then
 				return false
 			end
@@ -293,41 +295,36 @@ function Cargo.create(config: Config)
 	end
 
 	local function denseLength(value: unknown): number?
-		if type(value) ~= "table" then
-			return nil
-		end
-		local count = 0
-		for key in value :: { [unknown]: unknown } do
-			if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-				return nil
-			end
-			count += 1
-		end
-		for index = 1, count do
-			if (value :: { [number]: unknown })[index] == nil then
-				return nil
-			end
-		end
-		return count
+		local rows = Value.dense(value, math.huge, false)
+		return if rows == nil then nil else #rows
 	end
 
 	local function projectClaim(value: unknown): Claim?
 		if not hasOnlyFields(value, CLAIM_FIELDS) then
 			return nil
 		end
-		local source = value :: Claim
+		local source = assert(Value.raw(value))
 		if
-			not text(source.claimId)
-			or not text(source.materialId)
-			or not text(source.originActorId)
-			or not text(source.holderId)
+			not (type(source.claimId) == "string" and text(source.claimId))
+			or not (type(source.materialId) == "string" and text(source.materialId))
+			or not (type(source.originActorId) == "string" and text(source.originActorId))
+			or not (type(source.holderId) == "string" and text(source.holderId))
 		then
 			return nil
 		end
-		if not integral(source.count) or source.count < 1 or source.count > MAX_COUNT then
+		if
+			not (type(source.count) == "number" and integral(source.count))
+			or source.count < 1
+			or source.count > MAX_COUNT
+		then
 			return nil
 		end
-		if type(source.status) ~= "string" or STATUSES[source.status] ~= true then
+		if
+			source.status ~= "carried"
+			and source.status ~= "dropped"
+			and source.status ~= "banked"
+			and source.status ~= "lost"
+		then
 			return nil
 		end
 		return {
@@ -335,7 +332,7 @@ function Cargo.create(config: Config)
 			materialId = source.materialId,
 			count = source.count,
 			originActorId = source.originActorId,
-			status = source.status :: Status,
+			status = source.status,
 			holderId = source.holderId,
 		}
 	end
@@ -348,8 +345,8 @@ function Cargo.create(config: Config)
 		local rows: { string } = {}
 		local seen: { [string]: boolean } = {}
 		for index = 1, count do
-			local id = (value :: { [number]: string })[index]
-			if not text(id) or seen[id] == true then
+			local id = assert(Value.raw(value))[index]
+			if not (type(id) == "string" and text(id)) or seen[id] == true then
 				return nil
 			end
 			seen[id] = true
@@ -362,14 +359,20 @@ function Cargo.create(config: Config)
 		if not hasOnlyFields(value, DROP_FIELDS) then
 			return nil
 		end
-		local source = value :: Drop
-		if not text(source.dropId) or not text(source.actorId) then
+		local source = assert(Value.raw(value))
+		if
+			not (type(source.dropId) == "string" and text(source.dropId))
+			or not (type(source.actorId) == "string" and text(source.actorId))
+		then
 			return nil
 		end
-		if type(source.cause) ~= "string" or CAUSES[source.cause] ~= true then
+		if source.cause ~= "death" and source.cause ~= "disconnect" and source.cause ~= "teleport" then
 			return nil
 		end
-		if not clock(source.droppedAtSec) or not clock(source.expiresAtSec) then
+		if
+			not (type(source.droppedAtSec) == "number" and clock(source.droppedAtSec))
+			or not (type(source.expiresAtSec) == "number" and clock(source.expiresAtSec))
+		then
 			return nil
 		end
 		if source.expiresAtSec <= source.droppedAtSec then
@@ -378,7 +381,7 @@ function Cargo.create(config: Config)
 		if type(source.expired) ~= "boolean" then
 			return nil
 		end
-		if source.recoveredBy ~= nil and not text(source.recoveredBy) then
+		if source.recoveredBy ~= nil and not (type(source.recoveredBy) == "string" and text(source.recoveredBy)) then
 			return nil
 		end
 		if source.recoveredBy ~= nil and source.expired then
@@ -391,7 +394,7 @@ function Cargo.create(config: Config)
 		return {
 			dropId = source.dropId,
 			actorId = source.actorId,
-			cause = source.cause :: Cause,
+			cause = source.cause,
 			droppedAtSec = source.droppedAtSec,
 			expiresAtSec = source.expiresAtSec,
 			claimIds = claimIds,
@@ -408,14 +411,14 @@ function Cargo.create(config: Config)
 		local rows: { Total } = {}
 		local previous: string? = nil
 		for index = 1, count do
-			local row = (value :: { Total })[index]
-			if not hasOnlyFields(row, TOTAL_FIELDS) then
+			local row = Value.raw(assert(Value.raw(value))[index])
+			if row == nil or not hasOnlyFields(row, TOTAL_FIELDS) then
 				return nil
 			end
-			if not text(row.materialId) then
+			if not (type(row.materialId) == "string" and text(row.materialId)) then
 				return nil
 			end
-			if not integral(row.count) or row.count < 1 or row.count > MAX_COUNT then
+			if not (type(row.count) == "number" and integral(row.count)) or row.count < 1 or row.count > MAX_COUNT then
 				return nil
 			end
 			if previous ~= nil and row.materialId <= previous then
@@ -431,11 +434,15 @@ function Cargo.create(config: Config)
 		if not hasOnlyFields(value, EXTRACTION_FIELDS) then
 			return nil
 		end
-		local source = value :: Extraction
-		if not text(source.extractionId) or not text(source.actorId) or not text(source.campId) then
+		local source = assert(Value.raw(value))
+		if
+			not (type(source.extractionId) == "string" and text(source.extractionId))
+			or not (type(source.actorId) == "string" and text(source.actorId))
+			or not (type(source.campId) == "string" and text(source.campId))
+		then
 			return nil
 		end
-		if not clock(source.atSec) then
+		if not (type(source.atSec) == "number" and clock(source.atSec)) then
 			return nil
 		end
 		local claimIds = projectIdList(source.claimIds)
@@ -561,8 +568,8 @@ function Cargo.create(config: Config)
 		if not hasOnlyFields(value, STATE_FIELDS) then
 			return nil, "state_invalid"
 		end
-		local source = value :: State
-		if not clock(source.lastClockSec) then
+		local source = assert(Value.raw(value))
+		if not (type(source.lastClockSec) == "number" and clock(source.lastClockSec)) then
 			return nil, "state_invalid"
 		end
 
@@ -581,7 +588,7 @@ function Cargo.create(config: Config)
 			return nil, "state_invalid"
 		end
 		for index = 1, claimCount do
-			local claim = projectClaim(source.claims[index])
+			local claim = projectClaim(assert(Value.raw(source.claims))[index])
 			if claim == nil or ctx.claimIndex[claim.claimId] ~= nil then
 				return nil, "state_invalid"
 			end
@@ -594,7 +601,7 @@ function Cargo.create(config: Config)
 			return nil, "state_invalid"
 		end
 		for index = 1, dropCount do
-			local drop = projectDrop(source.drops[index])
+			local drop = projectDrop(assert(Value.raw(source.drops))[index])
 			if drop == nil or ctx.dropIndex[drop.dropId] ~= nil then
 				return nil, "state_invalid"
 			end
@@ -607,7 +614,7 @@ function Cargo.create(config: Config)
 			return nil, "state_invalid"
 		end
 		for index = 1, extractionCount do
-			local extraction = projectExtraction(source.extractions[index])
+			local extraction = projectExtraction(assert(Value.raw(source.extractions))[index])
 			if extraction == nil or ctx.extractionIndex[extraction.extractionId] ~= nil then
 				return nil, "state_invalid"
 			end
@@ -716,18 +723,25 @@ function Cargo.create(config: Config)
 		return rows
 	end
 
-	local function validCommand(value: unknown): (Command?, string?)
-		if not hasOnlyFields(value, COMMAND_FIELDS) then
+	local function validCommand(value: unknown): (RawCommand?, string?)
+		local source = Value.raw(value)
+		if source == nil or not hasOnlyFields(value, COMMAND_FIELDS) then
 			return nil, "command_shape_invalid"
 		end
-		local source = value :: Command
-		if type(source.kind) ~= "string" or COMMAND_KINDS[source.kind] ~= true then
+		local kind = source.kind
+		if kind ~= "carry" and kind ~= "release" and kind ~= "recover" and kind ~= "expire" and kind ~= "extract" then
 			return nil, "command_kind_invalid"
 		end
-		if not hasOnlyFields(value, FIELDS_BY_KIND[source.kind]) then
+		if not hasOnlyFields(value, FIELDS_BY_KIND[kind]) then
 			return nil, "command_shape_invalid"
 		end
-		return source :: Command, nil
+		local command: RawCommand = { kind = kind }
+		for key, entry in source do
+			if type(key) == "string" and key ~= "kind" then
+				command[key] = entry
+			end
+		end
+		return command, nil
 	end
 
 	local function intentsOf(extraction: Extraction): ({ Intent }?, string?)
@@ -749,23 +763,27 @@ function Cargo.create(config: Config)
 		return Value.freezeDeep(rows), nil
 	end
 
-	local function stepCarry(ctx: Context, command: Command): (Result?, string?)
-		if not text(command.claimId) then
+	local function stepCarry(ctx: Context, command: RawCommand): (Result?, string?)
+		if not (type(command.claimId) == "string" and text(command.claimId)) then
 			return nil, "claim_invalid"
 		end
-		if not text(command.actorId) then
+		if not (type(command.actorId) == "string" and text(command.actorId)) then
 			return nil, "actor_invalid"
 		end
-		if not text(command.materialId) then
+		if not (type(command.materialId) == "string" and text(command.materialId)) then
 			return nil, "material_invalid"
 		end
-		if not integral(command.count) or (command.count :: number) < 1 or (command.count :: number) > MAX_COUNT then
+		if
+			not (type(command.count) == "number" and integral(command.count))
+			or command.count < 1
+			or command.count > MAX_COUNT
+		then
 			return nil, "count_invalid"
 		end
-		local claimId = command.claimId :: string
-		local actorId = command.actorId :: string
-		local materialId = command.materialId :: string
-		local count = command.count :: number
+		local claimId = command.claimId
+		local actorId = command.actorId
+		local materialId = command.materialId
+		local count = command.count
 
 		local existingIndex = ctx.claimIndex[claimId]
 		if existingIndex ~= nil then
@@ -795,23 +813,26 @@ function Cargo.create(config: Config)
 		return result, nil
 	end
 
-	local function stepRelease(ctx: Context, command: Command, nowSec: number): (Result?, string?)
-		if not text(command.dropId) then
+	local function stepRelease(ctx: Context, command: RawCommand, nowSec: number): (Result?, string?)
+		if not (type(command.dropId) == "string" and text(command.dropId)) then
 			return nil, "drop_invalid"
 		end
-		if not text(command.actorId) then
+		if not (type(command.actorId) == "string" and text(command.actorId)) then
 			return nil, "actor_invalid"
 		end
-		if type(command.cause) ~= "string" or CAUSES[command.cause :: string] ~= true then
+		if command.cause ~= "death" and command.cause ~= "disconnect" and command.cause ~= "teleport" then
 			return nil, "cause_invalid"
 		end
-		if not clock(command.expiresAtSec) or (command.expiresAtSec :: number) <= nowSec then
+		if
+			not (type(command.expiresAtSec) == "number" and clock(command.expiresAtSec))
+			or command.expiresAtSec <= nowSec
+		then
 			return nil, "expiry_invalid"
 		end
-		local dropId = command.dropId :: string
-		local actorId = command.actorId :: string
-		local cause: Cause = command.cause :: Cause
-		local expiresAtSec = command.expiresAtSec :: number
+		local dropId = command.dropId
+		local actorId = command.actorId
+		local cause: Cause = command.cause
+		local expiresAtSec = command.expiresAtSec
 
 		local existingIndex = ctx.dropIndex[dropId]
 		if existingIndex ~= nil then
@@ -857,15 +878,15 @@ function Cargo.create(config: Config)
 		return result, nil
 	end
 
-	local function stepRecover(ctx: Context, command: Command, nowSec: number): (Result?, string?)
-		if not text(command.dropId) then
+	local function stepRecover(ctx: Context, command: RawCommand, nowSec: number): (Result?, string?)
+		if not (type(command.dropId) == "string" and text(command.dropId)) then
 			return nil, "drop_invalid"
 		end
-		if not text(command.actorId) then
+		if not (type(command.actorId) == "string" and text(command.actorId)) then
 			return nil, "actor_invalid"
 		end
-		local dropId = command.dropId :: string
-		local actorId = command.actorId :: string
+		local dropId = command.dropId
+		local actorId = command.actorId
 
 		local dropIndex = ctx.dropIndex[dropId]
 		if dropIndex == nil then
@@ -905,11 +926,11 @@ function Cargo.create(config: Config)
 		return result, nil
 	end
 
-	local function stepExpire(ctx: Context, command: Command, nowSec: number): (Result?, string?)
-		if not text(command.dropId) then
+	local function stepExpire(ctx: Context, command: RawCommand, nowSec: number): (Result?, string?)
+		if not (type(command.dropId) == "string" and text(command.dropId)) then
 			return nil, "drop_invalid"
 		end
-		local dropId = command.dropId :: string
+		local dropId = command.dropId
 
 		local dropIndex = ctx.dropIndex[dropId]
 		if dropIndex == nil then
@@ -943,19 +964,19 @@ function Cargo.create(config: Config)
 		return result, nil
 	end
 
-	local function stepExtract(ctx: Context, command: Command, nowSec: number): (Result?, string?)
-		if not text(command.extractionId) then
+	local function stepExtract(ctx: Context, command: RawCommand, nowSec: number): (Result?, string?)
+		if not (type(command.extractionId) == "string" and text(command.extractionId)) then
 			return nil, "extraction_invalid"
 		end
-		if not text(command.actorId) then
+		if not (type(command.actorId) == "string" and text(command.actorId)) then
 			return nil, "actor_invalid"
 		end
-		if not text(command.campId) then
+		if not (type(command.campId) == "string" and text(command.campId)) then
 			return nil, "camp_invalid"
 		end
-		local extractionId = command.extractionId :: string
-		local actorId = command.actorId :: string
-		local campId = command.campId :: string
+		local extractionId = command.extractionId
+		local actorId = command.actorId
+		local campId = command.campId
 
 		local existingIndex = ctx.extractionIndex[extractionId]
 		if existingIndex ~= nil then
@@ -1111,10 +1132,10 @@ function Cargo.create(config: Config)
 		if command == nil then
 			return nil, commandReason
 		end
-		if not clock(nowSecValue) then
+		if not (type(nowSecValue) == "number" and clock(nowSecValue)) then
 			return nil, "clock_invalid"
 		end
-		local nowSec = nowSecValue :: number
+		local nowSec = nowSecValue
 		if nowSec < ctx.lastClockSec then
 			return nil, "clock_regressed"
 		end
@@ -1137,7 +1158,7 @@ function Cargo.create(config: Config)
 		if ctx == nil then
 			return nil, reason
 		end
-		if not text(actorIdValue) then
+		if not (type(actorIdValue) == "string" and text(actorIdValue)) then
 			return nil, "actor_invalid"
 		end
 		local actorId = actorIdValue
@@ -1174,7 +1195,7 @@ function Cargo.create(config: Config)
 				byMaterial[claim.materialId] = row
 				table.insert(materialIds, claim.materialId)
 			end
-			local live = row :: CensusRow
+			local live = row
 			if claim.status == "carried" then
 				live.carried += claim.count
 			elseif claim.status == "dropped" then
@@ -1198,10 +1219,10 @@ function Cargo.create(config: Config)
 		if ctx == nil then
 			return nil, reason
 		end
-		if not clock(nowSecValue) then
+		if not (type(nowSecValue) == "number" and clock(nowSecValue)) then
 			return nil, "clock_invalid"
 		end
-		local nowSec = nowSecValue :: number
+		local nowSec = nowSecValue
 		local rows: { Drop } = {}
 		for _, drop in ctx.drops do
 			if drop.recoveredBy == nil and not drop.expired and nowSec < drop.expiresAtSec then
@@ -1220,17 +1241,6 @@ function Cargo.create(config: Config)
 	Claims.MAX_TEXT = MAX_TEXT
 	Claims.MAX_COUNT = MAX_COUNT
 	Claims.MAX_AT = MAX_AT
-
-	Claims.Types = (nil :: unknown) :: {
-		State: State,
-		Claim: Claim,
-		Drop: Drop,
-		Cause: Cause,
-		Command: Command,
-		Result: Result,
-		Total: Total,
-		CensusRow: CensusRow,
-	}
 
 	return Value.freezeDeep(Claims)
 end

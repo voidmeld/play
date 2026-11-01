@@ -127,26 +127,20 @@ return function(suite: Verify.Harness)
 		it("recognizes camera gestures without treating processed taps or movement as camera input", function()
 			for _, sample in
 				{
-					{ "MouseMovement", 4, 0, true, false, true },
-					{ "MouseMovement", 4, 0, false, false, false },
-					{ "MouseWheel", 0, 0, false, false, true },
-					{ "Touch", 4, 0, false, false, true },
-					{ "Touch", 4, 0, false, true, false },
-					{ "Touch", 0, 0, false, false, false },
-					{ "Thumbstick2", 0.5, 0, false, false, true },
-					{ "Thumbstick2", 0.01, 0, false, false, false },
-					{ "Keyboard", 1, 0, false, false, false },
+					{ input = "MouseMovement", dx = 4, dy = 0, dragging = true, processed = false, expected = true },
+					{ input = "MouseMovement", dx = 4, dy = 0, dragging = false, processed = false, expected = false },
+					{ input = "MouseWheel", dx = 0, dy = 0, dragging = false, processed = false, expected = true },
+					{ input = "Touch", dx = 4, dy = 0, dragging = false, processed = false, expected = true },
+					{ input = "Touch", dx = 4, dy = 0, dragging = false, processed = true, expected = false },
+					{ input = "Touch", dx = 0, dy = 0, dragging = false, processed = false, expected = false },
+					{ input = "Thumbstick2", dx = 0.5, dy = 0, dragging = false, processed = false, expected = true },
+					{ input = "Thumbstick2", dx = 0.01, dy = 0, dragging = false, processed = false, expected = false },
+					{ input = "Keyboard", dx = 1, dy = 0, dragging = false, processed = false, expected = false },
 				}
 			do
-				expect(
-					core.cameraGesture(
-						sample[1] :: string,
-						sample[2] :: number,
-						sample[3] :: number,
-						sample[4] :: boolean,
-						sample[5] :: boolean
-					)
-				):toBe(sample[6])
+				expect(core.cameraGesture(sample.input, sample.dx, sample.dy, sample.dragging, sample.processed)):toBe(
+					sample.expected
+				)
 			end
 		end)
 	end)
