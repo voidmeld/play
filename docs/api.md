@@ -1,5 +1,36 @@
 # Public API
 
+## [`src/core/progression/consumables.luau`](../src/core/progression/consumables.luau)
+
+### `core.progression.consumables.create`
+
+Creates an isolated item registry and recovery rules from `Config`. `register` and `registerAll`
+validate and copy definitions, freezing accepted items and their buff statistics. `item` reads
+registered definitions. `copy`, `begin`, `interrupt`, `activeStats` and `tick` operate on recovery
+state. `tick` returns new state and separate health/mana gains without mutating the input actor.
+The reducer may use `interruptActor` to advance the interruption generation and clear channels.
+
+Health and mana channels have independent absolute deadlines. Repeated or reversed samples award
+no duplicate recovery. Movement, combat and control interrupt recovery. Completed food can apply a
+timed buff; immediate buffs occupy food or elixir slots. `eligibility` reports admission refusals.
+Games supply catalogue entries, class resource policy, buff limits, movement tolerance and cue text.
+
+## [`src/roblox/consumables.luau`](../src/roblox/consumables.luau)
+
+### `roblox.consumables.decodeUseRequest`
+
+Accepts an item lookup and raw item/order values. Returns a registered item and positive safe-integer
+order as a `use` request, or `refused`.
+
+### `roblox.consumables.create`
+
+Creates `use`, `status`, `enforce` and `forget` operations over injected character snapshots,
+profile presence, receipt readback, durable commits and authoritative begin/cancel commands.
+An uncertain commit retains its receipt and blocks switching items until reconciled. Rejected
+commits clear the pending use. Successful commits recheck character identity, health, movement and
+interruption generation before dispatching recovery. Consumed items are not refunded by a later
+interruption. The game owns inventory mutation, profile schema, native observations and remote wiring.
+
 ## [`src/core/progression/talent-ranks.luau`](../src/core/progression/talent-ranks.luau)
 
 Exports read-only `Node`, `Tier`, `Line` and `Spec` definitions, plus `Bucket`, `Loadout` and `Result`.
