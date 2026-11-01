@@ -205,13 +205,20 @@ return function(suite: Verify.Harness)
 	end)
 	it("excludes bindings and worn bag copies while retaining bank-backed tradeable copies", function()
 		local law = Module.stacks({ maxStack = 20, baseCapacity = 2, permanentItems = {}, bagBonus = {} })
-		local holdings = {
-			inventory = { item = 5 },
-			equipment = { hand = "item" },
-			bank = { items = { item = 2 } },
-			boundItems = { item = 7 },
-			itemWear = { equipped = {}, bag = { item = { 1, 2 } }, bank = {} },
-		}
+		local holdings: {
+			inventory: Module.Inventory,
+			equipment: { [string]: string },
+			bank: unknown,
+			boundItems: Module.Inventory?,
+			itemWear: index<Module.Holdings, "itemWear">,
+		} =
+			{
+				inventory = { item = 5 },
+				equipment = { hand = "item" },
+				bank = { items = { item = 2 } },
+				boundItems = { item = 7 },
+				itemWear = { equipped = {}, bag = { item = { 1, 2 } }, bank = {} },
+			}
 		expect(law.unboundCount(holdings, "item")):toBe(1)
 		holdings.boundItems = { item = 1 }
 		expect(law.unboundCount(holdings, "item")):toBe(3)
