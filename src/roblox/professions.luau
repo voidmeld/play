@@ -19,8 +19,8 @@ type CraftOutcome = Craft.Outcome
 export type Fields = {
 	inventory: { [string]: number },
 	gold: number,
-	faction: string,
-	bagItem: string?,
+	read faction: string,
+	read bagItem: string?,
 	professions: State,
 }
 export type CommitResult = {

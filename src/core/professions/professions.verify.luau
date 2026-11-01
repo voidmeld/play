@@ -99,7 +99,14 @@ local session = Session.create({
 local function learned(): Skills.State
 	return { skills = { primary = 1, fish = 1 }, recipes = { recipe = true } }
 end
-type Profile = Host.Fields & { retained: string }
+type Profile = {
+	inventory: { [string]: number },
+	gold: number,
+	faction: "team",
+	bagItem: string,
+	professions: Skills.State,
+	retained: string,
+}
 
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
@@ -229,6 +236,7 @@ return function(suite: Verify.Harness)
 				inventory = { ore = 4, rod = 1 },
 				gold = 10,
 				faction = "team",
+				bagItem = "",
 				professions = learned(),
 			}
 			local at, serial, saves, durable = 0, 0, 0, false
