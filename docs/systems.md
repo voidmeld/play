@@ -60,6 +60,19 @@ and grant policies. `copyPersonalState` validates and returns detached personal 
 `readQuality` validates and returns an immutable or detached quality value. Settlement freezes
 its returned data. Neither reader may return mutable caller-owned data that freezing would affect.
 
+## Consumable recovery
+
+`core/progression/consumables` owns validated item registration, concurrent health and mana recovery,
+interruption, replay order and timed food/elixir buffs. Games supply item definitions, resource
+eligibility, movement tolerance, buff bounds and player text. Recovery returns state and gains;
+the game's authoritative reducer installs them.
+
+`roblox/consumables` coordinates use requests with injected character observations and durable
+consumption. An uncertain write retains its receipt for retry. Recovery starts only after a
+successful commit and a second character, health, movement and interruption check. Reopened
+profiles reconcile consumed receipts. Games supply persistence, inventory changes, Roblox
+observations, intent dispatch, remote wiring and presentation.
+
 Input mounting uses typed callback dependencies. `input-profile.start` accepts missing optional
 callbacks so it can report an incomplete host; accepted callbacks retain their declared argument
 and result types. Game-facing requests and persisted records remain runtime-validated inputs.
