@@ -205,7 +205,7 @@ return function(suite: Verify.Harness)
 	end)
 	it("excludes bindings and worn bag copies while retaining bank-backed tradeable copies", function()
 		local law = Module.stacks({ maxStack = 20, baseCapacity = 2, permanentItems = {}, bagBonus = {} })
-		local holdings: Module.Holdings = {
+		local holdings = {
 			inventory = { item = 5 },
 			equipment = { hand = "item" },
 			bank = { items = { item = 2 } },
