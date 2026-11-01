@@ -2,53 +2,53 @@
 local Value = require("../internal/value")
 
 export type Sustain = {
-	resource: "hp" | "mana" | "none",
-	verb: string,
-	durationSec: number,
-	fractionPerSec: number,
-	combat: boolean?,
-	buff: { slot: "food" | "elixir", durationSec: number, stats: { [string]: number } }?,
+	read resource: "hp" | "mana" | "none",
+	read verb: string,
+	read durationSec: number,
+	read fractionPerSec: number,
+	read combat: boolean?,
+	read buff: { slot: "food" | "elixir", durationSec: number, stats: { [string]: number } }?,
 }
-export type Reagent = { itemId: string, quantity: number }
-export type QuestInput = { questId: string, objectiveId: string, itemId: string, quantity: number }
-export type Thresholds = { orange: number, yellow: number, green: number, grey: number }
+export type Reagent = { read itemId: string, read quantity: number }
+export type QuestInput = { read questId: string, read objectiveId: string, read itemId: string, read quantity: number }
+export type Thresholds = { read orange: number, read yellow: number, read green: number, read grey: number }
 export type Source = "trainer" | "vendor" | "world_drop" | "boss_drop" | "frontier"
 
 export type Descriptor = {
-	kind: "gear" | "consumable" | "material",
-	name: string,
-	lore: string,
-	rarity: string,
-	slot: string?,
-	armorFamily: string?,
-	weaponFamily: string?,
-	handTopology: string?,
-	levelReq: number,
-	ladderSource: string?,
-	stack: number?,
-	sustain: Sustain?,
+	read kind: "gear" | "consumable" | "material",
+	read name: string,
+	read lore: string,
+	read rarity: string,
+	read slot: string?,
+	read armorFamily: string?,
+	read weaponFamily: string?,
+	read handTopology: string?,
+	read levelReq: number,
+	read ladderSource: string?,
+	read stack: number?,
+	read sustain: Sustain?,
 }
 
 export type Recipe = {
-	id: string,
-	realmId: string?,
-	profession: string,
-	slug: string,
-	name: string,
-	requiredSkill: number,
-	thresholds: Thresholds,
-	reagents: { Reagent },
-	output: Reagent,
-	source: Source,
-	rung: "pve" | "rvr",
-	station: string?,
-	recipeItemId: string?,
-	trainerCost: number?,
-	vendor: { price: number, stock: number }?,
-	dropBosses: { string }?,
-	dropChance: number?,
-	item: Descriptor,
-	questInputs: { QuestInput }?,
+	read id: string,
+	read realmId: string?,
+	read profession: string,
+	read slug: string,
+	read name: string,
+	read requiredSkill: number,
+	read thresholds: Thresholds,
+	read reagents: { Reagent },
+	read output: Reagent,
+	read source: Source,
+	read rung: "pve" | "rvr",
+	read station: string?,
+	read recipeItemId: string?,
+	read trainerCost: number?,
+	read vendor: { price: number, stock: number }?,
+	read dropBosses: { string }?,
+	read dropChance: number?,
+	read item: Descriptor,
+	read questInputs: { QuestInput }?,
 }
 
 export type Extra = { itemId: string, chance: number, quantity: number }
