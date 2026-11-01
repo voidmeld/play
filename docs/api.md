@@ -1,5 +1,20 @@
 # Public API
 
+## [`src/core/threat/contribution.luau`](../src/core/threat/contribution.luau)
+
+### `core.threat.contribution.create`
+
+Creates combat credit and encounter participation rules from `Config`. The caller supplies credit
+categories, relation eligibility, observation and reward radii, inactivity retention, recent-defeat
+grace, short-encounter duration and sustained-action/interrupt thresholds.
+
+`creditFor` caps credit by attempted, effective and eligible amounts. `record` and `observe` return
+new participation records. `finish` snapshots character identity, three-dimensional distance,
+life state and dungeon admission once at encounter end. Later movement, replacement characters or
+admission changes cannot rewrite that snapshot. `eligible` and `eligibleAtEnd` apply the supplied
+reward criteria. `asParticipant` preserves an already projected participant; `CATEGORY_BY_KIND`
+exposes the supplied category map. Actual reward selection and durable grants belong to the game.
+
 ## [`src/core/progression/consumables.luau`](../src/core/progression/consumables.luau)
 
 ### `core.progression.consumables.create`
