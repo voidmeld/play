@@ -905,6 +905,16 @@ invalid action identities and metatables. Use `copy(state)` for an already typed
 
 ### `roblox.profile-sessions.new`
 
+## [`src/roblox/profile-transfer.luau`](../src/roblox/profile-transfer.luau)
+
+### `roblox.profile-transfer.exclusive`
+
+### `roblox.profile-transfer.profileFor`
+
+### `roblox.profile-transfer.sameSession`
+
+### `roblox.profile-transfer.settle`
+
 ## [`src/roblox/remote-events.luau`](../src/roblox/remote-events.luau)
 
 ### `roblox.remote-events.transport`

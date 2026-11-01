@@ -89,6 +89,7 @@ return table.freeze {
 	"src/roblox/npc-motion.verify.luau",
 	"src/roblox/party.verify.luau",
 	"src/roblox/profile-sessions.verify.luau",
+	"src/roblox/profile-transfer.verify.luau",
 	"src/roblox/remote-events.verify.luau",
 	"src/roblox/screen-labels.verify.luau",
 	"src/roblox/target-selection.verify.luau",

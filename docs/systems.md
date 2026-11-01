@@ -156,6 +156,7 @@ The game installs the returned state.
 | Module | Function |
 | --- | --- |
 | [profile-sessions](../src/roblox/profile-sessions.luau) | Lease admission, saves, renewal, close, drain, and disposal. |
+| [profile-transfer](../src/roblox/profile-transfer.luau) | Session identity, profile reads, settled writes, and per-key exclusion for profile transfers. |
 | [data-store](../src/roblox/data-store.luau) | Operation retries, delays, and jitter. |
 | [remote-events](../src/roblox/remote-events.luau) | Shared channel dispatchers and handler release. |
 | [chat](../src/roblox/chat.luau) | Native channel membership and platform privacy. |
