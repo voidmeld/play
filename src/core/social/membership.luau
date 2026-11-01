@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type LootMode = "round_robin" | "need_greed"
 

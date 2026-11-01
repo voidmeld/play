@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../internal/value")
+local Value = require("../value")
 export type Outcome = { ok: boolean, value: unknown, reason: string? }
 export type DrainOutcome = { ok: boolean, flushed: number, remaining: number, reason: string? }
 export type Operation = "Get" | "Set" | "Update"

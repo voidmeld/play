@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../internal/value")
+local Value = require("../value")
 
 local RecipesTypes = require("./types")
 

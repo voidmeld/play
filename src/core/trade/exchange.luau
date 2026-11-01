@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type Stack = { itemId: string, count: number }
 export type Offer = { coin: number, items: { Stack } }

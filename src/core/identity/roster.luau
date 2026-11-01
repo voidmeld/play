@@ -1,7 +1,7 @@
 --!strict
 
 local Policy = require("./policy")
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type CharacterIdentity = {
 	characterId: string,

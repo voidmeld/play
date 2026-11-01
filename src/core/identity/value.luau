@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../internal/value")
+local Value = require("../value")
 local function hasMetatable(value: unknown): boolean
 	return type(value) == "table" and getmetatable(value) ~= nil
 end

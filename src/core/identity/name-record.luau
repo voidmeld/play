@@ -2,7 +2,7 @@
 
 local Policy = require("./policy")
 local Registry = require("./name-claims")
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type Record = NameRecord
 export type Claim = Registry.Claim
