@@ -5,11 +5,11 @@ local Vault = require("../bank/vault")
 
 export type Inventory = { [string]: number }
 export type Holdings = {
-	inventory: Inventory,
-	equipment: { [string]: string },
-	bank: unknown,
-	itemWear: { equipped: { [string]: number }, bag: { [string]: { number } }, bank: { [string]: { number } } }?,
-	boundItems: Inventory?,
+	read inventory: Inventory,
+	read equipment: { [string]: string },
+	read bank: unknown,
+	read itemWear: { equipped: { [string]: number }, bag: { [string]: { number } }, bank: { [string]: { number } } }?,
+	read boundItems: Inventory?,
 }
 
 export type Config = {
