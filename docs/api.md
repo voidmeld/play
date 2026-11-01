@@ -667,6 +667,8 @@ Do not clear its ledger when you cleanse an effect.
 
 ### `core.mail.mailbox.mailbox`
 
+`read` validates unknown stored data and returns a detached typed envelope, or nil for a refused value.
+
 ## [`src/core/market/book.luau`](../src/core/market/book.luau)
 
 ### `core.market.book.book`

@@ -64,6 +64,24 @@ return function(suite: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("mailbox", function()
+		it("reads detached envelopes and refuses malformed or executable stored values", function()
+			local stored = prepared()
+			local read = assert(mailbox.read(stored))
+			expect(read.id):toBe(stored.id)
+			expect(read == stored):toBe(false)
+			stored.phase = "cancelled"
+			expect(read.phase):toBe("prepared")
+			expect(read.attachments == stored.attachments):toBe(false)
+			local malformed = fields(stored)
+			malformed.senderId = "11"
+			expect(mailbox.read(malformed)):toBeNil()
+			expect(mailbox.read(setmetatable({}, {
+				__iter = function()
+					error("must not iterate executable input")
+				end,
+			}))):toBeNil()
+		end)
+
 		it(
 			"bounds recovery pointers and rejects mismatched ids, unknown fields and partial character identity",
 			function(own)
