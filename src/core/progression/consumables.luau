@@ -231,11 +231,12 @@ function Consumables.create(config: Config)
 			return "recover_before_rest"
 		end
 		if not allowCombat then
-			if
-				(actor.fights ~= nil and next(actor.fights) ~= nil)
-				or actor.pendingControl ~= nil
-				or (actor.gcdRemainingSec or 0) > 0
-			then
+			if actor.fights ~= nil then
+				for _ in actor.fights do
+					return "in_combat"
+				end
+			end
+			if actor.pendingControl ~= nil or (actor.gcdRemainingSec or 0) > 0 then
 				return "in_combat"
 			end
 			for _, mob in (mobs or {}) do

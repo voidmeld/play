@@ -89,23 +89,26 @@ return function(suite: Verify.Harness)
 		end)
 		it("borrows frozen game records with richer effect and mob fields", function()
 			local core = fixture()
+			local effects: { [string]: { remainingSec: number, totalSec: number, name: string } } = {
+				previous = { remainingSec = 0, totalSec = 1, name = "stun" },
+			}
 			local actor = table.freeze({
 				id = "a",
 				hp = 20,
 				maxHp = 100,
 				pos = table.freeze({ x = 0, z = 0 }),
-				crowdControls = table.freeze({
-					previous = table.freeze({ remainingSec = 0, totalSec = 1, name = "stun" }),
-				}),
+				crowdControls = table.freeze(effects),
 			})
-			local mobs = table.freeze({
-				other = table.freeze({
-					hp = 10,
-					targetActorId = "other",
-					threat = table.freeze({ other = 1 }),
-					level = 5,
-				}),
-			})
+			local rows: { [string]: { hp: number, targetActorId: string, threat: { [string]: number }, level: number } } =
+				{
+					other = {
+						hp = 10,
+						targetActorId = "other",
+						threat = { other = 1 },
+						level = 5,
+					},
+				}
+			local mobs = table.freeze(rows)
 			local state = assert(core.begin(nil, actor, mobs, "food", 1, 0))
 			local nextState, gain = core.advance(state, actor, mobs, 1)
 			expect(gain):toBe(2.5)
