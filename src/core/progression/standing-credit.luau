@@ -1,12 +1,12 @@
 --!strict
 export type Outcome = {
-	ok: boolean,
-	reason: string?,
-	deferred: boolean?,
-	idle: boolean?,
-	characterId: string?,
-	standing: number?,
-	retryable: boolean?,
+	read ok: boolean,
+	read reason: string?,
+	read deferred: boolean?,
+	read idle: boolean?,
+	read characterId: string?,
+	read standing: number?,
+	read retryable: boolean?,
 }
 export type Config = {
 	clock: () -> number,
