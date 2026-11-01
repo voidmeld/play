@@ -2,6 +2,7 @@
 local Exploration = require("./exploration")
 local MapViewportModel = require("./viewport")
 local UpdateTypes = require("./updates")
+local Value = require("../internal/value")
 export type PreferredInput = "pointer" | "touch"
 export type Surface = {
 	preferredInput: PreferredInput,
@@ -61,12 +62,20 @@ function Renderer.new<K>(deps: {
 		return true
 	end
 
-	local function copyState(state: UpdateTypes.State): UpdateTypes.State
-		return {
-			lastSampleAtSeconds = state.lastSampleAtSeconds,
-			lastPanAtSeconds = state.lastPanAtSeconds,
-			markerRevision = state.markerRevision,
-		}
+	local function copyState(value: unknown): UpdateTypes.State?
+		local state = Value.raw(value)
+		if state == nil then
+			return nil
+		end
+		local sample, pan, marker = state.lastSampleAtSeconds, state.lastPanAtSeconds, state.markerRevision
+		if
+			(sample ~= nil and type(sample) ~= "number")
+			or (pan ~= nil and type(pan) ~= "number")
+			or (marker ~= nil and type(marker) ~= "number")
+		then
+			return nil
+		end
+		return { lastSampleAtSeconds = sample, lastPanAtSeconds = pan, markerRevision = marker }
 	end
 
 	local function viewportRows(records: { Exploration.Record<K> }): { MapViewportModel.MarkerRow }
@@ -90,7 +99,7 @@ function Renderer.new<K>(deps: {
 		if not hasOnlyFields(input, INPUT_FIELDS) then
 			return nil
 		end
-		local source = input
+		local source = assert(Value.raw(input))
 		local surface = MinimapSurfacePolicy.resolve(source.preferredInput, source.explicitEnabled)
 		if surface == nil then
 			return nil
@@ -101,9 +110,13 @@ function Renderer.new<K>(deps: {
 			return nil
 		end
 		if not surface.enabled then
+			local prior = copyState(source.previousUpdateState)
+			if prior == nil then
+				return nil
+			end
 			return {
 				surface = surface,
-				updateState = copyState(source.previousUpdateState),
+				updateState = prior,
 				viewportUpdate = nil,
 			}
 		end
@@ -119,11 +132,15 @@ function Renderer.new<K>(deps: {
 		if catalog == nil then
 			return nil
 		end
+		local sample = Value.raw(source.sample)
+		if sample == nil then
+			return nil
+		end
 		local viewport = MapViewportModel.build({
 			zoneId = source.zoneId,
 			exploredMap = source.exploredMap,
 			markerRows = viewportRows(catalog.records),
-			player = source.sample.player,
+			player = sample.player,
 			imageScale = source.imageScale,
 			trackedWaypoint = source.trackedWaypoint,
 		})

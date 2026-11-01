@@ -39,63 +39,63 @@ local function finite(value: unknown): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
-local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
-	if type(value) ~= "table" then
-		return false
-	end
-	for key in value do
-		if type(key) ~= "string" or not fields[key] then
-			return false
-		end
-	end
-	return true
-end
-
-local function spans(bounds: unknown): (Bounds?, number?, number?)
-	if not hasOnlyFields(bounds, BOUNDS_FIELDS) then
+local function spans(value: unknown): (Bounds?, number?, number?)
+	local raw = Value.record(value, BOUNDS_FIELDS, false, false)
+	if raw == nil then
 		return nil, nil, nil
 	end
-	local candidate = bounds
+	local minX, maxX, minZ, maxZ = raw.minX, raw.maxX, raw.minZ, raw.maxZ
 	if
-		not finite(candidate.minX)
-		or not finite(candidate.maxX)
-		or not finite(candidate.minZ)
-		or not finite(candidate.maxZ)
+		type(minX) ~= "number"
+		or type(maxX) ~= "number"
+		or type(minZ) ~= "number"
+		or type(maxZ) ~= "number"
+		or not finite(minX)
+		or not finite(maxX)
+		or not finite(minZ)
+		or not finite(maxZ)
 	then
 		return nil, nil, nil
 	end
-	local spanX = candidate.maxX - candidate.minX
-	local spanZ = candidate.maxZ - candidate.minZ
+	local spanX, spanZ = maxX - minX, maxZ - minZ
 	if not finite(spanX) or not finite(spanZ) or spanX <= 0 or spanZ <= 0 then
 		return nil, nil, nil
 	end
-	return candidate, spanX, spanZ
+	return { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }, spanX, spanZ
 end
 
-local function validWorldPoint(value: unknown): boolean
-	if not hasOnlyFields(value, WORLD_POINT_FIELDS) then
-		return false
+local function worldPoint(value: unknown): WorldPoint?
+	local raw = Value.record(value, WORLD_POINT_FIELDS, false, false)
+	if raw == nil then
+		return nil
 	end
-	local point = value
-	return finite(point.x) and finite(point.z)
+	local x, z = raw.x, raw.z
+	if type(x) ~= "number" or type(z) ~= "number" or not finite(x) or not finite(z) then
+		return nil
+	end
+	return { x = x, z = z }
 end
 
-local function validNormalizedPoint(value: unknown): boolean
-	if not hasOnlyFields(value, NORMALIZED_POINT_FIELDS) then
-		return false
+local function normalizedPoint(value: unknown): NormalizedPoint?
+	local raw = Value.record(value, NORMALIZED_POINT_FIELDS, false, false)
+	if raw == nil then
+		return nil
 	end
-	local point = value
-	return finite(point.u) and finite(point.v)
+	local u, v = raw.u, raw.v
+	if type(u) ~= "number" or type(v) ~= "number" or not finite(u) or not finite(v) then
+		return nil
+	end
+	return { u = u, v = v }
 end
 
 local ZoneMapProjectionCore = {}
 
 function ZoneMapProjectionCore.worldToMap(boundsValue: unknown, worldValue: unknown): NormalizedPoint?
 	local bounds, spanX, spanZ = spans(boundsValue)
-	if bounds == nil or spanX == nil or spanZ == nil or not validWorldPoint(worldValue) then
+	local world = worldPoint(worldValue)
+	if bounds == nil or spanX == nil or spanZ == nil or world == nil then
 		return nil
 	end
-	local world = worldValue
 	local boundedX = math.clamp(world.x, bounds.minX, bounds.maxX)
 	local boundedZ = math.clamp(world.z, bounds.minZ, bounds.maxZ)
 	local result: NormalizedPoint = {
@@ -107,10 +107,10 @@ end
 
 function ZoneMapProjectionCore.mapToWorld(boundsValue: unknown, normalizedValue: unknown): WorldPoint?
 	local bounds, spanX, spanZ = spans(boundsValue)
-	if bounds == nil or spanX == nil or spanZ == nil or not validNormalizedPoint(normalizedValue) then
+	local normalized = normalizedPoint(normalizedValue)
+	if bounds == nil or spanX == nil or spanZ == nil or normalized == nil then
 		return nil
 	end
-	local normalized = normalizedValue
 	local boundedU = math.clamp(normalized.u, 0, 1)
 	local boundedV = math.clamp(normalized.v, 0, 1)
 	local result: WorldPoint = {

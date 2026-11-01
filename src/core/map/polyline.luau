@@ -19,7 +19,7 @@ function Polyline.simplifyPolyline(points: { PixelPoint }, tolerance: number): {
 	local keep: { [number]: boolean } = { [1] = true, [count] = true }
 	local stack = { { 1, count } }
 	while #stack > 0 do
-		local range = (table.remove(stack))
+		local range = assert(table.remove(stack))
 		local first, last = range[1], range[2]
 		local farthest, farthestDistance = nil, tolerance
 		for index = first + 1, last - 1 do
