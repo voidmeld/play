@@ -20,7 +20,7 @@ export type Result = {
 type Readable<T> = { peek: (self: Readable<T>) -> T }
 
 export type Reader<P> = {
-	profile: (Identity) -> Readable<P?>?,
+	read profile: (Identity) -> Readable<P?>?,
 }
 
 local function sameSession(left: Identity?, right: Identity?): boolean
