@@ -2,6 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Lease = require("./account-lease")
+local Value = require("../internal/value")
 
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
@@ -63,7 +64,7 @@ return function(suite: Verify.Harness)
 			expect(select(2, Lease.release(active, 202, "session", "acquisition", 1, 1))):toBe("identity_mismatch")
 			expect(select(2, Lease.renew(nil, 101, "session", "acquisition", 1, 1, 100, 20))):toBe("absent")
 			expect(Lease.equal(active, before)):toBe(true)
-			local maximum = table.clone(active)
+			local maximum = assert(Value.raw(active))
 			maximum.revision = Lease.MAX_REVISION
 			maximum.fence = Lease.MAX_FENCE
 			maximum.expiresAtUnix = 100
@@ -90,11 +91,11 @@ return function(suite: Verify.Harness)
 
 		it("exhausts an acquisition on a spent fence and on a spent revision independently", function()
 			local active = (Lease.acquire(nil, 101, "session", "acquisition", 100, 20))
-			local spentFence = table.clone(active)
+			local spentFence = assert(Value.raw(active))
 			spentFence.fence = Lease.MAX_FENCE
 			spentFence.expiresAtUnix = 100
 			expect(select(2, Lease.acquire(spentFence, 101, "next", "next", 100, 20))):toBe("exhausted")
-			local spentRevision = table.clone(active)
+			local spentRevision = assert(Value.raw(active))
 			spentRevision.revision = Lease.MAX_REVISION
 			spentRevision.expiresAtUnix = 100
 			expect(select(2, Lease.acquire(spentRevision, 101, "next", "next", 100, 20))):toBe("exhausted")
@@ -104,34 +105,34 @@ return function(suite: Verify.Harness)
 			local valid = (Lease.empty(101))
 			for _, edit in
 				{
-					function(value)
+					function(value: Raw)
 						value.schemaVersion = 2
 					end,
-					function(value)
+					function(value: Raw)
 						value.userId = 9007199254740992
 					end,
-					function(value)
+					function(value: Raw)
 						value.revision = math.nan
 					end,
-					function(value)
+					function(value: Raw)
 						value.fence = math.huge
 					end,
-					function(value)
+					function(value: Raw)
 						value.sessionId = "session"
 					end,
-					function(value)
+					function(value: Raw)
 						value.extra = true
 					end,
 				}
 			do
-				local changed = table.clone(valid)
+				local changed = assert(Value.raw(valid))
 				edit(changed)
 				expect(Lease.validate(changed)):toBeNil()
 			end
-			local sparse = table.clone(valid)
+			local sparse = assert(Value.raw(valid))
 			sparse.acquisitionId = nil
 			expect(Lease.validate(sparse)):toBeNil()
-			local meta = table.clone(valid)
+			local meta = assert(Value.raw(valid))
 			setmetatable(meta, {})
 			expect(Lease.validate(meta)):toBeNil()
 		end)
@@ -142,7 +143,7 @@ return function(suite: Verify.Harness)
 				expect(select(2, Lease.acquire(current, 101, "session", "acquisition", value, 20))):toBe("invalid")
 			end
 			expect(select(2, Lease.acquire(current, 101, "", "acquisition", 100, 20))):toBe("invalid")
-			local copy = Lease.copy(current)
+			local copy = assert(Lease.copy(current))
 			expect(copy).never:toBe(current)
 			expect(Lease.equal(copy, current)):toBe(true)
 			expect(function()

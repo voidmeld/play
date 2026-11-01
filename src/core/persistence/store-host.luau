@@ -153,10 +153,10 @@ function StoreHost.create(config: Config)
 		if value == nil or valueType == "boolean" or valueType == "string" then
 			return true, value
 		end
-		if valueType == "number" then
+		if type(value) == "number" then
 			return value == value and value > -math.huge and value < math.huge, value
 		end
-		if valueType ~= "table" or getmetatable(value) ~= nil then
+		if type(value) ~= "table" or getmetatable(value) ~= nil then
 			return false, nil
 		end
 		local known: RawValue = copies or {}
@@ -174,7 +174,7 @@ function StoreHost.create(config: Config)
 			local keyType = type(key)
 			if
 				(keyType ~= "string" and keyType ~= "number")
-				or (keyType == "number" and (key ~= key or key <= -math.huge or key >= math.huge))
+				or (type(key) == "number" and (key ~= key or key <= -math.huge or key >= math.huge))
 			then
 				return false, nil
 			end

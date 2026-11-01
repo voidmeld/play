@@ -48,7 +48,7 @@ local function validAction(value: unknown): boolean
 	if type(value) ~= "table" then
 		return false
 	end
-	local row = value
+	local row = assert(Value.raw(value))
 	return (type(row.id) == "string" and nonempty(row.id))
 		and (type(row.keyboard) == "string" and nonempty(row.keyboard))
 		and (type(row.gamepad) == "string" and nonempty(row.gamepad))
@@ -69,13 +69,13 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 		if type(profile) ~= "table" or (device ~= "keyboard" and device ~= "gamepad" and device ~= "touch") then
 			return reached
 		end
-		local fields = profile
+		local fields = assert(Value.raw(profile))
 		if type(fields.actions) ~= "table" then
 			return reached
 		end
 		for _, value in fields.actions do
 			if type(value) == "table" then
-				local action = value
+				local action = assert(Value.raw(value))
 				local binding = action[if device == "keyboard"
 					then "keyboard"
 					elseif device == "gamepad" then "gamepad"
@@ -97,7 +97,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 		if type(profile) ~= "table" then
 			return false
 		end
-		local actions = (profile).actions
+		local actions = assert(Value.raw(profile)).actions
 		if type(actions) ~= "table" or #actions == 0 then
 			return false
 		end
@@ -113,7 +113,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 		if type(profile) ~= "table" or type(hosts) ~= "table" then
 			return false
 		end
-		local fields = profile
+		local fields = assert(Value.raw(profile))
 		if type(fields.actions) ~= "table" then
 			return false
 		end
@@ -123,11 +123,11 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 			if not validAction(value) then
 				return false
 			end
-			local action = value
-			if remaining[action.id] ~= nil then
+			local action = assert(Value.raw(value))
+			if remaining[assert(Value.opaque(action.id, math.huge))] ~= nil then
 				return false
 			end
-			remaining[action.id] = true
+			remaining[assert(Value.opaque(action.id, math.huge))] = true
 			count += 1
 		end
 		local claimed = 0
@@ -170,16 +170,16 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 
 	type Dependencies = {
 		profile: unknown,
-		owns: { unknown },
-		bind: (Action, boolean, (Device) -> ()) -> () -> (),
-		thumbstick: (({ x: number, y: number }) -> ()) -> () -> (),
-		dispatch: (string, Device) -> (),
-		intent: ({ x: number, y: number }, Device) -> (),
+		owns: { string }?,
+		bind: ((Action, boolean, (Device) -> ()) -> () -> ()) | false | nil,
+		thumbstick: ((({ x: number, y: number }) -> ()) -> () -> ()) | false | nil,
+		dispatch: ((string, Device) -> ()) | false | nil,
+		intent: (({ x: number, y: number }, Device) -> ()) | false | nil,
 	}
 
-	function Input.start(rawDependencies: unknown): Session
-		local fields = Value.record(rawDependencies, DEPENDENCY_FIELDS, true)
-		if fields == nil then
+	function Input.start(rawDependencies: Dependencies): Session
+		local fields = rawDependencies
+		if Value.record(fields, DEPENDENCY_FIELDS, true) == nil then
 			return refusal("dependencies_invalid")
 		end
 		local profile = Input.profile(fields.profile)
@@ -238,7 +238,7 @@ function Module.create(profiles: { [string]: Profile }, phases: { mounted: strin
 			if type(vector) ~= "table" then
 				return false
 			end
-			local fields = vector
+			local fields = assert(Value.raw(vector))
 			if type(fields.x) ~= "number" or type(fields.y) ~= "number" then
 				return false
 			end

@@ -234,7 +234,7 @@ function System.party(config: Config)
 		if not hasOnlyFields(value, RECORD_FIELDS) then
 			return nil, "record_invalid"
 		end
-		local raw = value
+		local raw = assert(Value.raw(value))
 		if
 			type(raw.schemaVersion) ~= "number"
 			or raw.schemaVersion ~= raw.schemaVersion
@@ -262,7 +262,7 @@ function System.party(config: Config)
 
 	local PartyService = {}
 
-	function PartyService.mount(dependencies: unknown): MountResult
+	function PartyService.mount(dependencies: Dependencies?): MountResult
 		if
 			type(dependencies) ~= "table"
 			or type((dependencies).store) ~= "table"
@@ -283,7 +283,7 @@ function System.party(config: Config)
 			if value == nil then
 				return nil, nil
 			end
-			if not text(value) then
+			if not (type(value) == "string" and text(value)) then
 				return nil, "membership_load_failed"
 			end
 			return value, nil
@@ -357,8 +357,8 @@ function System.party(config: Config)
 			if not hasOnlyFields(requestValue, OPEN_FIELDS) then
 				return refused("request_shape_invalid")
 			end
-			local request = requestValue
-			if not text(request.partyId) then
+			local request = assert(Value.raw(requestValue))
+			if not (type(request.partyId) == "string" and text(request.partyId)) then
 				return refused("party_id_invalid")
 			end
 			local partyId = request.partyId
@@ -407,11 +407,11 @@ function System.party(config: Config)
 			if not hasOnlyFields(requestValue, INVITE_FIELDS) then
 				return refused("request_shape_invalid")
 			end
-			local request = requestValue
-			if not text(request.partyId) then
+			local request = assert(Value.raw(requestValue))
+			if not (type(request.partyId) == "string" and text(request.partyId)) then
 				return refused("party_id_invalid")
 			end
-			if not text(request.accountId) then
+			if not (type(request.accountId) == "string" and text(request.accountId)) then
 				return refused("account_invalid")
 			end
 			local held, membershipReason = membershipOf(request.accountId)
@@ -438,11 +438,11 @@ function System.party(config: Config)
 			if not hasOnlyFields(requestValue, ACCEPT_FIELDS) then
 				return refused("request_shape_invalid")
 			end
-			local request = requestValue
-			if not text(request.partyId) then
+			local request = assert(Value.raw(requestValue))
+			if not (type(request.partyId) == "string" and text(request.partyId)) then
 				return refused("party_id_invalid")
 			end
-			if not text(request.accountId) then
+			if not (type(request.accountId) == "string" and text(request.accountId)) then
 				return refused("account_invalid")
 			end
 			local held, membershipReason = membershipOf(request.accountId)
@@ -466,14 +466,14 @@ function System.party(config: Config)
 
 		local function accountCommand(
 			fields: { [string]: boolean },
-			apply: (CoreState, { [string]: unknown }) -> (CoreResult?, string?)
+			apply: (CoreState, { [unknown]: unknown }) -> (CoreResult?, string?)
 		): (requestValue: unknown) -> PartyOutcome
 			return function(requestValue: unknown): PartyOutcome
 				if not hasOnlyFields(requestValue, fields) then
 					return refused("request_shape_invalid")
 				end
-				local request = requestValue
-				if not text(request.partyId) then
+				local request = assert(Value.raw(requestValue))
+				if not (type(request.partyId) == "string" and text(request.partyId)) then
 					return refused("party_id_invalid")
 				end
 				return commit(request.partyId, function(state)
@@ -533,7 +533,7 @@ function System.party(config: Config)
 		end)
 
 		local function read(partyIdValue: unknown): PartyOutcome
-			if not text(partyIdValue) then
+			if not (type(partyIdValue) == "string" and text(partyIdValue)) then
 				return refused("party_id_invalid")
 			end
 			local partyId = partyIdValue

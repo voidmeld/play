@@ -119,7 +119,7 @@ function Reputation.create(config: Config)
 	end
 
 	local function integral(value: unknown): boolean
-		return finite(value) and value == math.floor(value)
+		return (type(value) == "number" and finite(value)) and value == math.floor(value)
 	end
 
 	local function text(value: unknown): boolean
@@ -139,48 +139,38 @@ function Reputation.create(config: Config)
 	end
 
 	local function denseLength(value: unknown): number?
-		if type(value) ~= "table" then
-			return nil
-		end
-		local count = 0
-		for key in value do
-			if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
-				return nil
-			end
-			count += 1
-		end
-		for index = 1, count do
-			if (value)[index] == nil then
-				return nil
-			end
-		end
-		return count
+		local rows = Value.dense(value, math.huge, false)
+		return if rows == nil then nil else #rows
 	end
 
 	local function projectEvent(value: unknown): (Event?, string?)
 		if not hasOnlyFields(value, EVENT_FIELDS) then
 			return nil, "event_shape_invalid"
 		end
-		local source = value
-		if not text(source.eventId) then
+		local source = assert(Value.raw(value))
+		if not (type(source.eventId) == "string" and text(source.eventId)) then
 			return nil, "event_id_invalid"
 		end
 		if type(source.kind) ~= "string" or KINDS[source.kind] ~= true then
 			return nil, "event_kind_invalid"
 		end
-		if not text(source.accountId) then
+		if not (type(source.accountId) == "string" and text(source.accountId)) then
 			return nil, "account_invalid"
 		end
 		if type(source.realmId) ~= "string" or REALMS[source.realmId] ~= true then
 			return nil, "realm_unknown"
 		end
-		if not text(source.seasonId) then
+		if not (type(source.seasonId) == "string" and text(source.seasonId)) then
 			return nil, "season_invalid"
 		end
-		if not integral(source.units) or source.units < 1 or source.units > MAX_UNITS then
+		if
+			not (type(source.units) == "number" and integral(source.units))
+			or source.units < 1
+			or source.units > MAX_UNITS
+		then
 			return nil, "units_invalid"
 		end
-		if not finite(source.at) or source.at < 0 or source.at > MAX_AT then
+		if not (type(source.at) == "number" and finite(source.at)) or source.at < 0 or source.at > MAX_AT then
 			return nil, "time_invalid"
 		end
 		return Value.freezeDeep({
@@ -209,8 +199,8 @@ function Reputation.create(config: Config)
 		if not hasOnlyFields(value, LADDER_FIELDS) then
 			return nil, "ladder_shape_invalid"
 		end
-		local source = value
-		if not text(source.seasonId) then
+		local source = assert(Value.raw(value))
+		if not (type(source.seasonId) == "string" and text(source.seasonId)) then
 			return nil, "season_invalid"
 		end
 
@@ -222,8 +212,12 @@ function Reputation.create(config: Config)
 		local previousThreshold = 0
 		local previousIncrement: number? = nil
 		for index = 1, thresholdCount do
-			local candidate = (source.thresholds)[index]
-			if not integral(candidate) or candidate < 1 or candidate > MAX_THRESHOLD then
+			local candidate = assert(Value.raw(source.thresholds))[index]
+			if
+				not (type(candidate) == "number" and integral(candidate))
+				or candidate < 1
+				or candidate > MAX_THRESHOLD
+			then
 				return nil, "thresholds_invalid"
 			end
 			local threshold = candidate
@@ -248,7 +242,11 @@ function Reputation.create(config: Config)
 			if type(key) ~= "string" or KINDS[key] ~= true then
 				return nil, "rates_incomplete"
 			end
-			if not integral(candidate) or candidate < 1 or candidate > MAX_POINTS_PER_UNIT then
+			if
+				not (type(candidate) == "number" and integral(candidate))
+				or candidate < 1
+				or candidate > MAX_POINTS_PER_UNIT
+			then
 				return nil, "rate_invalid"
 			end
 			local rate = candidate
@@ -284,8 +282,8 @@ function Reputation.create(config: Config)
 			local names: { string } = {}
 			local seen: { [string]: boolean } = {}
 			for index = 1, nameCount do
-				local candidate = (ladder)[index]
-				if not text(candidate) or seen[candidate] == true then
+				local candidate = assert(Value.raw(ladder))[index]
+				if not (type(candidate) == "string" and text(candidate)) or seen[candidate] == true then
 					return nil, "rank_name_invalid"
 				end
 				local name = candidate
@@ -331,13 +329,14 @@ function Reputation.create(config: Config)
 		if not hasOnlyFields(value, STATE_FIELDS) then
 			return nil, "state_invalid"
 		end
-		local count = denseLength((value).events)
+		local source = assert(Value.raw(value))
+		local count = denseLength(source.events)
 		if count == nil then
 			return nil, "state_invalid"
 		end
 		local ctx = newContext()
 		for index = 1, count do
-			local row = projectEvent(((value).events)[index])
+			local row = projectEvent(assert(Value.raw(source.events))[index])
 			if row == nil then
 				return nil, "state_invalid"
 			end
@@ -404,7 +403,7 @@ function Reputation.create(config: Config)
 		if ladder == nil then
 			return nil, ladderReason
 		end
-		if not integral(pointsValue) or pointsValue < 0 then
+		if not (type(pointsValue) == "number" and integral(pointsValue)) or pointsValue < 0 then
 			return nil, "units_invalid"
 		end
 		return rankOf(ladder.thresholds, pointsValue), nil

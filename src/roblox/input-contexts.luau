@@ -14,7 +14,7 @@ export type Mounted = typeof(mounted("", {}, nil))
 
 local Contexts = {}
 
-function Contexts.mount(plan: { Template }, raw: unknown, phases: { mounted: string, refused: string }): Mounted
+function Contexts.mount(plan: { Template }, raw: Surfaces?, phases: { mounted: string, refused: string }): Mounted
 	local function refusal(reason: string): Mounted
 		return mounted(phases.refused, {}, reason)
 	end
@@ -70,14 +70,18 @@ function Contexts.create<N, A>(host: {
 		return action
 	end
 	function Input.context(root: N, path: { string }, required: { string }, deadline: number): N
-		local node = root
-		for _, name in path do
-			local child = host.wait(node, name, math.max(host.minimumWait, deadline - host.clock()))
+		local function waitChild(parent: N, name: string): N
+			local child = host.wait(parent, name, math.max(host.minimumWait, deadline - host.clock()))
 			if child == nil then
 				error("input context did not arrive: " .. table.concat(path, "/"), 2)
 			end
-			node = child
+			return child
 		end
+		local node: N = root
+		for _, name in path do
+			node = waitChild(node, name)
+		end
+
 		if not host.isContext(node) then
 			error("input context has wrong class: " .. table.concat(path, "/"), 2)
 		end

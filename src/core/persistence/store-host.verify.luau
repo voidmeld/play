@@ -2,6 +2,7 @@
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local DataStore = require("../../roblox/data-store")
 local StoreHost = require("./store-host")
+local Value = require("../internal/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 local retry = DataStore.retryPolicy({ attempts = 2, baseDelay = 0, maxDelay = 0 })
 local host = StoreHost.create({
@@ -110,7 +111,8 @@ local function fixture()
 				return { UseCache = false }
 			end,
 			validUncachedOptions = function(value)
-				return type(value) == "table" and (value).UseCache == false
+				local fields = Value.raw(value)
+				return fields ~= nil and fields.UseCache == false
 			end,
 		})
 	end
@@ -176,14 +178,16 @@ return function(suite: Verify.Harness)
 				return nil
 			end)
 			local result = store.updateOutcome("a", function(value)
-				(value).count = 9
+				assert(type(value) == "table")
+				table.clear(value)
 				return nil
 			end)
 			expect(result.reason):toBe("callback_cancelled")
-			expect((values.a).count):toBe(3)
+			expect(assert(Value.raw(values.a)).count):toBe(3)
 			local got = store.getOutcome("a").value
-			got.count = 6
-			expect((values.a).count):toBe(3)
+			assert(type(got) == "table")
+			table.clear(got)
+			expect(assert(Value.raw(values.a)).count):toBe(3)
 			local cyclic: { [string]: unknown } = {}
 			cyclic.self = cyclic
 			expect(store.updateOutcome("a", function()

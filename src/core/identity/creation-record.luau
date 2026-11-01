@@ -4,8 +4,8 @@ local Creation = require("./creation")
 local HasMetatable = require("./value")
 local Policy = require("./policy")
 local Roster = require("./roster")
+local Value = require("../internal/value")
 
-type CreationState = Creation.State
 type RosterCharacter = Roster.CharacterIdentity
 export type Seed = {
 	schemaVersion: number,
@@ -47,7 +47,7 @@ local function create(policy: Policy.Policy)
 	Record.MAX_ID_BYTES = 128
 	Record.MAX_FINGERPRINT_BYTES = 2048
 
-	local SEED_FIELDS = {
+	local SEED_FIELDS: { [string]: boolean } = {
 		schemaVersion = true,
 		userId = true,
 		operationId = true,
@@ -64,7 +64,7 @@ local function create(policy: Policy.Policy)
 		leaseRevision = true,
 	}
 
-	local RECEIPT_FIELDS = {
+	local RECEIPT_FIELDS: { [string]: boolean } = {
 		schemaVersion = true,
 		userId = true,
 		operationId = true,
@@ -74,34 +74,6 @@ local function create(policy: Policy.Policy)
 		fence = true,
 		leaseRevision = true,
 	}
-
-	local function exact(raw: unknown, fields: { [string]: boolean }): boolean
-		if type(raw) ~= "table" or HasMetatable.check(raw) then
-			return false
-		end
-		local view = raw
-		for key in view do
-			if type(key) ~= "string" or fields[key] ~= true then
-				return false
-			end
-		end
-		for key in fields do
-			if view[key] == nil then
-				return false
-			end
-		end
-		return true
-	end
-
-	local function whole(value: unknown, minimum: number, maximum: number): boolean
-		return type(value) == "number"
-			and value == value
-			and value ~= math.huge
-			and value ~= -math.huge
-			and value >= minimum
-			and value <= maximum
-			and value % 1 == 0
-	end
 
 	local function character(seed: Seed): RosterCharacter
 		return {
@@ -135,7 +107,7 @@ local function create(policy: Policy.Policy)
 			fence = seed.fence,
 			leaseRevision = seed.leaseRevision,
 		}
-		return (table.freeze(value))
+		return Value.freezeDeep(value)
 	end
 
 	local function frozenReceipt(receipt: Receipt): Receipt
@@ -149,46 +121,68 @@ local function create(policy: Policy.Policy)
 			fence = receipt.fence,
 			leaseRevision = receipt.leaseRevision,
 		}
-		return (table.freeze(value))
+		return Value.freezeDeep(value)
 	end
 
 	local function validate(candidate: unknown, stored: boolean?): Seed?
-		if not exact(candidate, SEED_FIELDS) then
+		local raw = Value.record(candidate, SEED_FIELDS, true)
+		if raw == nil or raw.schemaVersion ~= Record.SCHEMA_VERSION then
 			return nil
 		end
-		local raw = candidate
+		local userId = Value.whole(raw.userId, 1, Record.MAX_SAFE_INTEGER)
+		local createdAtUnix = Value.whole(raw.createdAtUnix, 0, Record.MAX_SAFE_INTEGER)
+		local preparedRevision = Value.whole(raw.preparedRevision, 0, Record.MAX_REVISION)
+		local fence = Value.whole(raw.fence, 1, Record.MAX_FENCE)
+		local leaseRevision = Value.whole(raw.leaseRevision, 1, Record.MAX_REVISION)
+		local operationId = Value.opaque(raw.operationId, Record.MAX_ID_BYTES)
+		local characterId = Value.opaque(raw.characterId, Record.MAX_ID_BYTES)
+		local realmId = Value.opaque(raw.realmId, Record.MAX_ID_BYTES)
+		local peopleId = Value.opaque(raw.peopleId, Record.MAX_ID_BYTES)
+		local classId = Value.opaque(raw.classId, Record.MAX_ID_BYTES)
+		local appearance = Value.opaque(raw.appearancePresetId, Record.MAX_ID_BYTES)
+		local displayName, fingerprint = raw.displayName, raw.fingerprint
 		if
-			raw.schemaVersion ~= Record.SCHEMA_VERSION
-			or not whole(raw.userId, 1, Record.MAX_SAFE_INTEGER)
-			or not whole(raw.createdAtUnix, 0, Record.MAX_SAFE_INTEGER)
-			or not whole(raw.preparedRevision, 0, Record.MAX_REVISION)
-			or not whole(raw.fence, 1, Record.MAX_FENCE)
-			or not whole(raw.leaseRevision, 1, Record.MAX_REVISION)
+			userId == nil
+			or createdAtUnix == nil
+			or preparedRevision == nil
+			or fence == nil
+			or leaseRevision == nil
+			or operationId == nil
+			or characterId == nil
+			or realmId == nil
+			or peopleId == nil
+			or classId == nil
+			or appearance == nil
+			or type(displayName) ~= "string"
+			or type(fingerprint) ~= "string"
 		then
 			return nil
 		end
-		local fingerprint = creation.fingerprint({
-			userId = raw.userId,
-			operationId = raw.operationId,
-			characterId = raw.characterId,
-			displayName = raw.displayName,
-			realmId = raw.realmId,
-			peopleId = raw.peopleId,
-			classId = raw.classId,
-			appearancePresetId = raw.appearancePresetId,
-			createdAtUnix = raw.createdAtUnix,
-			fence = raw.fence,
-			leaseRevision = raw.leaseRevision,
-		})
-		if fingerprint == nil or fingerprint ~= raw.fingerprint then
+		local seed: Seed = {
+			schemaVersion = Record.SCHEMA_VERSION,
+			userId = userId,
+			operationId = operationId,
+			characterId = characterId,
+			realmId = realmId,
+			peopleId = peopleId,
+			classId = classId,
+			appearancePresetId = appearance,
+			displayName = displayName,
+			fingerprint = fingerprint,
+			createdAtUnix = createdAtUnix,
+			preparedRevision = preparedRevision,
+			fence = fence,
+			leaseRevision = leaseRevision,
+		}
+		if creation.fingerprint(seed) ~= fingerprint then
 			return nil
 		end
 		local ok = pcall(if stored == true then rosterRules.validateStored else rosterRules.validate, {
 			schemaVersion = rosterRules.SCHEMA_VERSION,
-			userId = raw.userId,
-			characters = { character(raw) },
+			userId = userId,
+			characters = { character(seed) },
 		})
-		return if ok then frozenSeed(raw) else nil
+		return if ok then frozenSeed(seed) else nil
 	end
 
 	function Record.validate(candidate: unknown): Seed?
@@ -230,29 +224,39 @@ local function create(policy: Policy.Policy)
 	end
 
 	function Record.validateReceipt(candidate: unknown): Receipt?
-		if not exact(candidate, RECEIPT_FIELDS) then
+		local raw = Value.record(candidate, RECEIPT_FIELDS, true)
+		if raw == nil or raw.schemaVersion ~= Record.SCHEMA_VERSION then
 			return nil
 		end
-		local raw = candidate
+		local userId = Value.whole(raw.userId, 1, Record.MAX_SAFE_INTEGER)
+		local committedRevision = Value.whole(raw.committedRevision, 0, Record.MAX_REVISION)
+		local fence = Value.whole(raw.fence, 1, Record.MAX_FENCE)
+		local leaseRevision = Value.whole(raw.leaseRevision, 1, Record.MAX_REVISION)
+		local operationId = Value.opaque(raw.operationId, Record.MAX_ID_BYTES)
+		local characterId = Value.opaque(raw.characterId, Record.MAX_ID_BYTES)
+		local fingerprint = Value.opaque(raw.fingerprint, Record.MAX_FINGERPRINT_BYTES)
 		if
-			raw.schemaVersion ~= Record.SCHEMA_VERSION
-			or not whole(raw.userId, 1, Record.MAX_SAFE_INTEGER)
-			or not whole(raw.committedRevision, 0, Record.MAX_REVISION)
-			or not whole(raw.fence, 1, Record.MAX_FENCE)
-			or not whole(raw.leaseRevision, 1, Record.MAX_REVISION)
-			or type(raw.operationId) ~= "string"
-			or #raw.operationId == 0
-			or #raw.operationId > Record.MAX_ID_BYTES
-			or type(raw.fingerprint) ~= "string"
-			or #raw.fingerprint == 0
-			or #raw.fingerprint > Record.MAX_FINGERPRINT_BYTES
-			or type(raw.characterId) ~= "string"
-			or #raw.characterId == 0
-			or #raw.characterId > Record.MAX_ID_BYTES
+			userId == nil
+			or committedRevision == nil
+			or fence == nil
+			or leaseRevision == nil
+			or operationId == nil
+			or characterId == nil
+			or fingerprint == nil
 		then
 			return nil
 		end
-		return frozenReceipt(raw)
+		local receipt: Receipt = {
+			schemaVersion = Record.SCHEMA_VERSION,
+			userId = userId,
+			committedRevision = committedRevision,
+			fence = fence,
+			leaseRevision = leaseRevision,
+			operationId = operationId,
+			characterId = characterId,
+			fingerprint = fingerprint,
+		}
+		return frozenReceipt(receipt)
 	end
 
 	function Record.copyReceipt(raw: unknown): Receipt?
@@ -296,9 +300,9 @@ local function create(policy: Policy.Policy)
 
 	function Record.matchesTransaction(seedRaw: unknown, candidate: unknown, stored: boolean?): boolean
 		local seed = validate(seedRaw, stored)
-		local state = candidate
+		local state = Value.raw(candidate)
 		return seed ~= nil
-			and type(state) == "table"
+			and state ~= nil
 			and seed.userId == state.userId
 			and seed.operationId == state.operationId
 			and seed.fingerprint == state.fingerprint

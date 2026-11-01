@@ -1,5 +1,8 @@
 --!strict
 
+local Value = require("../internal/value")
+type Raw = Value.Raw
+
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Policy = require("../../test-scene/identity")
 local Roster = require("./roster")
@@ -16,11 +19,11 @@ local roster = Roster.create(Policy)
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
-	local function emptyRoster(): Roster.Roster
+	local function emptyRoster(): { schemaVersion: number, userId: number, characters: { unknown } }
 		return { schemaVersion = roster.SCHEMA_VERSION, userId = 101, characters = {} }
 	end
 
-	local function character(realmId: string, index: number, lastPlayedAtUnix: number?): Roster.CharacterIdentity
+	local function character(realmId: string, index: number, lastPlayedAtUnix: number?): Raw
 		local characterId = ("chr_%s_%d"):format(realmId, index)
 		return {
 			characterId = characterId,
@@ -37,7 +40,7 @@ return function(suite: Verify.Harness)
 	end
 
 	local function fullRoster(): Roster.Roster
-		local value = emptyRoster()
+		local value: Roster.Roster = { schemaVersion = roster.SCHEMA_VERSION, userId = 101, characters = {} }
 		for _, realmId in { "red", "green", "blue" } do
 			for index = 1, 4 do
 				value = roster.add(value, character(realmId, index))

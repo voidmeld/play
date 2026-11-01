@@ -1,21 +1,6 @@
 --!strict
-
-export type MetatableProbe = typeof(setmetatable({}, {}))
-export type RawReadback = { [unknown]: unknown }
-
-local HasMetatable = {}
-
-local function tableFields(value: unknown): RawReadback?
-	if type(value) == "table" then
-		return value
-	end
-	return nil
+local Value = require("../internal/value")
+local function hasMetatable(value: unknown): boolean
+	return type(value) == "table" and getmetatable(value) ~= nil
 end
-
-HasMetatable.fields = tableFields
-
-function HasMetatable.check(value: unknown): boolean
-	return getmetatable(value) ~= nil
-end
-
-return table.freeze(HasMetatable)
+return table.freeze({ fields = Value.raw, check = hasMetatable })

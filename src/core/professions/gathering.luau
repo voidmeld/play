@@ -61,11 +61,6 @@ function System.create(config: {
 	local REALMS = config.realms
 	local resolveYield = config.resolveYield
 
-	local SPACE_KINDS: { [string]: boolean } = {
-		pve = true,
-		contested = true,
-	}
-
 	local NODE_FIELDS: { [string]: boolean } = {
 		id = true,
 		materialId = true,
@@ -91,18 +86,12 @@ function System.create(config: {
 		populationMultiplier = true,
 	}
 
-	local COMMAND_KINDS: { [string]: boolean } = {
-		start = true,
-		interrupt = true,
-		complete = true,
-	}
-
 	local function finite(value: unknown): boolean
 		return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 	end
 
 	local function integral(value: unknown): boolean
-		return finite(value) and value == math.floor(value)
+		return (type(value) == "number" and finite(value)) and value == math.floor(value)
 	end
 
 	local function nonempty(value: unknown): boolean
@@ -133,17 +122,16 @@ function System.create(config: {
 		if not hasOnlyFields(value, NODE_FIELDS) then
 			return nil
 		end
-		local source = value
+		local source = assert(Value.raw(value))
 		if
-			not nonempty(source.id)
-			or not nonempty(source.materialId)
-			or type(source.spaceKind) ~= "string"
-			or SPACE_KINDS[source.spaceKind] ~= true
-			or not finite(source.gatherDurationSec)
+			not (type(source.id) == "string" and nonempty(source.id))
+			or not (type(source.materialId) == "string" and nonempty(source.materialId))
+			or (source.spaceKind ~= "pve" and source.spaceKind ~= "contested")
+			or not (type(source.gatherDurationSec) == "number" and finite(source.gatherDurationSec))
 			or source.gatherDurationSec <= 0
-			or not finite(source.respawnPeriodSec)
+			or not (type(source.respawnPeriodSec) == "number" and finite(source.respawnPeriodSec))
 			or source.respawnPeriodSec <= 0
-			or not integral(source.baseYield)
+			or not (type(source.baseYield) == "number" and integral(source.baseYield))
 			or source.baseYield < 1
 		then
 			return nil
@@ -159,31 +147,39 @@ function System.create(config: {
 	end
 
 	local function admissibleMultiplier(value: unknown): boolean
-		return finite(value) and value >= MIN_YIELD_MULTIPLIER and value <= MAX_YIELD_MULTIPLIER
+		return (type(value) == "number" and finite(value))
+			and value >= MIN_YIELD_MULTIPLIER
+			and value <= MAX_YIELD_MULTIPLIER
 	end
 
 	local function copyState(value: unknown): State?
 		if not hasOnlyFields(value, STATE_FIELDS) then
 			return nil
 		end
-		local source = value
+		local source = assert(Value.raw(value))
 		if
-			not finite(source.lastClockSec)
+			not (type(source.lastClockSec) == "number" and finite(source.lastClockSec))
 			or source.lastClockSec < 0
 			or (source.phase ~= "ready" and source.phase ~= "gathering")
 			or type(source.claims) ~= "table"
 		then
 			return nil
 		end
-		if source.harvestedSlot ~= nil and (not integral(source.harvestedSlot) or source.harvestedSlot < 0) then
+		if
+			source.harvestedSlot ~= nil
+			and (
+				not (type(source.harvestedSlot) == "number" and integral(source.harvestedSlot))
+				or source.harvestedSlot < 0
+			)
+		then
 			return nil
 		end
 		if source.phase == "gathering" then
 			if
-				not finite(source.startedAtSec)
+				not (type(source.startedAtSec) == "number" and finite(source.startedAtSec))
 				or source.startedAtSec < 0
 				or source.startedAtSec > source.lastClockSec
-				or not finite(source.completesAtSec)
+				or not (type(source.completesAtSec) == "number" and finite(source.completesAtSec))
 				or source.completesAtSec <= source.startedAtSec
 			then
 				return nil
@@ -194,12 +190,22 @@ function System.create(config: {
 
 		local claims: { [string]: number } = {}
 		for eventId, amount in source.claims do
-			if not nonempty(eventId) or not integral(amount) or amount < 1 then
+			if
+				not (type(eventId) == "string" and nonempty(eventId))
+				or not (type(amount) == "number" and integral(amount))
+				or amount < 1
+			then
 				return nil
 			end
 			claims[eventId] = amount
 		end
 
+		if source.startedAtSec ~= nil and type(source.startedAtSec) ~= "number" then
+			return nil
+		end
+		if source.completesAtSec ~= nil and type(source.completesAtSec) ~= "number" then
+			return nil
+		end
 		return {
 			lastClockSec = source.lastClockSec,
 			phase = source.phase,
@@ -214,21 +220,36 @@ function System.create(config: {
 		if not hasOnlyFields(value, COMMAND_FIELDS) then
 			return nil
 		end
-		local source = value
-		if type(source.kind) ~= "string" or COMMAND_KINDS[source.kind] ~= true then
+		local source = assert(Value.raw(value))
+		if source.kind ~= "start" and source.kind ~= "interrupt" and source.kind ~= "complete" then
 			return nil
 		end
 		if source.kind == "complete" then
-			if not nonempty(source.eventId) then
+			if not (type(source.eventId) == "string" and nonempty(source.eventId)) then
 				return nil
 			end
-			if source.gatheringRealmId ~= nil and not knownRealm(source.gatheringRealmId) then
+			if
+				source.gatheringRealmId ~= nil
+				and not (type(source.gatheringRealmId) == "string" and knownRealm(source.gatheringRealmId))
+			then
 				return nil
 			end
-			if source.populationMultiplier ~= nil and not admissibleMultiplier(source.populationMultiplier) then
+			if
+				source.populationMultiplier ~= nil
+				and not (
+					type(source.populationMultiplier) == "number" and admissibleMultiplier(source.populationMultiplier)
+				)
+			then
 				return nil
 			end
 		elseif source.eventId ~= nil or source.gatheringRealmId ~= nil or source.populationMultiplier ~= nil then
+			return nil
+		end
+		if
+			(source.eventId ~= nil and type(source.eventId) ~= "string")
+			or (source.gatheringRealmId ~= nil and type(source.gatheringRealmId) ~= "string")
+			or (source.populationMultiplier ~= nil and type(source.populationMultiplier) ~= "number")
+		then
 			return nil
 		end
 		return {
@@ -291,7 +312,12 @@ function System.create(config: {
 		local state = copyState(previousStateValue)
 		local node = projectNode(nodeValue)
 		local command = validCommand(commandValue)
-		if state == nil or node == nil or command == nil or not finite(nowSecValue) then
+		if
+			state == nil
+			or node == nil
+			or command == nil
+			or not (type(nowSecValue) == "number" and finite(nowSecValue))
+		then
 			return nil
 		end
 		local nowSec = nowSecValue
@@ -310,7 +336,7 @@ function System.create(config: {
 			result.materialId = node.materialId
 			if available then
 				local completesAtSec = nowSec + node.gatherDurationSec
-				if not finite(completesAtSec) then
+				if not (type(completesAtSec) == "number" and finite(completesAtSec)) then
 					return nil
 				end
 				state.phase = "gathering"
@@ -332,7 +358,7 @@ function System.create(config: {
 			return result
 		end
 
-		local eventId = command.eventId
+		local eventId = assert(command.eventId)
 		local prior = state.claims[eventId]
 		if prior ~= nil then
 			local result = baseResult(state)
@@ -347,7 +373,7 @@ function System.create(config: {
 		if state.phase ~= "gathering" then
 			return nil
 		end
-		if nowSec < state.completesAtSec then
+		if nowSec < assert(state.completesAtSec) then
 			local result = baseResult(state)
 			result.available = true
 			return result

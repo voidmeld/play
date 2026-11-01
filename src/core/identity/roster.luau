@@ -1,6 +1,7 @@
 --!strict
 
 local Policy = require("./policy")
+local Value = require("../internal/value")
 
 export type CharacterIdentity = {
 	characterId: string,
@@ -19,24 +20,6 @@ export type Roster = {
 	userId: number,
 	characters: { CharacterIdentity },
 }
-type RawCharacter = {
-	characterId: unknown,
-	displayName: unknown,
-	realmId: unknown,
-	peopleId: unknown,
-	classId: unknown,
-	appearancePresetId: unknown,
-	createdAtUnix: unknown,
-	lastPlayedAtUnix: unknown,
-	level: unknown,
-	lastDestinationId: unknown,
-}
-type RawRoster = {
-	schemaVersion: unknown,
-	userId: unknown,
-	characters: unknown,
-}
-
 local function create(policy: Policy.Policy)
 	local SCHEMA_VERSION = 1
 	local ACCOUNT_LIMIT = policy.accountLimit
@@ -67,13 +50,9 @@ local function create(policy: Policy.Policy)
 			and math.abs(value) ~= math.huge
 	end
 
-	local function reject(reason: string): never
-		error("RosterKernel: " .. reason, 3)
-	end
-
 	local function nonempty(value: unknown, field: string): string
 		if type(value) ~= "string" or #value == 0 or #value > 64 then
-			reject(field .. " must be a non-empty string of at most 64 bytes")
+			error("RosterKernel: " .. (field .. " must be a non-empty string of at most 64 bytes"), 2)
 		end
 		return value
 	end
@@ -105,114 +84,116 @@ local function create(policy: Policy.Policy)
 
 	local function validateCharacter(candidate: unknown, stored: boolean?): CharacterIdentity
 		if type(candidate) ~= "table" then
-			reject("character must be a table")
+			error("RosterKernel: " .. "character must be a table", 2)
 		end
-		local character = candidate
-		for key in character do
+		local raw = assert(Value.raw(candidate))
+		for key in raw do
 			if type(key) ~= "string" or not KNOWN_CHARACTER_FIELDS[key] then
-				reject("unknown character field " .. tostring(key))
+				error("RosterKernel: " .. ("unknown character field " .. tostring(key)), 2)
 			end
 		end
-		local characterId = nonempty(character.characterId, "characterId")
-		local nameOk, displayName = policy.validateName(character.displayName)
-		if not nameOk or displayName ~= character.displayName then
-			reject("displayName is invalid or noncanonical")
+		local characterId = nonempty(raw.characterId, "characterId")
+		local nameOk, displayName = policy.validateName(raw.displayName)
+		if not nameOk or type(displayName) ~= "string" or displayName ~= raw.displayName then
+			error("RosterKernel: " .. "displayName is invalid or noncanonical", 2)
 		end
 		if characterId == displayName then
-			reject("displayName must not be reused as identity")
+			error("RosterKernel: " .. "displayName must not be reused as identity", 2)
 		end
-		local realmId = nonempty(character.realmId, "realmId")
+		local realmId = nonempty(raw.realmId, "realmId")
 		if stored ~= true and not REALMS[realmId] then
-			reject("unknown realm " .. tostring(character.realmId))
+			error("RosterKernel: " .. ("unknown realm " .. realmId), 2)
 		end
-		local peopleId = nonempty(character.peopleId, "peopleId")
-		if stored ~= true and PLAYABLE_PEOPLE_IDS[peopleId] ~= true then
-			reject("unknown peopleId " .. tostring(peopleId))
+		local peopleId = nonempty(raw.peopleId, "peopleId")
+		if stored ~= true and not PLAYABLE_PEOPLE_IDS[peopleId] then
+			error("RosterKernel: " .. ("unknown peopleId " .. peopleId), 2)
 		end
-		nonempty(character.classId, "classId")
-		local appearancePresetId = nonempty(character.appearancePresetId, "appearancePresetId")
-		if not whole(character.createdAtUnix) or character.createdAtUnix < 0 then
-			reject("createdAtUnix must be a non-negative whole number")
+		local classId = nonempty(raw.classId, "classId")
+		local appearance = nonempty(raw.appearancePresetId, "appearancePresetId")
+		local created, played, level, destination =
+			raw.createdAtUnix, raw.lastPlayedAtUnix, raw.level, raw.lastDestinationId
+		if type(created) ~= "number" or not whole(created) or created < 0 then
+			error("RosterKernel: " .. "createdAtUnix must be a non-negative whole number", 2)
 		end
-		if not whole(character.lastPlayedAtUnix) or character.lastPlayedAtUnix < character.createdAtUnix then
-			reject("lastPlayedAtUnix must be a whole number no earlier than creation")
+		if type(played) ~= "number" or not whole(played) or played < created then
+			error("RosterKernel: " .. "lastPlayedAtUnix must be a whole number no earlier than creation", 2)
 		end
-		if not whole(character.level) or character.level < MIN_LEVEL or character.level > MAX_LEVEL then
-			reject(("level must be a whole number within %d..%d"):format(MIN_LEVEL, MAX_LEVEL))
+		if type(level) ~= "number" or not whole(level) or level < MIN_LEVEL or level > MAX_LEVEL then
+			error("RosterKernel: " .. (("level must be a whole number within %d..%d"):format(MIN_LEVEL, MAX_LEVEL)), 2)
 		end
-		if
-			character.lastDestinationId ~= NEVER_DEPARTED and not declaredDestinationShape(character.lastDestinationId)
-		then
-			reject("lastDestinationId must be a namespaced destination id or the never-departed value")
+		if destination ~= false and (type(destination) ~= "string" or not declaredDestinationShape(destination)) then
+			error(
+				"RosterKernel: " .. "lastDestinationId must be a namespaced destination id or the never-departed value",
+				2
+			)
 		end
-		local normalized = table.clone(character)
-		normalized.peopleId = peopleId
-		normalized.appearancePresetId = appearancePresetId
-		return normalized
+		return {
+			characterId = characterId,
+			displayName = displayName,
+			realmId = realmId,
+			peopleId = peopleId,
+			classId = classId,
+			appearancePresetId = appearance,
+			createdAtUnix = created,
+			lastPlayedAtUnix = played,
+			level = level,
+			lastDestinationId = destination,
+		}
 	end
 
 	local function validate(candidate: unknown, stored: boolean?): Roster
 		if type(candidate) ~= "table" then
-			reject("roster must be a table")
+			error("RosterKernel: " .. "roster must be a table", 2)
 		end
-		local roster = candidate
-		for key in roster do
+		local raw = assert(Value.raw(candidate))
+		for key in raw do
 			if type(key) ~= "string" or not KNOWN_ROSTER_FIELDS[key] then
-				reject("unknown roster field " .. tostring(key))
+				error("RosterKernel: " .. ("unknown roster field " .. tostring(key)), 2)
 			end
 		end
-		if roster.schemaVersion ~= SCHEMA_VERSION then
-			reject("unsupported schemaVersion")
+		if raw.schemaVersion ~= SCHEMA_VERSION then
+			error("RosterKernel: " .. "unsupported schemaVersion", 2)
 		end
-		if not whole(roster.userId) or roster.userId <= 0 then
-			reject("userId must be a positive whole number")
+		local userId = raw.userId
+		if type(userId) ~= "number" or not whole(userId) or userId <= 0 then
+			error("RosterKernel: " .. "userId must be a positive whole number", 2)
 		end
-		if type(roster.characters) ~= "table" then
-			reject("characters must be a table")
+		if type(raw.characters) ~= "table" then
+			error("RosterKernel: " .. "characters must be a table", 2)
 		end
-		local rawCharacters = roster.characters
-		local characterCount = 0
-		for index in rawCharacters do
-			if not whole(index) or index < 1 then
-				reject("characters must be a dense array")
-			end
-			characterCount += 1
+		local rows = Value.dense(raw.characters, math.huge, false)
+		if rows == nil then
+			error("RosterKernel: " .. "characters must be a dense array", 2)
 		end
-		for index = 1, characterCount do
-			if rawCharacters[index] == nil then
-				reject("characters must be a dense array")
-			end
-		end
-		if characterCount > ACCOUNT_LIMIT then
-			reject("account roster exceeds limit")
+		if #rows > ACCOUNT_LIMIT then
+			error("RosterKernel: " .. "account roster exceeds limit", 2)
 		end
 		local seenIds: { [string]: boolean } = {}
 		local seenNames: { [string]: boolean } = {}
 		local realmCounts: { [string]: number } = {}
 		local characters: { CharacterIdentity } = {}
-		for index, rawCharacter in rawCharacters do
-			local character = validateCharacter(rawCharacter, stored)
+		for index, row in rows do
+			local character = validateCharacter(row, stored)
 			characters[index] = character
 			if seenIds[character.characterId] then
-				reject("duplicate characterId " .. character.characterId)
+				error("RosterKernel: " .. ("duplicate characterId " .. character.characterId), 2)
 			end
 			seenIds[character.characterId] = true
-			local nameKey = (policy.registryKey(character.displayName))
+			local nameKey = policy.registryKey(character.displayName)
+			if nameKey == nil then
+				error("RosterKernel: " .. "displayName has no registry key", 2)
+			end
 			if seenNames[nameKey] then
-				reject("duplicate case-insensitive displayName " .. character.displayName)
+				error("RosterKernel: " .. ("duplicate case-insensitive displayName " .. character.displayName), 2)
 			end
 			seenNames[nameKey] = true
 			local count = (realmCounts[character.realmId] or 0) + 1
 			if count > REALM_LIMIT then
-				reject("realm roster exceeds limit")
+				error("RosterKernel: " .. "realm roster exceeds limit", 2)
 			end
 			realmCounts[character.realmId] = count
 		end
-		return {
-			schemaVersion = roster.schemaVersion,
-			userId = roster.userId,
-			characters = characters,
-		}
+		return { schemaVersion = SCHEMA_VERSION, userId = userId, characters = characters }
 	end
 
 	local function add(roster: unknown, character: unknown): Roster
@@ -225,11 +206,11 @@ local function create(policy: Policy.Policy)
 	local function remove(roster: unknown, characterId: unknown, stored: boolean?): (Roster, CharacterIdentity)
 		local nextRoster = copyRoster(validate(roster, stored))
 		if type(characterId) ~= "string" or #characterId == 0 then
-			reject("characterId is invalid")
+			error("RosterKernel: " .. "characterId is invalid", 2)
 		end
 		for index, character in nextRoster.characters do
 			if character.characterId == characterId then
-				local removed = (table.remove(nextRoster.characters, index))
+				local removed = assert(table.remove(nextRoster.characters, index))
 				return nextRoster, removed
 			end
 		end
@@ -238,14 +219,14 @@ local function create(policy: Policy.Policy)
 
 	local function markPlayed(roster: unknown, characterId: unknown, playedAtUnix: unknown): Roster
 		local nextRoster = copyRoster(validate(roster))
-		if not whole(playedAtUnix) or playedAtUnix < 0 then
-			reject("playedAtUnix must be a non-negative whole number")
+		if type(playedAtUnix) ~= "number" or not whole(playedAtUnix) or playedAtUnix < 0 then
+			error("RosterKernel: " .. "playedAtUnix must be a non-negative whole number", 2)
 		end
 		local played = playedAtUnix
 		for _, character in nextRoster.characters do
 			if character.characterId == characterId then
 				if played < character.lastPlayedAtUnix then
-					reject("playedAtUnix must not move backward")
+					error("RosterKernel: " .. "playedAtUnix must not move backward", 2)
 				end
 				character.lastPlayedAtUnix = played
 				return nextRoster
@@ -256,14 +237,14 @@ local function create(policy: Policy.Policy)
 
 	local function markLevel(roster: unknown, characterId: unknown, level: unknown): Roster
 		local nextRoster = copyRoster(validate(roster))
-		if not whole(level) or level < MIN_LEVEL or level > MAX_LEVEL then
-			reject(("level must be a whole number within %d..%d"):format(MIN_LEVEL, MAX_LEVEL))
+		if type(level) ~= "number" or not whole(level) or level < MIN_LEVEL or level > MAX_LEVEL then
+			error("RosterKernel: " .. (("level must be a whole number within %d..%d"):format(MIN_LEVEL, MAX_LEVEL)), 2)
 		end
 		local nextLevel = level
 		for _, character in nextRoster.characters do
 			if character.characterId == characterId then
 				if nextLevel < character.level then
-					reject("level must not move backward")
+					error("RosterKernel: " .. "level must not move backward", 2)
 				end
 				character.level = nextLevel
 				return nextRoster
@@ -274,8 +255,8 @@ local function create(policy: Policy.Policy)
 
 	local function markDeparted(roster: unknown, characterId: unknown, destinationId: unknown): Roster
 		local nextRoster = copyRoster(validate(roster))
-		if not declaredDestinationShape(destinationId) then
-			reject("lastDestinationId must be a namespaced destination id")
+		if type(destinationId) ~= "string" or not declaredDestinationShape(destinationId) then
+			error("RosterKernel: " .. "lastDestinationId must be a namespaced destination id", 2)
 		end
 		for _, character in nextRoster.characters do
 			if character.characterId == characterId then
@@ -289,7 +270,7 @@ local function create(policy: Policy.Policy)
 	local function realmCards(roster: unknown, realmId: unknown): { CharacterIdentity }
 		local current = validate(roster)
 		if type(realmId) ~= "string" or not REALMS[realmId] then
-			reject("unknown realm " .. tostring(realmId))
+			error("RosterKernel: " .. ("unknown realm " .. tostring(realmId)), 2)
 		end
 		local cards: { CharacterIdentity } = {}
 		for _, character in current.characters do

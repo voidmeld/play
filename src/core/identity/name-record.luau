@@ -1,13 +1,12 @@
 --!strict
 
-local HasMetatable = require("./value")
 local Policy = require("./policy")
 local Registry = require("./name-claims")
+local Value = require("../internal/value")
 
 export type Record = NameRecord
 export type Claim = Registry.Claim
 type NameRecord = { schemaVersion: number, revision: number, registryKey: string, claim: Claim | false }
-type Raw = { [unknown]: unknown }
 
 local function create(policy: Policy.Policy)
 	local registry = Registry.create(policy)
@@ -31,23 +30,6 @@ local function create(policy: Policy.Policy)
 			and value % 1 == 0
 	end
 
-	local function exact(raw: unknown): boolean
-		if type(raw) ~= "table" or getmetatable(raw) ~= nil then
-			return false
-		end
-		for key in raw do
-			if type(key) ~= "string" or FIELDS[key] ~= true then
-				return false
-			end
-		end
-		for key in FIELDS do
-			if (raw)[key] == nil then
-				return false
-			end
-		end
-		return true
-	end
-
 	local function copiedClaim(raw: unknown): Claim?
 		if type(raw) ~= "table" or getmetatable(raw) ~= nil then
 			return nil
@@ -69,39 +51,32 @@ local function create(policy: Policy.Policy)
 			claimedAtUnix = claim.claimedAtUnix,
 			schemaVersion = claim.schemaVersion,
 		}
-		return (table.freeze(value))
-	end
-
-	local function frozen(raw: NameRecord, claim: Claim | false): NameRecord
-		local value: NameRecord = {
-			schemaVersion = Record.SCHEMA_VERSION,
-			revision = raw.revision,
-			registryKey = raw.registryKey,
-			claim = claim,
-		}
-		return (table.freeze(value))
+		return Value.freezeDeep(value)
 	end
 
 	function Record.validate(raw: unknown): NameRecord?
-		local source = raw
-		if
-			not exact(raw)
-			or source.schemaVersion ~= Record.SCHEMA_VERSION
-			or not whole(source.revision, 0, Record.MAX_REVISION)
-		then
+		local source = Value.record(raw, FIELDS, true)
+		if source == nil or source.schemaVersion ~= Record.SCHEMA_VERSION then
 			return nil
 		end
-		if not policy.validRegistryKey(source.registryKey) then
+		local revision = Value.whole(source.revision, 0, Record.MAX_REVISION)
+		local key = source.registryKey
+		if revision == nil or type(key) ~= "string" or not policy.validRegistryKey(key) then
 			return nil
 		end
+		local claim: Claim | false
 		if source.claim == false then
-			return frozen(raw, false)
+			claim = false
+		else
+			local found = copiedClaim(source.claim)
+			if found == nil or policy.registryKey(found.displayName) ~= key then
+				return nil
+			end
+			claim = found
 		end
-		local claim = copiedClaim(source.claim)
-		if claim == nil or policy.registryKey(claim.displayName) ~= source.registryKey then
-			return nil
-		end
-		return frozen(raw, claim)
+		local value: NameRecord =
+			{ schemaVersion = Record.SCHEMA_VERSION, revision = revision, registryKey = key, claim = claim }
+		return Value.freezeDeep(value)
 	end
 
 	function Record.copy(raw: unknown): NameRecord?
@@ -135,8 +110,8 @@ local function create(policy: Policy.Policy)
 		then
 			return false
 		end
-		if left.claim == false then
-			return right.claim == false
+		if left.claim == false or right.claim == false then
+			return left.claim == right.claim
 		end
 		return left.claim.schemaVersion == (right.claim).schemaVersion
 			and left.claim.displayName == (right.claim).displayName

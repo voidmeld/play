@@ -1,6 +1,7 @@
 --!strict
 
 local Policy = require("./policy")
+local Value = require("../internal/value")
 
 export type Claim = {
 	displayName: string,
@@ -12,14 +13,6 @@ export type Claim = {
 export type ClaimStatus = "claimed" | "owned" | "taken"
 export type ReleaseStatus = "released" | "absent" | "mismatch"
 export type Availability = "available" | "owned" | "taken"
-type RawClaim = {
-	displayName: unknown,
-	userId: unknown,
-	characterId: unknown,
-	claimedAtUnix: unknown,
-	schemaVersion: unknown,
-}
-
 local function create(policy: Policy.Policy)
 	local SCHEMA_VERSION = 1
 	local KNOWN_FIELDS: { [string]: boolean } = {
@@ -37,10 +30,6 @@ local function create(policy: Policy.Policy)
 			and math.abs(value) ~= math.huge
 	end
 
-	local function reject(reason: string): never
-		error("NameRegistryKernel: " .. reason, 3)
-	end
-
 	local function copyClaim(claim: Claim): Claim
 		return {
 			displayName = claim.displayName,
@@ -53,31 +42,38 @@ local function create(policy: Policy.Policy)
 
 	local function validate(candidate: unknown): Claim
 		if type(candidate) ~= "table" then
-			reject("claim must be a table")
+			error("NameRegistryKernel: " .. "claim must be a table", 2)
 		end
-		local claim = candidate
-		for key in claim do
+		local raw = assert(Value.raw(candidate))
+		for key in raw do
 			if type(key) ~= "string" or not KNOWN_FIELDS[key] then
-				reject("unknown claim field " .. tostring(key))
+				error("NameRegistryKernel: " .. ("unknown claim field " .. tostring(key)), 2)
 			end
 		end
-		if claim.schemaVersion ~= SCHEMA_VERSION then
-			reject("unsupported schemaVersion")
+		if raw.schemaVersion ~= SCHEMA_VERSION then
+			error("NameRegistryKernel: " .. "unsupported schemaVersion", 2)
 		end
-		local nameOk, displayName = policy.validateName(claim.displayName)
-		if not nameOk or displayName ~= claim.displayName then
-			reject("displayName is invalid or noncanonical")
+		local nameOk, displayName = policy.validateName(raw.displayName)
+		if not nameOk or type(displayName) ~= "string" or displayName ~= raw.displayName then
+			error("NameRegistryKernel: " .. "displayName is invalid or noncanonical", 2)
 		end
-		if not whole(claim.userId) or claim.userId <= 0 then
-			reject("userId must be a positive whole number")
+		local userId, characterId, at = raw.userId, raw.characterId, raw.claimedAtUnix
+		if type(userId) ~= "number" or not whole(userId) or userId <= 0 then
+			error("NameRegistryKernel: " .. "userId must be a positive whole number", 2)
 		end
-		if type(claim.characterId) ~= "string" or #claim.characterId == 0 or #claim.characterId > 64 then
-			reject("characterId must be a non-empty string of at most 64 bytes")
+		if type(characterId) ~= "string" or #characterId == 0 or #characterId > 64 then
+			error("NameRegistryKernel: " .. "characterId must be a non-empty string of at most 64 bytes", 2)
 		end
-		if not whole(claim.claimedAtUnix) or claim.claimedAtUnix < 0 then
-			reject("claimedAtUnix must be a non-negative whole number")
+		if type(at) ~= "number" or not whole(at) or at < 0 then
+			error("NameRegistryKernel: " .. "claimedAtUnix must be a non-negative whole number", 2)
 		end
-		return claim
+		return {
+			schemaVersion = SCHEMA_VERSION,
+			displayName = displayName,
+			userId = userId,
+			characterId = characterId,
+			claimedAtUnix = at,
+		}
 	end
 
 	local function claim(current: unknown, requested: unknown): (Claim, ClaimStatus)
@@ -89,7 +85,7 @@ local function create(policy: Policy.Policy)
 		local existingKey = policy.registryKey(existing.displayName)
 		local requestedKey = policy.registryKey(nextClaim.displayName)
 		if existingKey ~= requestedKey then
-			reject("current and requested claims belong to different registry keys")
+			error("NameRegistryKernel: " .. "current and requested claims belong to different registry keys", 2)
 		end
 		if existing.userId == nextClaim.userId and existing.characterId == nextClaim.characterId then
 			return copyClaim(existing), "owned"
@@ -102,8 +98,14 @@ local function create(policy: Policy.Policy)
 			return nil, "absent"
 		end
 		local existing = validate(current)
-		if not whole(userId) or userId <= 0 or type(characterId) ~= "string" or #characterId == 0 then
-			reject("release identity is invalid")
+		if
+			type(userId) ~= "number"
+			or not whole(userId)
+			or userId <= 0
+			or type(characterId) ~= "string"
+			or #characterId == 0
+		then
+			error("NameRegistryKernel: " .. "release identity is invalid", 2)
 		end
 		if existing.userId ~= userId or existing.characterId ~= characterId then
 			return copyClaim(existing), "mismatch"

@@ -12,8 +12,19 @@ local Verify = require("../../../.lute/dependencies/verify/src/core")
 local roster = Roster.create(Policy)
 local deletion = Deletion.create(Policy)
 local nameregistry = NameRegistry.create(Policy)
-local registry = Registry.create(Policy)
-local creation = Creation.create(Policy)
+local Value = require("../internal/value")
+type Raw = Value.Raw
+local function nested(value: { [string]: unknown }, key: string): Raw
+	local result = assert(Value.raw(value[key]))
+	value[key] = result
+	return result
+end
+local function nudge(value: Raw, key: string, delta: number)
+	local current = value[key]
+	assert(type(current) == "number")
+	value[key] = current + delta
+end
+
 type Result = Deletion.Result
 type State = Deletion.State
 type Plan = Deletion.Plan
@@ -34,7 +45,7 @@ return function(suite: Verify.Harness)
 		return assert(result.state, "transaction state missing")
 	end
 
-	local function request(operationId: string, fence: number?): Deletion.Prepared & { [string]: unknown }
+	local function request(operationId: string, fence: number?): Raw
 		return {
 			userId = 101,
 			operationId = operationId,
@@ -49,6 +60,7 @@ return function(suite: Verify.Harness)
 	local function prepared(): State
 		local result = deletion.prepare(nil, request("delete.1"))
 		expect(result.ok):toBe(true)
+		assert(result.ok)
 		return stateOf(result)
 	end
 
@@ -120,6 +132,7 @@ return function(suite: Verify.Harness)
 		completion.readback = (roster.remove(base, state.characterId))
 		local result = deletion.observeRoster(state, completion)
 		expect(result.ok):toBe(true)
+		assert(result.ok)
 		return stateOf(result)
 	end
 
@@ -128,6 +141,7 @@ return function(suite: Verify.Harness)
 		completion.readbackReceived = true
 		local result = deletion.observeNameRelease(state, completion)
 		expect(result.ok):toBe(true)
+		assert(result.ok)
 		return stateOf(result)
 	end
 
@@ -136,17 +150,19 @@ return function(suite: Verify.Harness)
 			local first = deletion.prepare(nil, request("delete.1"))
 			local resumed = deletion.prepare(stateOf(first), request("delete.1"))
 			expect(first.ok):toBe(true)
+			assert(first.ok)
 			expect(stateOf(first).phase):toBe("prepared")
 			expect(resumed.ok):toBe(true)
+			assert(resumed.ok)
 			expect((resumed).replayed):toBe(true)
 			expect(stateOf(resumed)):toEqual(stateOf(first))
 			for field, value in
-				{
+				assert(Value.raw({
 					userId = 102,
 					characterId = "character.b",
 					displayName = "Alden Stone",
 					requestedAtUnix = 91,
-				}
+				}))
 			do
 				local changed = request("delete.1")
 				changed[field] = value
@@ -156,7 +172,7 @@ return function(suite: Verify.Harness)
 		end)
 
 		it("refuses malformed requests, identity reuse, and malformed persisted state", function()
-			for _, value in { math.nan, math.huge, -math.huge, deletion.MAX_SAFE_INTEGER + 1 } do
+			for _, value in assert(Value.raw({ math.nan, math.huge, -math.huge, deletion.MAX_SAFE_INTEGER + 1 })) do
 				local malformed = request("delete.1")
 				malformed.userId = value
 				expect(deletion.prepare(nil, malformed).reason):toBe("malformed_request")
@@ -218,8 +234,8 @@ return function(suite: Verify.Harness)
 			absentBase.readback = absentBase.base
 			expect(deletion.observeRoster(state, absentBase).reason):toBe("character_absent")
 			local foreign = event(state)
-			foreign.base = populatedRoster(state);
-			(foreign.base).userId = 202
+			foreign.base = populatedRoster(state)
+			nested(foreign, "base").userId = 202
 			foreign.readback = foreign.base
 			expect(deletion.observeRoster(state, foreign).reason):toBe("foreign_collision")
 			local renamed = event(state)
@@ -258,11 +274,12 @@ return function(suite: Verify.Harness)
 			expect(deletion.observeNameRelease(state, held).reason):toBe("name_still_owned")
 			local reclaimed = event(state)
 			reclaimed.readbackReceived = true
-			reclaimed.readback = claim(state);
-			(reclaimed.readback).userId = 202
-			(reclaimed.readback).characterId = "character.new"
+			reclaimed.readback = claim(state)
+			nested(reclaimed, "readback").userId = 202
+			nested(reclaimed, "readback").characterId = "character.new"
 			local passed = deletion.observeNameRelease(state, reclaimed)
 			expect(passed.ok):toBe(true)
+			assert(passed.ok)
 			expect(stateOf(passed).phase):toBe("name_released")
 			local freed = nameReleased(state)
 			expect(planOf(deletion.plan(freed)).kind):toBe("release_lease")
@@ -272,8 +289,8 @@ return function(suite: Verify.Harness)
 			local state = rosterRemoved(prepared())
 			local wrongKey = event(state)
 			wrongKey.readbackReceived = true
-			wrongKey.readback = claim(state);
-			(wrongKey.readback).displayName = "Berwyn Ash"
+			wrongKey.readback = claim(state)
+			nested(wrongKey, "readback").displayName = "Berwyn Ash"
 			expect(deletion.observeNameRelease(state, wrongKey).reason):toBe("readback_mismatch")
 			local malformed = event(state)
 			malformed.readbackReceived = true
@@ -281,8 +298,8 @@ return function(suite: Verify.Harness)
 			expect(deletion.observeNameRelease(state, malformed).reason):toBe("malformed_readback")
 			local future = event(state)
 			future.readbackReceived = true
-			future.readback = claim(state);
-			(future.readback).schemaVersion = nameregistry.SCHEMA_VERSION + 1
+			future.readback = claim(state)
+			nested(future, "readback").schemaVersion = nameregistry.SCHEMA_VERSION + 1
 			expect(deletion.observeNameRelease(state, future).reason):toBe("future_readback")
 		end)
 
@@ -292,33 +309,33 @@ return function(suite: Verify.Harness)
 				local state = nameReleased(rosterRemoved(prepared()))
 
 				local foreign = event(state)
-				foreign.readback = receipt(state, "released");
-				(foreign.readback).operationId = "delete.other"
+				foreign.readback = receipt(state, "released")
+				nested(foreign, "readback").operationId = "delete.other"
 				expect(deletion.observeLeaseRelease(state, foreign).reason):toBe("foreign_collision")
 
 				local renamed = event(state)
-				renamed.readback = receipt(state, "released");
-				(renamed.readback).characterId = "character.other"
+				renamed.readback = receipt(state, "released")
+				nested(renamed, "readback").characterId = "character.other"
 				expect(deletion.observeLeaseRelease(state, renamed).reason):toBe("foreign_collision")
 
 				local ahead = event(state)
-				ahead.readback = receipt(state, "released");
-				(ahead.readback).revision += 1
+				ahead.readback = receipt(state, "released")
+				nudge(nested(ahead, "readback"), "revision", 1)
 				expect(deletion.observeLeaseRelease(state, ahead).reason):toBe("future_readback")
 
 				local fenced = event(state)
-				fenced.readback = receipt(state, "released");
-				(fenced.readback).fence += 1
+				fenced.readback = receipt(state, "released")
+				nudge(nested(fenced, "readback"), "fence", 1)
 				expect(deletion.observeLeaseRelease(state, fenced).reason):toBe("future_readback")
 
 				local behind = event(state)
-				behind.readback = receipt(state, "released");
-				(behind.readback).revision -= 1
+				behind.readback = receipt(state, "released")
+				nudge(nested(behind, "readback"), "revision", -1)
 				expect(deletion.observeLeaseRelease(state, behind).reason):toBe("readback_mismatch")
 
 				local unflagged = event(state)
-				unflagged.readback = receipt(state, "released");
-				(unflagged.readback).released = false
+				unflagged.readback = receipt(state, "released")
+				nested(unflagged, "readback").released = false
 				expect(deletion.observeLeaseRelease(state, unflagged).reason):toBe("readback_mismatch")
 
 				local exact = event(state)
@@ -349,12 +366,14 @@ return function(suite: Verify.Harness)
 			requestAbort.readback = receipt(untouched, "acknowledged")
 			local rolling = deletion.requestRollback(untouched, requestAbort)
 			expect(rolling.ok):toBe(true)
+			assert(rolling.ok)
 			expect(stateOf(rolling).phase):toBe("rolling_back")
 			expect(planOf(deletion.plan(stateOf(rolling))).kind):toBe("rollback_deletion")
 			local finish = event(stateOf(rolling))
 			finish.readback = receipt(stateOf(rolling), "aborted")
 			local aborted = deletion.observeRollback(stateOf(rolling), finish)
 			expect(aborted.ok):toBe(true)
+			assert(aborted.ok)
 			expect(stateOf(aborted).phase):toBe("aborted")
 			expect(deletion.plan(stateOf(aborted))):toBeNil()
 			local removed = rosterRemoved(prepared())
@@ -371,15 +390,16 @@ return function(suite: Verify.Harness)
 			released.readback = receipt(state, "released")
 			local finished = deletion.observeLeaseRelease(state, released)
 			expect(finished.ok):toBe(true)
+			assert(finished.ok)
 			expect(stateOf(finished).phase):toBe("lease_released")
 			expect(deletion.plan(stateOf(finished))):toBeNil()
 			local again = event(stateOf(finished))
 			again.readback = receipt(stateOf(finished), "released")
 			expect(deletion.observeLeaseRelease(stateOf(finished), again).reason):toBe("phase_order")
 			local expired = event(state)
-			expired.readback = receipt(state, "released");
-			(expired.readback).released = nil
-			(expired.readback).expired = true
+			expired.readback = receipt(state, "released")
+			nested(expired, "readback").released = nil
+			nested(expired, "readback").expired = true
 			expect(stateOf(deletion.observeLeaseRelease(state, expired)).phase):toBe("lease_released")
 		end)
 
@@ -392,12 +412,13 @@ return function(suite: Verify.Harness)
 			local acquired = event(state)
 			acquired.fence = state.fence + 1
 			acquired.leaseRevision = state.leaseRevision + 3
-			acquired.readback = receipt(state, "acquired");
-			(acquired.readback).revision = state.revision + 1
-			(acquired.readback).fence = acquired.fence;
-			(acquired.readback).leaseRevision = acquired.leaseRevision
+			acquired.readback = receipt(state, "acquired")
+			nested(acquired, "readback").revision = state.revision + 1
+			nested(acquired, "readback").fence = acquired.fence
+			nested(acquired, "readback").leaseRevision = acquired.leaseRevision
 			local taken = deletion.takeover(state, acquired)
 			expect(taken.ok):toBe(true)
+			assert(taken.ok)
 			expect(stateOf(taken).initialFence):toBe(state.initialFence)
 			expect(stateOf(taken).initialLeaseRevision):toBe(state.initialLeaseRevision)
 			expect(stateOf(taken).fence):toBe(acquired.fence)

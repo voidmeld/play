@@ -1,9 +1,9 @@
 --!strict
 
-local HasMetatable = require("./value")
 local NameRegistry = require("./name-claims")
 local Policy = require("./policy")
 local Roster = require("./roster")
+local Value = require("../internal/value")
 
 type NameClaim = NameRegistry.Claim
 type RosterCharacter = Roster.CharacterIdentity
@@ -118,17 +118,7 @@ local function create(policy: Policy.Policy)
 		rollbackNeedsNameRelease = true,
 	}
 
-	local phases: { [string]: boolean } = {
-		prepared = true,
-		name_owned = true,
-		profile_prepared = true,
-		committed = true,
-		lease_released = true,
-		rolling_back = true,
-		aborted = true,
-	}
-
-	local tableFields = HasMetatable.fields
+	local tableFields = Value.raw
 
 	local function futureVersion(value: unknown, current: number): boolean
 		local readback = tableFields(value)
@@ -141,14 +131,6 @@ local function create(policy: Policy.Policy)
 			and value == math.floor(value)
 			and value >= minimum
 			and value <= maximum
-	end
-
-	local function text(value: unknown): boolean
-		return type(value) == "string" and #value > 0 and #value <= MAX_ID_BYTES
-	end
-
-	local function fingerprintText(value: unknown): boolean
-		return type(value) == "string" and #value > 0 and #value <= MAX_FINGERPRINT_BYTES
 	end
 
 	local function copy(state: State): State
@@ -193,30 +175,63 @@ local function create(policy: Policy.Policy)
 		return ("%d:%s"):format(#value, value)
 	end
 
-	local function fingerprint(candidate: unknown): string?
-		local prepared = candidate
-		local nameOk, displayName = policy.validateName(prepared.displayName)
+	local function readPrepared(value: unknown): Prepared?
+		local raw = tableFields(value)
+		if raw == nil then
+			return nil
+		end
+		local nameOk, displayName = policy.validateName(raw.displayName)
 		if not nameOk or displayName == nil then
 			return nil
 		end
+		local operationId = Value.opaque(raw.operationId, MAX_ID_BYTES)
+		local characterId = Value.opaque(raw.characterId, MAX_ID_BYTES)
+		local realmId = Value.opaque(raw.realmId, MAX_ID_BYTES)
+		local peopleId = Value.opaque(raw.peopleId, MAX_ID_BYTES)
+		local classId = Value.opaque(raw.classId, MAX_ID_BYTES)
+		local appearancePresetId = Value.opaque(raw.appearancePresetId, MAX_ID_BYTES)
+		local userId = Value.whole(raw.userId, 1, MAX_SAFE_INTEGER)
+		local createdAtUnix = Value.whole(raw.createdAtUnix, 0, MAX_SAFE_INTEGER)
+		local fence = Value.whole(raw.fence, 1, MAX_FENCE)
+		local leaseRevision = Value.whole(raw.leaseRevision, 1, MAX_REVISION)
 		if
-			not whole(prepared.userId, 1, MAX_SAFE_INTEGER)
-			or not text(prepared.operationId)
-			or not text(prepared.characterId)
-			or not text(prepared.realmId)
-			or not text(prepared.peopleId)
-			or not text(prepared.classId)
-			or not text(prepared.appearancePresetId)
-			or not whole(prepared.createdAtUnix, 0, MAX_SAFE_INTEGER)
-			or not whole(prepared.fence, 1, MAX_FENCE)
-			or not whole(prepared.leaseRevision, 1, MAX_REVISION)
+			userId == nil
+			or createdAtUnix == nil
+			or fence == nil
+			or leaseRevision == nil
+			or operationId == nil
+			or characterId == nil
+			or realmId == nil
+			or peopleId == nil
+			or classId == nil
+			or appearancePresetId == nil
 		then
+			return nil
+		end
+		return {
+			userId = userId,
+			displayName = displayName,
+			createdAtUnix = createdAtUnix,
+			fence = fence,
+			leaseRevision = leaseRevision,
+			operationId = operationId,
+			characterId = characterId,
+			realmId = realmId,
+			peopleId = peopleId,
+			classId = classId,
+			appearancePresetId = appearancePresetId,
+		}
+	end
+
+	local function fingerprint(candidate: unknown): string?
+		local prepared = readPrepared(candidate)
+		if prepared == nil then
 			return nil
 		end
 		return segment(tostring(prepared.userId))
 			.. segment(prepared.operationId)
 			.. segment(prepared.characterId)
-			.. segment(displayName)
+			.. segment(prepared.displayName)
 			.. segment(prepared.realmId)
 			.. segment(prepared.peopleId)
 			.. segment(prepared.classId)
@@ -258,61 +273,83 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function validate(candidate: unknown, stored: boolean?): State?
-		if type(candidate) ~= "table" then
+		local raw = Value.record(candidate, KNOWN_STATE_FIELDS, false, false)
+		if raw == nil or raw.schemaVersion ~= SCHEMA_VERSION then
 			return nil
 		end
-		local state = candidate
-		for key in state do
-			if type(key) ~= "string" or not KNOWN_STATE_FIELDS[key] then
-				return nil
-			end
-		end
+		local phase = raw.phase
 		if
-			state.schemaVersion ~= SCHEMA_VERSION
-			or not whole(state.userId, 1, MAX_SAFE_INTEGER)
-			or not text(state.operationId)
-			or not fingerprintText(state.fingerprint)
-			or not text(state.characterId)
-			or not text(state.realmId)
-			or not text(state.peopleId)
-			or not text(state.classId)
-			or not text(state.appearancePresetId)
-			or not whole(state.createdAtUnix, 0, MAX_SAFE_INTEGER)
-			or not phases[state.phase]
-			or not whole(state.revision, 0, MAX_REVISION)
-			or not whole(state.fence, 1, MAX_FENCE)
-			or not whole(state.leaseRevision, 1, MAX_REVISION)
-			or not whole(state.initialFence, 1, MAX_FENCE)
-			or not whole(state.initialLeaseRevision, 1, MAX_REVISION)
-			or type(state.rollbackNeedsNameRelease) ~= "boolean"
+			phase ~= "prepared"
+			and phase ~= "name_owned"
+			and phase ~= "profile_prepared"
+			and phase ~= "committed"
+			and phase ~= "lease_released"
+			and phase ~= "rolling_back"
+			and phase ~= "aborted"
 		then
 			return nil
 		end
-		local phase: Phase = state.phase
-		if phase ~= "rolling_back" and phase ~= "aborted" and state.rollbackNeedsNameRelease then
+		local revision = Value.whole(raw.revision, 0, MAX_REVISION)
+		local fence = Value.whole(raw.fence, 1, MAX_FENCE)
+		local lease = Value.whole(raw.leaseRevision, 1, MAX_REVISION)
+		local initialFence = Value.whole(raw.initialFence, 1, MAX_FENCE)
+		local initialLease = Value.whole(raw.initialLeaseRevision, 1, MAX_REVISION)
+		local identity = Value.opaque(raw.fingerprint, MAX_FINGERPRINT_BYTES)
+		if
+			revision == nil
+			or fence == nil
+			or lease == nil
+			or initialFence == nil
+			or initialLease == nil
+			or identity == nil
+		then
 			return nil
 		end
-		local nameOk, displayName = policy.validateName(state.displayName)
-		if not nameOk or displayName ~= state.displayName then
+		local prepared = readPrepared({
+			userId = raw.userId,
+			displayName = raw.displayName,
+			createdAtUnix = raw.createdAtUnix,
+			fence = initialFence,
+			leaseRevision = initialLease,
+			operationId = raw.operationId,
+			characterId = raw.characterId,
+			realmId = raw.realmId,
+			peopleId = raw.peopleId,
+			classId = raw.classId,
+			appearancePresetId = raw.appearancePresetId,
+		})
+		if prepared == nil or prepared.displayName ~= raw.displayName or fingerprint(prepared) ~= identity then
 			return nil
 		end
-		local prepared: Prepared = {
-			userId = state.userId,
-			operationId = state.operationId,
-			characterId = state.characterId,
-			displayName = state.displayName,
-			realmId = state.realmId,
-			peopleId = state.peopleId,
-			classId = state.classId,
-			appearancePresetId = state.appearancePresetId,
-			createdAtUnix = state.createdAtUnix,
-			fence = state.initialFence,
-			leaseRevision = state.initialLeaseRevision,
+		local rollback = raw.rollbackNeedsNameRelease
+		if
+			type(rollback) ~= "boolean"
+			or (phase ~= "rolling_back" and phase ~= "aborted" and rollback)
+			or not validCharacter(prepared, prepared.displayName, stored)
+		then
+			return nil
+		end
+		local state: State = {
+			schemaVersion = SCHEMA_VERSION,
+			userId = prepared.userId,
+			displayName = prepared.displayName,
+			createdAtUnix = prepared.createdAtUnix,
+			fingerprint = identity,
+			phase = phase,
+			revision = revision,
+			fence = fence,
+			leaseRevision = lease,
+			initialFence = initialFence,
+			initialLeaseRevision = initialLease,
+			rollbackNeedsNameRelease = rollback,
+			operationId = prepared.operationId,
+			characterId = prepared.characterId,
+			realmId = prepared.realmId,
+			peopleId = prepared.peopleId,
+			classId = prepared.classId,
+			appearancePresetId = prepared.appearancePresetId,
 		}
-		if fingerprint(prepared) ~= state.fingerprint or not validCharacter(prepared, state.displayName, stored) then
-			return nil
-		end
-		return copy(state)
+		return state
 	end
 
 	local function rejected(state: State?, reason: string): Rejected
@@ -337,7 +374,7 @@ local function create(policy: Policy.Policy)
 		if type(candidate) ~= "table" then
 			return "malformed_event"
 		end
-		local event = candidate
+		local event = assert(tableFields(candidate))
 		if event.expectedRevision ~= state.revision then
 			return "stale_revision"
 		end
@@ -353,10 +390,13 @@ local function create(policy: Policy.Policy)
 		end
 		local raw = assert(tableFields(candidate))
 		if raw.revision ~= state.revision or raw.fence ~= state.fence then
-			if whole(raw.revision, 0, MAX_REVISION) and raw.revision > state.revision then
+			if
+				(type(raw.revision) == "number" and whole(raw.revision, 0, MAX_REVISION))
+				and raw.revision > state.revision
+			then
 				return "future_readback"
 			end
-			if whole(raw.fence, 1, MAX_FENCE) and raw.fence > state.fence then
+			if (type(raw.fence) == "number" and whole(raw.fence, 1, MAX_FENCE)) and raw.fence > state.fence then
 				return "future_readback"
 			end
 			return "readback_mismatch"
@@ -378,7 +418,10 @@ local function create(policy: Policy.Policy)
 		if type(request) ~= "table" then
 			return rejected(nil, "malformed_request")
 		end
-		local candidate = request
+		local candidate = readPrepared(request)
+		if candidate == nil then
+			return rejected(nil, "malformed_request")
+		end
 		local nameOk, displayName = policy.validateName(candidate.displayName)
 		local identity = fingerprint(candidate)
 		if not nameOk or displayName == nil or identity == nil or not validCharacter(candidate, displayName) then
@@ -459,7 +502,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeName(raw: unknown, candidate: unknown): Result
-		local event = candidate
+		local event = tableFields(candidate)
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -468,14 +511,14 @@ local function create(policy: Policy.Policy)
 			return rejected(state, "phase_order")
 		end
 		local mismatch = matches(state, event)
-		if mismatch ~= nil then
-			return rejected(state, mismatch)
+		if mismatch ~= nil or event == nil then
+			return rejected(state, mismatch or "malformed_event")
 		end
 		if event.readback == nil then
 			return rejected(state, "readback_absent")
 		end
 		local success, _, status = pcall(function()
-			return nameregistry.claim(event.readback, ((plan(state))).claim)
+			return nameregistry.claim(event.readback, assert(plan(state)).claim)
 		end)
 		if not success then
 			if futureVersion(event.readback, nameregistry.SCHEMA_VERSION) then
@@ -494,7 +537,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeProfile(raw: unknown, candidate: unknown): Result
-		local event = candidate
+		local event = tableFields(candidate)
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -503,8 +546,8 @@ local function create(policy: Policy.Policy)
 			return rejected(state, "phase_order")
 		end
 		local mismatch = matches(state, event)
-		if mismatch ~= nil then
-			return rejected(state, mismatch)
+		if mismatch ~= nil or event == nil then
+			return rejected(state, mismatch or "malformed_event")
 		end
 		if event.readback == nil then
 			return rejected(state, "readback_absent")
@@ -524,8 +567,8 @@ local function create(policy: Policy.Policy)
 		if type(left) ~= "table" or type(right) ~= "table" then
 			return false
 		end
-		local leftFields = left
-		local rightFields = right
+		local leftFields = assert(tableFields(left))
+		local rightFields = assert(tableFields(right))
 		for key, value in leftFields do
 			if not equal(value, rightFields[key]) then
 				return false
@@ -540,7 +583,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeRoster(raw: unknown, candidate: unknown): Result
-		local event = candidate
+		local event = tableFields(candidate)
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -549,8 +592,8 @@ local function create(policy: Policy.Policy)
 			return rejected(state, "phase_order")
 		end
 		local mismatch = matches(state, event)
-		if mismatch ~= nil then
-			return rejected(state, mismatch)
+		if mismatch ~= nil or event == nil then
+			return rejected(state, mismatch or "malformed_event")
 		end
 		if event.readback == nil then
 			return rejected(state, "readback_absent")
@@ -578,7 +621,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function requestRollback(raw: unknown, candidate: unknown): Result
-		local event = candidate
+		local event = tableFields(candidate)
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -590,8 +633,8 @@ local function create(policy: Policy.Policy)
 			return rejected(state, "phase_order")
 		end
 		local mismatch = matches(state, event)
-		if mismatch ~= nil then
-			return rejected(state, mismatch)
+		if mismatch ~= nil or event == nil then
+			return rejected(state, mismatch or "malformed_event")
 		end
 		local receipt = receiptMatches(state, event.readback, "acknowledged")
 		if receipt ~= nil then
@@ -605,7 +648,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeRollback(raw: unknown, candidate: unknown): Result
-		local event = candidate
+		local event = tableFields(candidate)
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -614,8 +657,8 @@ local function create(policy: Policy.Policy)
 			return rejected(state, "phase_order")
 		end
 		local mismatch = matches(state, event)
-		if mismatch ~= nil then
-			return rejected(state, mismatch)
+		if mismatch ~= nil or event == nil then
+			return rejected(state, mismatch or "malformed_event")
 		end
 		local profile = receiptMatches(state, event.profileReadback, "aborted")
 		if profile ~= nil then
@@ -644,7 +687,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function observeLeaseRelease(raw: unknown, candidate: unknown): Result
-		local event = candidate
+		local event = tableFields(candidate)
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -653,8 +696,8 @@ local function create(policy: Policy.Policy)
 			return rejected(state, "phase_order")
 		end
 		local mismatch = matches(state, event)
-		if mismatch ~= nil then
-			return rejected(state, mismatch)
+		if mismatch ~= nil or event == nil then
+			return rejected(state, mismatch or "malformed_event")
 		end
 		local released = tableFields(event.readback)
 		if released == nil then
@@ -672,7 +715,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	local function takeover(raw: unknown, candidate: unknown): Result
-		local event = candidate
+		local event = tableFields(candidate)
 		local state = validate(raw)
 		if state == nil then
 			return rejected(nil, "malformed_state")
@@ -681,10 +724,13 @@ local function create(policy: Policy.Policy)
 			return rejected(state, "phase_order")
 		end
 		local mismatch = matches(state, event)
-		if mismatch ~= nil then
-			return rejected(state, mismatch)
+		if mismatch ~= nil or event == nil then
+			return rejected(state, mismatch or "malformed_event")
 		end
-		if state.revision >= MAX_REVISION or not whole(event.fence, state.fence + 1, MAX_FENCE) then
+		if
+			state.revision >= MAX_REVISION
+			or not (type(event.fence) == "number" and whole(event.fence, state.fence + 1, MAX_FENCE))
+		then
 			return rejected(state, "stale_fence")
 		end
 		local readback = tableFields(event.readback)
@@ -700,7 +746,12 @@ local function create(policy: Policy.Policy)
 		then
 			return rejected(state, "readback_mismatch")
 		end
-		if not whole(event.leaseRevision, state.leaseRevision + 1, MAX_REVISION) then
+		if
+			not (
+				type(event.leaseRevision) == "number"
+				and whole(event.leaseRevision, state.leaseRevision + 1, MAX_REVISION)
+			)
+		then
 			return rejected(state, "stale_lease_revision")
 		end
 		local value = copy(state)

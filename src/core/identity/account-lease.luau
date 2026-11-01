@@ -1,6 +1,6 @@
 --!strict
 
-local HasMetatable = require("./value")
+local Value = require("../internal/value")
 
 export type Lease = {
 	schemaVersion: number,
@@ -11,7 +11,6 @@ export type Lease = {
 	acquisitionId: string | false,
 	expiresAtUnix: number,
 }
-type Raw = { [unknown]: unknown }
 
 local Record = {}
 
@@ -31,85 +30,53 @@ local FIELDS: { [string]: boolean } = {
 	expiresAtUnix = true,
 }
 
-local function whole(value: unknown, minimum: number, maximum: number): boolean
-	return type(value) == "number"
-		and value == value
-		and value ~= math.huge
-		and value ~= -math.huge
-		and value >= minimum
-		and value <= maximum
-		and value % 1 == 0
-end
-
-local function text(value: unknown): boolean
-	return type(value) == "string" and #value > 0 and #value <= Record.MAX_ID_BYTES
-end
-
-local function exact(raw: unknown): boolean
-	if type(raw) ~= "table" or getmetatable(raw) ~= nil then
+local function readOwner(value: unknown): (string | false)?
+	if value == false then
 		return false
 	end
-	for key in raw do
-		if type(key) ~= "string" or FIELDS[key] ~= true then
-			return false
-		end
-	end
-	for key in FIELDS do
-		if (raw)[key] == nil then
-			return false
-		end
-	end
-	return true
-end
-
-local function frozen(raw: Lease): Lease
-	local value: Lease = {
-		schemaVersion = Record.SCHEMA_VERSION,
-		userId = raw.userId,
-		revision = raw.revision,
-		fence = raw.fence,
-		sessionId = raw.sessionId,
-		acquisitionId = raw.acquisitionId,
-		expiresAtUnix = raw.expiresAtUnix,
-	}
-	return (table.freeze(value))
-end
-
-local function request(userId: unknown, sessionId: unknown, acquisitionId: unknown): boolean
-	return whole(userId, 1, Record.MAX_SAFE_INTEGER) and text(sessionId) and text(acquisitionId)
-end
-
-local function timeWindow(now: unknown, ttl: unknown): boolean
-	return whole(now, 0, Record.MAX_SAFE_INTEGER)
-		and whole(ttl, 1, Record.MAX_SAFE_INTEGER)
-		and now <= Record.MAX_SAFE_INTEGER - ttl
+	return Value.opaque(value, Record.MAX_ID_BYTES)
 end
 
 function Record.validate(raw: unknown): Lease?
-	local source = raw
-	if
-		not exact(raw)
-		or source.schemaVersion ~= Record.SCHEMA_VERSION
-		or not whole(source.userId, 1, Record.MAX_SAFE_INTEGER)
-		or not whole(source.revision, 0, Record.MAX_REVISION)
-		or not whole(source.fence, 0, Record.MAX_FENCE)
-		or not whole(source.expiresAtUnix, 0, Record.MAX_SAFE_INTEGER)
-	then
+	local source = Value.record(raw, FIELDS, true)
+	if source == nil or source.schemaVersion ~= Record.SCHEMA_VERSION then
 		return nil
 	end
-	if source.sessionId == false then
-		if source.acquisitionId ~= false or source.expiresAtUnix ~= 0 then
+	local userId = Value.whole(source.userId, 1, Record.MAX_SAFE_INTEGER)
+	local revision = Value.whole(source.revision, 0, Record.MAX_REVISION)
+	local fence = Value.whole(source.fence, 0, Record.MAX_FENCE)
+	local expires = Value.whole(source.expiresAtUnix, 0, Record.MAX_SAFE_INTEGER)
+	if userId == nil or revision == nil or fence == nil or expires == nil then
+		return nil
+	end
+	local session, acquisition = readOwner(source.sessionId), readOwner(source.acquisitionId)
+	if session == nil or acquisition == nil then
+		return nil
+	end
+	if session == false then
+		if acquisition ~= false or expires ~= 0 then
 			return nil
 		end
 	elseif
-		not text(source.sessionId)
-		or not text(source.acquisitionId)
-		or source.fence < 1
-		or source.expiresAtUnix < 1
+		type(session) ~= "string"
+		or Value.opaque(session, Record.MAX_ID_BYTES) == nil
+		or type(acquisition) ~= "string"
+		or Value.opaque(acquisition, Record.MAX_ID_BYTES) == nil
+		or fence < 1
+		or expires < 1
 	then
 		return nil
 	end
-	return frozen(raw)
+	local value: Lease = {
+		schemaVersion = Record.SCHEMA_VERSION,
+		userId = userId,
+		revision = revision,
+		fence = fence,
+		sessionId = session,
+		acquisitionId = acquisition,
+		expiresAtUnix = expires,
+	}
+	return Value.freezeDeep(value)
 end
 
 function Record.empty(userId: unknown): Lease?
@@ -143,13 +110,25 @@ end
 
 function Record.acquire(
 	currentRaw: unknown,
-	userId: unknown,
-	sessionId: unknown,
-	acquisitionId: unknown,
-	now: unknown,
-	ttl: unknown
+	userIdValue: unknown,
+	sessionIdValue: unknown,
+	acquisitionIdValue: unknown,
+	nowValue: unknown,
+	ttlValue: unknown
 ): (Lease?, string)
-	if not request(userId, sessionId, acquisitionId) or not timeWindow(now, ttl) then
+	local userId = Value.whole(userIdValue, 1, Record.MAX_SAFE_INTEGER)
+	local sessionId = Value.opaque(sessionIdValue, Record.MAX_ID_BYTES)
+	local acquisitionId = Value.opaque(acquisitionIdValue, Record.MAX_ID_BYTES)
+	local now = Value.whole(nowValue, 0, Record.MAX_SAFE_INTEGER)
+	local ttl = Value.whole(ttlValue, 1, Record.MAX_SAFE_INTEGER)
+	if
+		userId == nil
+		or sessionId == nil
+		or acquisitionId == nil
+		or now == nil
+		or ttl == nil
+		or now > Record.MAX_SAFE_INTEGER - ttl
+	then
 		return nil, "invalid"
 	end
 	local current = if currentRaw == nil then Record.empty(userId) else Record.validate(currentRaw)
@@ -182,19 +161,30 @@ end
 
 function Record.renew(
 	currentRaw: unknown,
-	userId: unknown,
-	sessionId: unknown,
-	acquisitionId: unknown,
-	expectedRevision: unknown,
-	expectedFence: unknown,
-	now: unknown,
-	ttl: unknown
+	userIdValue: unknown,
+	sessionIdValue: unknown,
+	acquisitionIdValue: unknown,
+	expectedRevisionValue: unknown,
+	expectedFenceValue: unknown,
+	nowValue: unknown,
+	ttlValue: unknown
 ): (Lease?, string)
+	local userId = Value.whole(userIdValue, 1, Record.MAX_SAFE_INTEGER)
+	local sessionId = Value.opaque(sessionIdValue, Record.MAX_ID_BYTES)
+	local acquisitionId = Value.opaque(acquisitionIdValue, Record.MAX_ID_BYTES)
+	local expectedRevision = Value.whole(expectedRevisionValue, 0, Record.MAX_REVISION)
+	local expectedFence = Value.whole(expectedFenceValue, 1, Record.MAX_FENCE)
+	local now = Value.whole(nowValue, 0, Record.MAX_SAFE_INTEGER)
+	local ttl = Value.whole(ttlValue, 1, Record.MAX_SAFE_INTEGER)
 	if
-		not request(userId, sessionId, acquisitionId)
-		or not whole(expectedRevision, 0, Record.MAX_REVISION)
-		or not whole(expectedFence, 1, Record.MAX_FENCE)
-		or not timeWindow(now, ttl)
+		userId == nil
+		or sessionId == nil
+		or acquisitionId == nil
+		or expectedRevision == nil
+		or expectedFence == nil
+		or now == nil
+		or ttl == nil
+		or now > Record.MAX_SAFE_INTEGER - ttl
 	then
 		return nil, "invalid"
 	end
@@ -231,17 +221,18 @@ end
 
 function Record.release(
 	currentRaw: unknown,
-	userId: unknown,
-	sessionId: unknown,
-	acquisitionId: unknown,
-	expectedRevision: unknown,
-	expectedFence: unknown
+	userIdValue: unknown,
+	sessionIdValue: unknown,
+	acquisitionIdValue: unknown,
+	expectedRevisionValue: unknown,
+	expectedFenceValue: unknown
 ): (Lease?, string)
-	if
-		not request(userId, sessionId, acquisitionId)
-		or not whole(expectedRevision, 0, Record.MAX_REVISION)
-		or not whole(expectedFence, 1, Record.MAX_FENCE)
-	then
+	local userId = Value.whole(userIdValue, 1, Record.MAX_SAFE_INTEGER)
+	local sessionId = Value.opaque(sessionIdValue, Record.MAX_ID_BYTES)
+	local acquisitionId = Value.opaque(acquisitionIdValue, Record.MAX_ID_BYTES)
+	local expectedRevision = Value.whole(expectedRevisionValue, 0, Record.MAX_REVISION)
+	local expectedFence = Value.whole(expectedFenceValue, 1, Record.MAX_FENCE)
+	if userId == nil or sessionId == nil or acquisitionId == nil or expectedRevision == nil or expectedFence == nil then
 		return nil, "invalid"
 	end
 	local current = Record.validate(currentRaw)
