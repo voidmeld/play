@@ -143,9 +143,13 @@ return function(suite: Verify.Harness)
 			expect(layout[2]):toBe("a2")
 		end)
 
-		it("validates the persisted shape strictly", function()
-			expect(ActionBarCore.shapeValid(ActionBarCore.default())):toBe(true)
-			expect(ActionBarCore.shapeValid({ custom = true, level = 4, slots = { ["10"] = "a1" } })):toBe(true)
+		it("projects a strict persisted shape without sharing mutable slots", function()
+			expect(ActionBarCore.project(ActionBarCore.default())):toEqual(ActionBarCore.default())
+			local source = { custom = true, level = 4, slots = { ["10"] = "a1" } }
+			local projected = assert(ActionBarCore.project(source))
+			expect(projected):toEqual(source)
+			projected.slots["10"] = "a2"
+			expect(source.slots["10"]):toBe("a1")
 			for _, raw in
 				{
 					false,
@@ -158,9 +162,11 @@ return function(suite: Verify.Harness)
 					{ custom = true, level = 1, slots = { ["1"] = "" } },
 					{ custom = true, level = 1, slots = { [1] = "a1" } },
 					{ custom = true, level = 1, slots = {}, extra = 1 },
+					setmetatable({ custom = true, level = 1, slots = {} }, {}),
+					{ custom = true, level = 1, slots = setmetatable({}, {}) },
 				}
 			do
-				expect(ActionBarCore.shapeValid(raw)):toBe(false)
+				expect(ActionBarCore.project(raw)):toBeNil()
 			end
 		end)
 
@@ -231,8 +237,12 @@ return function(suite: Verify.Harness)
 		expect(law.itemId("use:food")):toBe("food")
 		expect(law.itemId("item:food")):toBeNil()
 		expect((pcall(law.itemAction, "longitem"))):toBe(false)
-		expect(law.shapeValid({ custom = true, level = 5, slots = {} })):toBe(false)
-		expect(law.shapeValid({ custom = true, level = 4, slots = { ["6"] = "use:food" } })):toBe(true)
+		expect(law.project({ custom = true, level = 5, slots = {} })):toBeNil()
+		expect(law.project({ custom = true, level = 4, slots = { ["6"] = "use:food" } })):toEqual({
+			custom = true,
+			level = 4,
+			slots = { ["6"] = "use:food" },
+		})
 		expect(law.encodeWire({ [6] = "food" })):toBe("-|-|-|-|-|food")
 	end)
 end
