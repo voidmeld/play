@@ -195,34 +195,45 @@ function System.actionbar(config: Config)
 		return state
 	end
 
-	local function shapeValid(raw: unknown): boolean
+	local function project(raw: unknown): State?
 		local fields = SocialShape.raw(raw)
-		if fields == nil then
-			return false
+		if type(raw) ~= "table" or fields == nil or getmetatable(raw) ~= nil then
+			return nil
 		end
 		local fieldSlots = SocialShape.raw(fields.slots)
 		if
-			type(raw) ~= "table"
-			or type(fields.custom) ~= "boolean"
+			type(fields.custom) ~= "boolean"
+			or type(fields.level) ~= "number"
 			or not whole(fields.level)
-			or (assert(SocialShape.number(fields.level))) < 0
-			or (assert(SocialShape.number(fields.level))) > config.maxLevel
+			or fields.level < 0
+			or fields.level > config.maxLevel
 			or type(fields.slots) ~= "table"
+			or getmetatable(fields.slots) ~= nil
+			or fieldSlots == nil
 		then
-			return false
+			return nil
 		end
-		for key in assert(SocialShape.raw(raw)) do
+		for key in fields do
 			if key ~= "custom" and key ~= "level" and key ~= "slots" then
-				return false
+				return nil
 			end
 		end
-		for key, id in assert(fieldSlots) do
+		local slots: { [string]: string } = {}
+		for key, id in fieldSlots do
 			local slot = if type(key) == "string" then tonumber(key) else nil
-			if slot == nil or not validSlot(slot) or tostring(slot) ~= key or not validAction(id) then
-				return false
+			if
+				type(key) ~= "string"
+				or slot == nil
+				or not validSlot(slot)
+				or tostring(slot) ~= key
+				or type(id) ~= "string"
+				or not validAction(id)
+			then
+				return nil
 			end
+			slots[key] = id
 		end
-		return true
+		return { custom = fields.custom, level = fields.level, slots = slots }
 	end
 
 	local function assign(state: unknown, ctx: Context, slot: unknown, abilityId: unknown): (State?, string?)
@@ -363,7 +374,7 @@ function System.actionbar(config: Config)
 		contextFor = contextFor,
 		effective = effective,
 		normalize = normalize,
-		shapeValid = shapeValid,
+		project = project,
 		assign = assign,
 		swap = swap,
 		clear = clear,

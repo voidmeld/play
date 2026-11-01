@@ -717,6 +717,10 @@ Do not clear its ledger when you cleanse an effect.
 
 ### `core.progression.actionbar.actionbar`
 
+The configured system's `project(raw)` validates a persisted action bar and returns a typed state
+with independent slots, or `nil`. It rejects unknown fields, invalid levels, malformed slot keys,
+invalid action identities and metatables. Use `copy(state)` for an already typed state.
+
 ## [`src/core/progression/grants.luau`](../src/core/progression/grants.luau)
 
 ### `core.progression.grants.grants`
