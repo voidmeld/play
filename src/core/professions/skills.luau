@@ -32,9 +32,9 @@ export type Config = {
 	skillUpChance: { [string]: number },
 	questInputs: (unknown) -> { [string]: boolean }?,
 	recipes: {
-		get: (unknown) -> Recipe?,
-		forProfession: (string) -> { Recipe },
-		forRecipeItem: (unknown) -> Recipe?,
+		read get: (unknown) -> Recipe?,
+		read forProfession: (string) -> { read [number]: Recipe },
+		read forRecipeItem: (unknown) -> Recipe?,
 	},
 }
 
