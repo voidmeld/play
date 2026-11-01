@@ -28,7 +28,7 @@ return function(suite: Verify.Harness)
 			assert(
 				core.register("water", { resource = "mana", verb = "drink", durationSec = 20, fractionPerSec = 0.03 })
 			)
-			local actor: Host.Actor = {
+			local actor: Consumables.Actor & { characterId: string? } = {
 				id = "a",
 				characterId = "hero",
 				hp = 20,
@@ -100,7 +100,7 @@ return function(suite: Verify.Harness)
 					_body: string,
 					receipt: string,
 					_item: string
-				): Host.CommitResult
+				): { ok: boolean, outcome: "committed" | "rejected" | "not_durable", reason: string? }
 					state.writes += 1
 					if state.onCommit ~= nil then
 						state.onCommit()

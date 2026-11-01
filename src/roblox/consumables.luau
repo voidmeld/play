@@ -1,15 +1,15 @@
 --!strict
 local Consumables = require("../core/progression/consumables")
-export type Actor = Consumables.Actor & { characterId: string? }
-export type Snapshot = { actor: Actor?, mobs: { [string]: Consumables.Mob }?, now: number }
+export type Actor = Consumables.ActorView & { read characterId: string? }
+export type Snapshot = { actor: Actor?, mobs: { read [string]: Consumables.Mob }?, now: number }
 export type Status = { cue: string, hpRemaining: number, manaRemaining: number, hpGained: number?, manaGained: number? }
-export type CommitResult = { ok: boolean, outcome: string, reason: string? }
+export type CommitResult = { read ok: boolean, read outcome: string, read reason: string? }
 export type Rules = {
 	read item: (unknown) -> Consumables.Item?,
 	read begin: (
 		Consumables.State?,
-		Consumables.Actor,
-		{ [string]: Consumables.Mob }?,
+		Consumables.ActorView,
+		{ read [string]: Consumables.Mob }?,
 		unknown,
 		unknown,
 		unknown

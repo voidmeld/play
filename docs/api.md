@@ -9,6 +9,8 @@ validate and copy definitions, freezing accepted items and their buff statistics
 registered definitions. `copy`, `begin`, `interrupt`, `activeStats` and `advance` operate on recovery
 state. `advance` returns new state and separate health/mana gains without mutating the input actor.
 The reducer may use `interruptActor` to advance the interruption generation and clear channels.
+Rule inputs use `ActorView` and read-only mob maps so authoritative game records can be borrowed
+without conversion or copying. `Actor` describes a mutable fixture or standalone actor.
 
 Health and mana channels have independent absolute deadlines. Repeated or reversed samples award
 no duplicate recovery. Movement, combat and control interrupt recovery. Completed food can apply a
