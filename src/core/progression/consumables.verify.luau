@@ -87,6 +87,31 @@ return function(suite: Verify.Harness)
 			local _, reversed = core.advance(state, actor, {}, 103)
 			expect(repeated + reversed):toBe(0)
 		end)
+		it("borrows frozen game records with richer effect and mob fields", function()
+			local core = fixture()
+			local actor = table.freeze({
+				id = "a",
+				hp = 20,
+				maxHp = 100,
+				pos = table.freeze({ x = 0, z = 0 }),
+				crowdControls = table.freeze({
+					previous = table.freeze({ remainingSec = 0, totalSec = 1, name = "stun" }),
+				}),
+			})
+			local mobs = table.freeze({
+				other = table.freeze({
+					hp = 10,
+					targetActorId = "other",
+					threat = table.freeze({ other = 1 }),
+					level = 5,
+				}),
+			})
+			local state = assert(core.begin(nil, actor, mobs, "food", 1, 0))
+			local nextState, gain = core.advance(state, actor, mobs, 1)
+			expect(gain):toBe(2.5)
+			expect(actor.hp):toBe(20)
+			expect(assert(nextState).hpGained):toBe(2.5)
+		end)
 		it("caps recovery at the resource maximum and channel deadline", function()
 			local core, actor = fixture()
 			local food = assert(core.begin(nil, actor, {}, "food", 1, 100))

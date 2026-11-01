@@ -37,12 +37,27 @@ export type Actor = {
 	gcdRemainingSec: number?,
 	crowdControls: { [string]: { remainingSec: number, totalSec: number? } }?,
 }
-export type Mob = { hp: number, targetActorId: string?, threat: { [string]: number }? }
+export type ActorView = {
+	read id: string,
+	read classId: string?,
+	read hp: number,
+	read maxHp: number?,
+	read mana: number?,
+	read maxMana: number?,
+	read pos: { read x: number, read y: number?, read z: number },
+	read sustenance: State?,
+	read sustenanceGeneration: number?,
+	read fights: { read [string]: number }?,
+	read pendingControl: unknown?,
+	read gcdRemainingSec: number?,
+	read crowdControls: { read [string]: { read remainingSec: number, read totalSec: number? } }?,
+}
+export type Mob = { read hp: number, read targetActorId: string?, read threat: { read [string]: number }? }
 export type Config = {
 	maxBuffStat: number,
 	maxBuffSeconds: number,
 	movementToleranceSquared: number,
-	drinksMana: (Actor) -> boolean,
+	drinksMana: (ActorView) -> boolean,
 	consumedCue: string,
 	channelCue: string,
 	finishedCue: string,
@@ -71,7 +86,7 @@ function Consumables.create(config: Config)
 			state.elixir = value
 		end
 	end
-	local function amount(actor: Actor, resource: string): number?
+	local function amount(actor: ActorView, resource: string): number?
 		return if resource == "hp" then actor.hp else actor.mana
 	end
 	local function addGain(state: State, resource: string, gain: number)
@@ -195,7 +210,7 @@ function Consumables.create(config: Config)
 		return out
 	end
 
-	local function activeItem(actor: Actor): Item?
+	local function activeItem(actor: ActorView): Item?
 		local state = actor.sustenance
 		if state == nil then
 			return nil
@@ -209,14 +224,18 @@ function Consumables.create(config: Config)
 		return nil
 	end
 
-	function Core.eligibility(actor: Actor?, mobs: { [string]: Mob }?, item: Item?): string?
+	function Core.eligibility(actor: ActorView?, mobs: { read [string]: Mob }?, item: Item?): string?
 		local selected = item or (if actor ~= nil then activeItem(actor) else nil)
 		local allowCombat = selected ~= nil and selected.combat == true
 		if actor == nil or not finite(actor.hp) or actor.hp <= 0 then
 			return "recover_before_rest"
 		end
 		if not allowCombat then
-			if next(actor.fights or {}) ~= nil or actor.pendingControl ~= nil or (actor.gcdRemainingSec or 0) > 0 then
+			if
+				(actor.fights ~= nil and next(actor.fights) ~= nil)
+				or actor.pendingControl ~= nil
+				or (actor.gcdRemainingSec or 0) > 0
+			then
 				return "in_combat"
 			end
 			for _, mob in (mobs or {}) do
@@ -237,8 +256,8 @@ function Consumables.create(config: Config)
 
 	function Core.begin(
 		state: State?,
-		actor: Actor,
-		mobs: { [string]: Mob }?,
+		actor: ActorView,
+		mobs: { read [string]: Mob }?,
 		itemId: unknown,
 		rawSerial: unknown,
 		rawNow: unknown
@@ -331,7 +350,7 @@ function Consumables.create(config: Config)
 		return out
 	end
 
-	function Core.interruptActor(actor: Actor, reason: string)
+	function Core.interruptActor(actor: { sustenanceGeneration: number?, sustenance: State? }, reason: string)
 		actor.sustenanceGeneration = (actor.sustenanceGeneration or 0) + 1
 		actor.sustenance = Core.interrupt(actor.sustenance, reason)
 	end
@@ -352,7 +371,12 @@ function Consumables.create(config: Config)
 		return out
 	end
 
-	function Core.advance(state: State?, actor: Actor, mobs: { [string]: Mob }?, now: number): (State?, number, number)
+	function Core.advance(
+		state: State?,
+		actor: ActorView,
+		mobs: { read [string]: Mob }?,
+		now: number
+	): (State?, number, number)
 		if state == nil then
 			return nil, 0, 0
 		end
