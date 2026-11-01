@@ -73,6 +73,13 @@ successful commit and a second character, health, movement and interruption chec
 profiles reconcile consumed receipts. Games supply persistence, inventory changes, Roblox
 observations, intent dispatch, remote wiring and presentation.
 
+## Encounter contribution
+
+`core/threat/contribution` records combat participation and effective credit, then freezes the
+observed character, distance, life state and dungeon admission at encounter end. Games supply
+relation law, categories, ranges, inactivity and recent-defeat windows, and activity thresholds.
+The system decides eligibility from the recorded encounter; the game selects and persists rewards.
+
 Input mounting uses typed callback dependencies. `input-profile.start` accepts missing optional
 callbacks so it can report an incomplete host; accepted callbacks retain their declared argument
 and result types. Game-facing requests and persisted records remain runtime-validated inputs.
