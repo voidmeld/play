@@ -1,7 +1,7 @@
 --!strict
 
 local Objectives = require("./objectives")
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type Objective = Objectives.Objective
 export type Binding = Objectives.Binding

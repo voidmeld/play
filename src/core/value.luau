@@ -36,6 +36,14 @@ function Value.record(value: unknown, fields: { [string]: boolean }, required: b
 	return out
 end
 
+function Value.finite(value: unknown): boolean
+	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+function Value.nonempty(value: unknown): boolean
+	return type(value) == "string" and #value > 0
+end
+
 function Value.whole(value: unknown, low: number, high: number): number?
 	return if type(value) == "number"
 			and value == value

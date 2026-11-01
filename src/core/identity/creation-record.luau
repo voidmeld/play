@@ -4,7 +4,7 @@ local Creation = require("./creation")
 local HasMetatable = require("./value")
 local Policy = require("./policy")
 local Roster = require("./roster")
-local Value = require("../internal/value")
+local Value = require("../value")
 
 type RosterCharacter = Roster.CharacterIdentity
 export type Seed = {

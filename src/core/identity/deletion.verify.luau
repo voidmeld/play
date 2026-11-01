@@ -12,7 +12,7 @@ local Verify = require("../../../.lute/dependencies/verify/src/core")
 local roster = Roster.create(Policy)
 local deletion = Deletion.create(Policy)
 local nameregistry = NameRegistry.create(Policy)
-local Value = require("../internal/value")
+local Value = require("../value")
 type Raw = Value.Raw
 local function nested(value: { [string]: unknown }, key: string): Raw
 	local result = assert(Value.raw(value[key]))

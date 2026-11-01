@@ -631,22 +631,6 @@ Do not clear its ledger when you cleanse an effect.
 
 ### `core.events.watch.watch`
 
-## [`src/core/internal/value.luau`](../src/core/internal/value.luau)
-
-### `core.internal.value.dense`
-
-### `core.internal.value.freezeDeep`
-
-### `core.internal.value.identifier`
-
-### `core.internal.value.opaque`
-
-### `core.internal.value.raw`
-
-### `core.internal.value.record`
-
-### `core.internal.value.whole`
-
 ## [`src/core/inventory/stacks.luau`](../src/core/inventory/stacks.luau)
 
 ### `core.inventory.stacks.stacks`
@@ -872,6 +856,26 @@ invalid action identities and metatables. Use `copy(state)` for an already typed
 ## [`src/core/trade/receipt.luau`](../src/core/trade/receipt.luau)
 
 ### `core.trade.receipt.receipts`
+
+## [`src/core/value.luau`](../src/core/value.luau)
+
+### `core.value.dense`
+
+### `core.value.finite`
+
+### `core.value.freezeDeep`
+
+### `core.value.identifier`
+
+### `core.value.nonempty`
+
+### `core.value.opaque`
+
+### `core.value.raw`
+
+### `core.value.record`
+
+### `core.value.whole`
 
 ## [`src/core/vendors/exchange.luau`](../src/core/vendors/exchange.luau)
 

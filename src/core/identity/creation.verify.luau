@@ -5,7 +5,7 @@ local Creation = require("./creation")
 local Policy = require("../../test-scene/identity")
 local Registry = require("./name-claims")
 local Roster = require("./roster")
-local Value = require("../internal/value")
+local Value = require("../value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 type Raw = Value.Raw
 local function nested(value: { [string]: unknown }, key: string): Raw

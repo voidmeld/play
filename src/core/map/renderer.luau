@@ -2,7 +2,7 @@
 local Exploration = require("./exploration")
 local MapViewportModel = require("./viewport")
 local UpdateTypes = require("./updates")
-local Value = require("../internal/value")
+local Value = require("../value")
 export type PreferredInput = "pointer" | "touch"
 export type Surface = {
 	preferredInput: PreferredInput,

@@ -1,7 +1,7 @@
 --!strict
 
 local Book = require("./book")
-local Value = require("../internal/value")
+local Value = require("../value")
 local Wallet = require("./wallet")
 
 export type Totals = { coin: number, goods: { [string]: number } }

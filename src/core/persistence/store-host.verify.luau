@@ -2,7 +2,7 @@
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local DataStore = require("../../roblox/data-store")
 local StoreHost = require("./store-host")
-local Value = require("../internal/value")
+local Value = require("../value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 local retry = DataStore.retryPolicy({ attempts = 2, baseDelay = 0, maxDelay = 0 })
 local host = StoreHost.create({

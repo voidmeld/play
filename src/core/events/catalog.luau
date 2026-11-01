@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type Flag = string | boolean | number
 export type Rollout = { mode: string, percent: number?, salt: string? }

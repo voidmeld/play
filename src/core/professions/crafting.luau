@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../internal/value")
+local Value = require("../value")
 
 local Skills = require("./skills")
 local Stacks = require("../inventory/stacks")

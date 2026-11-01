@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type MaterialStack = { materialId: string, source: string, quantity: number }
 export type Recipe = { id: string, rung: string, outputItemId: string, inputs: { MaterialStack } }

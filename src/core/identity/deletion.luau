@@ -3,7 +3,7 @@
 local NameRegistry = require("./name-claims")
 local Policy = require("./policy")
 local Roster = require("./roster")
-local Value = require("../internal/value")
+local Value = require("../value")
 
 export type Phase = "prepared" | "roster_removed" | "name_released" | "lease_released" | "rolling_back" | "aborted"
 export type State = {
