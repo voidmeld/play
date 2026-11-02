@@ -1,253 +1,69 @@
 # Systems
 
-## Account transactions
-
-`core/identity/account` owns immutable account snapshots and coordination between roster, profiles,
-receipts, creation and deletion. Games provide identity policy and an extension projector that
-validates and carries their additional fields through every transition. The projector receives a
-deletion terminal only when that terminal is cleared. Storage, leases and game-specific account
-policy remain with the consumer.
-
-## Roblox sound and effects
-
-`roblox/cue-mixer` owns retrigger admission, voice expiry and configured family ducking.
-`roblox/cue-playback` owns cue-id voice lifetime and frame-driven effect progression.
-Games own native voice operations, assets, catalogs, mix values, effect recipes and timing policy.
-
-## Roblox NPC motion
-
-`roblox/npc-motion` supplies bounded planar steps, leash geometry and cached/observed puppet projection.
-Games own movement law, actor targeting, pathfinding, grounding queries, native body application and tuning.
-
-## Roblox rig lifetime
-
-`roblox/equipment-rig` owns scoped construction attempts, stale external-result disposal, bounded
-mesh joins and per-slot application settlement. Games supply native construction and attachment,
-recipes, body fitting, admission and transaction presentation recovery.
-
-`roblox/equipment-queue` serializes and fences asynchronous equipment application per character owner.
-`roblox/contact-markers` coordinates ref-counted native animation contacts with stamped actions.
-Games retain rigs, equipment fitting and attachment, clip selection, marker admission and playback policy.
-
-## Roblox world labels
-
-`roblox/screen-labels` supplies anchored nameplate admission and floating-text reserve avoidance.
-Games own text, appearance, health policy, ranges, crowd limits, projection and rendering.
-
-## Roblox targeting
-
-`roblox/target-selection` supplies caller-ordered cycling, projected pointer selection and timed
-range release. Games own hostility, eligibility, markers, frame data, native hit queries and tuning.
-
-## Roblox camera
-
-`roblox/camera` supplies configured follow-camera dynamics, springs and collision clearance.
-`roblox/conversation-camera` supplies conversation ownership and safe-region framing candidates.
-Games own world queries, native camera writes, speakers, UI measurement and all tuning.
-
-## Roblox input
-
-`roblox/input-contexts` supplies deadline-bound client readiness and fail-closed server template adoption.
-
-`roblox/input-profile` owns device reach, exclusive action coverage and rollback-safe binding sessions.
-`roblox/input-bindings` projects configured keyboard/gamepad bindings and chords.
-`roblox/thumbstick` projects dead-zone movement and clamped knob displacement.
-Games supply their complete action tables, tuning, device events, button surfaces and intent dispatch.
-These modules neither render controls nor write authoritative game state.
-
-## Account and character transactions
-
-`core/identity/roster`, `name-claims`, `name-record`, `creation`, `deletion` and `creation-record`
-are pure typed factories over `core/identity/policy`. `account-lease` owns fenced account leases.
-The host applies plans through its own ordered persistence operations and returns actual readbacks
-to the transaction. A lost response, future schema, foreign owner, stale revision or absent readback
-does not advance success. The game owns account composition, saved keys, naming rules, creation
-admission and routes. No factory supplies game data or performs persistence itself.
-
-## Personal reward settlement
-
-`core/progression/settlement` reconciles the run history and personal grant receipts. A retry must
-agree with both ledgers before it reports success. The caller supplies package, run, role, reward
-and grant policies. `copyPersonalState` validates and returns detached personal state;
-`readQuality` validates and returns an immutable or detached quality value. Settlement freezes
-its returned data. Neither reader may return mutable caller-owned data that freezing would affect.
-
-## Consumable recovery
-
-`core/progression/consumables` owns validated item registration, concurrent health and mana recovery,
-interruption, replay order and timed food/elixir buffs. Games supply item definitions, resource
-eligibility, movement tolerance, buff bounds and player text. Recovery returns state and gains;
-the game's authoritative reducer installs them.
-
-`roblox/consumables` coordinates use requests with injected character observations and durable
-consumption. An uncertain write retains its receipt for retry. Recovery starts only after a
-successful commit and a second character, health, movement and interruption check. Reopened
-profiles reconcile consumed receipts. Games supply persistence, inventory changes, Roblox
-observations, intent dispatch, remote wiring and presentation.
-
-## Encounter contribution
-
-`core/threat/contribution` records combat participation and effective credit, then freezes the
-observed character, distance, life state and dungeon admission at encounter end. Games supply
-relation law, categories, ranges, inactivity and recent-defeat windows, and activity thresholds.
-The system decides eligibility from the recorded encounter; the game selects and persists rewards.
-
-Input mounting uses typed callback dependencies. `input-profile.start` accepts missing optional
-callbacks so it can report an incomplete host; accepted callbacks retain their declared argument
-and result types. Game-facing requests and persisted records remain runtime-validated inputs.
-
 [Return to Play](../README.md).
 
-The game supplies content, limits, identities, and host operations.
-The core returns data.
-The game installs the returned state.
+Import one core family entry or an individual Roblox adapter. Each page describes state,
+operations, host obligations and executable examples. The [generated API](api.md) carries exact declarations.
 
 ## Core
 
-| Module | Function |
+| System | Purpose |
 | --- | --- |
-| [professions/skills](../src/core/professions/skills.luau), [crafting](../src/core/professions/crafting.luau), [harvest](../src/core/professions/harvest.luau), [fishing](../src/core/professions/fishing.luau), [session](../src/core/professions/session.luau), [gathering](../src/core/professions/gathering.luau) | Configured skills, recipe transactions, yields, fishing windows, interruption and replay-safe node claims. The [profession host](../src/roblox/professions.luau) coordinates injected profile, world and durable commit operations. |
-| [progression/talents](../src/core/progression/talents.luau) | Saved talent state, request decoding, revisions, respec admission and atomic rank changes. |
-| [progression/talent-ranks](../src/core/progression/talent-ranks.luau) | Point budgets, same-line tier gates, ranked spending and isolated role respecs over read-only game definitions. |
-| [cast/queue](../src/core/cast/queue.luau) | Cast queues, cancellation tokens, and cooldown times. |
-| [control/diminishing](../src/core/control/diminishing.luau) | Duration steps, reset times, and family immunity. |
-| [threat/table](../src/core/threat/table.luau) | Threat totals, target selection, taunts, and actor removal. |
-| [effects/timed](../src/core/effects/timed.luau) | Effect stacks, duration, periodic timers, and dispels. |
-| [vendors/exchange](../src/core/vendors/exchange.luau) | Buy and sell operations, stock, and buyback receipts. |
-| [chat/channels](../src/core/chat/channels.luau) | Chat audiences, history, commands, and sender budgets. |
-| [net/rate-limit](../src/core/net/rate-limit.luau) | Token buckets and sender budgets. |
-| [persistence/session-lock](../src/core/persistence/session-lock.luau) | Session acquisition, renewal, expiry, and release. |
-| [quest/objectives](../src/core/quest/objectives.luau) | Objective kinds and event matching. |
-| [quest/lifecycle](../src/core/quest/lifecycle.luau) | Objective progress, stillness, group limits, and validation. |
-| [quest/counter](../src/core/quest/counter.luau) | Quest completion counts and level limits. |
-| [quest/markers](../src/core/quest/markers.luau) | Quest markers, priority, visibility, and colors. |
-| [quest/index](../src/core/quest/index.luau) | Quest indexes and event matching. |
-| [mail/mailbox](../src/core/mail/mailbox.luau) | Mail, attachments, claims, returns, and recovery. |
-| [bank/vault](../src/core/bank/vault.luau) | Bank transfers, inventory changes, receipts, and state projection. |
-| [ledger/ledger](../src/core/ledger/ledger.luau) | Value events, craft groups, trade groups, balances, and reservations. |
-| [market/book](../src/core/market/book.luau) | Market listings, fills, fees, receipts, and replay. |
-| [market/wallet](../src/core/market/wallet.luau) | Market holds, claims, refunds, recovery, and merchant trades. |
-| [market/conservation](../src/core/market/conservation.luau) | Coin and goods conservation between wallets and books. |
-| [market/goods](../src/core/market/goods.luau) | Goods classes, trade limits, and equipment filters. |
-| [trade/exchange](../src/core/trade/exchange.luau) | Trade offers, revisions, locks, confirmations, and settlement. |
-| [trade/receipt](../src/core/trade/receipt.luau) | Trade receipts, wire maps, and recovery pointers. |
-| [craft/recipes](../src/core/craft/recipes.luau) | Recipe projection and material requirements. |
-| [social/group](../src/core/social/group.luau) | Group admission, relations, recovery tickets, and roster privacy. |
-| [social/warband](../src/core/social/warband.luau) | Party coordination, command succession, invites, and orders. |
-| [social/fellowship](../src/core/social/fellowship.luau) | Membership, invites, ranks, stewardship, creeds, and identities. |
-| [social/formation](../src/core/social/formation.luau) | Founder consent, fee holds, expiry, and formation. |
-| [social/guildbank](../src/core/social/guildbank.luau) | Shared stock, withdrawal limits, receipts, and expiry. |
-| [social/guildledger](../src/core/social/guildledger.luau) | Pending deposits, refunds, claims, and acknowledgements. |
-| [social/guildhome](../src/core/social/guildhome.luau) | Home slots and realm projection. |
-| [social/rally](../src/core/social/rally.luau) | Live objective boards, titles, landmarks, and realms. |
-| [social/allies](../src/core/social/allies.luau) | Recent allies, privacy filters, and retention. |
-| [social/profile](../src/core/social/profile.luau) | Social profiles, fellowship identities, allies, and chronicles. |
-| [social/notes](../src/core/social/notes.luau) | Preset phrases, notes, expiry, read state, and replay. |
-| [social/chronicle](../src/core/social/chronicle.luau) | Vow offers, witnesses, completion, and history. |
-| [social/shape](../src/core/social/shape.luau) | Record checks, list checks, projection, and freezing. |
-| [orders/work](../src/core/orders/work.luau) | Work orders, progress, completion, and reward claims. |
-| [orders/patron](../src/core/orders/patron.luau) | Realm orders, payouts, calendar carry, and replay. |
-| [progression/levels](../src/core/progression/levels.luau) | XP curves, levels, brackets, awards, and rewards. |
-| [progression/grants](../src/core/progression/grants.luau) | Ability kits, unlock gates, curves, and production registries. |
-| [progression/actionbar](../src/core/progression/actionbar.luau) | Action bars, ownership, item references, edits, and wire encoding. |
-| [progression/hearth](../src/core/progression/hearth.luau) | Bind destinations, home maps, return intent, reach, and cooldowns. |
-| [progression/recovery](../src/core/progression/recovery.luau) | Death generations, release, recovery, positions, and echo encoding. |
-| [progression/season](../src/core/progression/season.luau) | Permanent tracks, milestones, allowances, receipts, and tier claims. |
-| [progression/tracking](../src/core/progression/tracking.luau) | Quest tracking from progress status. |
-| [progression/transactions](../src/core/progression/transactions.luau) | Atomic profile effects, receipts, order repair, and history. |
-| [events/catalog](../src/core/events/catalog.luau) | Event schedules, rollout rules, rewards, and content hooks. |
-| [events/schedule](../src/core/events/schedule.luau) | Active events, rollout rules, rewards, flags, and content. |
-| [events/watch](../src/core/events/watch.luau) | Public event cycles, participants, credit, recovery, and reward tickets. |
-| [loot/roll](../src/core/loot/roll.luau) | Weighted loot draws, counts, and receipts. |
-| [loot/decision](../src/core/loot/decision.luau) | Party need, greed and pass: a fixed window, one saved result and round robin when all pass. |
-| [social/roster](../src/core/social/roster.luau) | Party snapshots, membership, and local loot cursors. |
-| [inventory/stacks](../src/core/inventory/stacks.luau) | Item stacks, bag capacity, permanent items, and bound or worn items. |
+| [bank](systems/bank.md) | Move items between carried inventory and a vault with bounded receipt replay. |
+| [cast](systems/cast.md) | Queue a cast near its cooldown deadline and reject stale wakeups. |
+| [character](systems/character.md) | Coordinate death observations, recovery timers and cancellable body replacement. |
+| [chat](systems/chat.md) | Project channel audiences, parse commands and budget senders. |
+| [control](systems/control.md) | Apply diminishing control durations with fixed reset deadlines. |
+| [craft](systems/craft.md) | Validate and project recipe definitions into immutable material requirements. |
+| [effects](systems/effects.md) | Advance timed effects, stacks, periodic deadlines and dispels. |
+| [events](systems/events.md) | Resolve configured event schedules and track participation through reward-ticket recovery. |
+| [identity](systems/identity.md) | Coordinate rosters, names, account snapshots, creation, deletion and fenced leases. |
+| [inventory](systems/inventory.md) | Manage stack capacity and replay-safe cargo custody, drops, recovery and delivery. |
+| [ledger](systems/ledger.md) | Record value events, reservations and grouped economic operations. |
+| [loot](systems/loot.md) | Draw configured loot and settle party need/greed/pass choices. |
+| [mail](systems/mail.md) | Manage attachment custody, claims, returns and uncertain-write recovery. |
+| [map](systems/map.md) | Track discoveries and project normalized world markers into a viewport. |
+| [market](systems/market.md) | Coordinate listings, fills, fees, wallet holds and economic conservation. |
+| [net](systems/net.md) | Apply token buckets independently to network senders. |
+| [orders](systems/orders.md) | Advance work orders and realm patron payouts with durable claims. |
+| [persistence](systems/persistence.md) | Provide session exclusion, profile save lifetime, ordered stores and bounded shutdown. |
+| [professions](systems/professions.md) | Run skills, recipe transactions, harvesting, fishing and gathering sessions. |
+| [progression](systems/progression.md) | Compose levels, talents, recovery, consumables, action bars, reputation, seasons and reward settlement. |
+| [quest](systems/quest.md) | Index declarative objectives and coordinate quest progress projections, runs and claims. |
+| [social](systems/social.md) | Coordinate parties, fellowships, warbands, formation, shared banks, allies, notes and chronicles. |
+| [threat](systems/threat.md) | Select threat targets and freeze combat contribution eligibility at encounter end. |
+| [trade](systems/trade.md) | Settle mutually confirmed, revisioned offers and retain recovery receipts. |
+| [vendors](systems/vendors.md) | Buy and sell against configured vendors, finite stock and owner-scoped buyback. |
 
 ## Roblox adapters
 
-| Module | Function |
+| Adapter | Purpose |
 | --- | --- |
-| [profile-sessions](../src/roblox/profile-sessions.luau) | Lease admission, saves, renewal, close, drain, and disposal. |
-| [profile-transfer](../src/roblox/profile-transfer.luau) | Session identity, profile reads, settled writes, and per-key exclusion for profile transfers. |
-| [movement-intake](../src/roblox/movement-intake.luau) | Port-injected movement intake: epochs, sequence acknowledgements, step and sustained speed caps, and revocation on invalid input. |
-| [movement-sender](../src/roblox/movement-sender.luau) | Port-injected client movement sender: handshake, epoch echo, acknowledgement ledger, resend cadence, pending reclaim and fail-closed revocation. |
-| [social-records](../src/roblox/social-records.luau) | Durable fellowship, formation, warband and membership records over an ordered compare-and-swap store, with typed refusals and readback checks. Also a settled command ledger with ambiguity reporting, a phrase-note inbox, identity-checked keyed records and a bounded per-owner index. |
-| [social-host](../src/roblox/social-host.luau) | Per-actor exclusion, record and membership caches, settlement and claim-then-commit for fellowship membership. |
-| [data-store](../src/roblox/data-store.luau) | Operation retries, delays, and jitter. |
-| [remote-events](../src/roblox/remote-events.luau) | Shared channel dispatchers and handler release. |
-| [chat](../src/roblox/chat.luau) | Native channel membership and platform privacy. |
-| [travel-placement](../src/roblox/travel-placement.luau) | Grounded destinations without collisions. |
-| [messaging](../src/roblox/messaging.luau) | Notice publication, input filters, and disconnect errors. |
-
-The game validates persisted identity and session lock readback.
-The chat adapter does not transport message text.
-
-## Vendor state
-
-`vendors.exchange.vendor(config)` creates the vendor operations.
-The game supplies item checks, sell values, inventory arithmetic, capacity, and bounds.
-`empty()` creates stock and buyback state.
-`buy` and `sell` support unlimited vendors without vendor state.
-Stateful operations return the next vendor state, account, and decision.
-
-Install the returned vendor state and account together.
-A refusal returns both input objects without changes.
-Use buyback keys for an owner or an owner and merchant pair.
-Receipt IDs increase within the supplied state.
-A consumed receipt cannot apply again to the resulting state.
-Supply the host clock as `now`.
-
-## Cast queues
-
-`cast.queue.rules(config)` uses `windowSec`, `maxRequeues`, and `minRetrySec`.
-`enqueue` accepts only `on_gcd` within the positive queue window and below the retry bound.
-The window includes its upper limit.
-An accepted entry replaces the pending entry and increases its token.
-A refusal returns the input state object.
-`take` consumes a matching entry once, when it is due.
-`cancel` cancels the entry with the supplied token.
-Without a token, `cancel` clears the queue.
-
-Keep each owner's returned state for the owner's lifetime.
-This prevents old callbacks from reusing tokens.
-Supply a monotonic clock.
-Schedule queue wakeups in the host.
-Check actor and context identity before each retry.
-Cancel the queue on departure or disposal.
-Keep payload objects immutable.
-The queue keeps each payload by reference.
-
-A refused press keeps the pending entry.
-If each admitted press must clear the queue, call `cancel` before admission.
-`windows` creates independent cooldown, cast, and channel deadlines.
-`remaining` and `ready` read these deadlines against the supplied clock.
-These operations do not schedule work or apply combat effects.
-
-## Threat
-
-`threat.table.rules(config)` uses `meleeTakeover`, `rangedTakeover`, and positive `tauntLead`.
-`add` returns the next state and a pursuit refresh flag.
-The flag is true when the previous holder has no entry.
-A challenger must exceed the holder's total times the applicable takeover ratio.
-An addition from the holder keeps the selection.
-Amounts can be positive or negative finite numbers.
-
-`targetFor` selects the highest total that is zero or more.
-Equal totals use ascending actor IDs.
-An empty table, or a table with only negative totals, selects the empty string.
-`taunt` raises the actor above the table maximum, with a zero floor.
-It then selects the target again.
-The system has no timed taunt lock or threat decay.
-
-Use nonempty actor IDs.
-Validate finite state values in the host.
-`empty` creates reset state.
-`remove` removes an actor and selects the target again.
-`prune` removes absent, dead, ineligible, or outside-leash actors.
-It selects the target again only after removals.
-It returns sorted removed IDs, sorted living outside-leash IDs, and prior engagement.
-
-Supply eligibility, melee geometry, and leash geometry from the host.
-Keep pursuit overrides, pending casts, evade readiness, and lifecycle resets in the host.
-Install the returned state atomically.
-The test scene supplies an isolated fake host and clock.
+| [camera](systems/roblox-camera.md) | Project configured follow-camera dynamics and obstruction response. |
+| [chat](systems/roblox-chat.md) | Bind admitted users to native channels and check platform privacy. |
+| [consumables](systems/roblox-consumables.md) | Coordinate durable item consumption before recovery dispatch. |
+| [contact-markers](systems/roblox-contact-markers.md) | Share animation-track watchers and confirm stamped contacts once. |
+| [conversation-camera](systems/roblox-conversation-camera.md) | Own conversation framing while allowing temporary obstruction and player override. |
+| [cue-mixer](systems/roblox-cue-mixer.md) | Admit cue voices with retrigger, family caps and ducking. |
+| [cue-playback](systems/roblox-cue-playback.md) | Play admitted cue identities and drive bounded frame effects. |
+| [data-store](systems/roblox-data-store.md) | Retry injected operations with bounded exponential delay and jitter. |
+| [equipment-queue](systems/roblox-equipment-queue.md) | Serialize equipment application per owner across yielding work. |
+| [equipment-rig](systems/roblox-equipment-rig.md) | Scope construction attempts, join meshes and settle equipment slots. |
+| [input-bindings](systems/roblox-input-bindings.md) | Project configured keyboard/gamepad bindings, labels and chords. |
+| [input-contexts](systems/roblox-input-contexts.md) | Resolve native readiness against one deadline and adopt server templates. |
+| [input-profile](systems/roblox-input-profile.md) | Coordinate device reach, action coverage and rollback-safe sessions. |
+| [messaging](systems/roblox-messaging.md) | Publish and receive typed notices over injected messaging. |
+| [movement-intake](systems/roblox-movement-intake.md) | Validate authoritative movement against body epochs, ordering and speed bounds. |
+| [movement-sender](systems/roblox-movement-sender.md) | Send client movement through an epoch handshake and acknowledgment ledger. |
+| [npc-motion](systems/roblox-npc-motion.md) | Project bounded planar movement and repair externally displaced bodies. |
+| [party](systems/roblox-party.md) | Apply immutable party membership through an atomic store. |
+| [professions](systems/roblox-professions.md) | Coordinate profession requests with authoritative world/profile commits. |
+| [profile-sessions](systems/roblox-profile-sessions.md) | Own lease admission, coalesced saves, renewal and bounded close. |
+| [profile-transfer](systems/roblox-profile-transfer.md) | Read and settle profiles under exact session identity and per-key exclusion. |
+| [remote-events](systems/roblox-remote-events.md) | Share one dispatcher per channel and release native handlers safely. |
+| [screen-labels](systems/roblox-screen-labels.md) | Admit anchored labels around reserved screen rectangles. |
+| [social-host](systems/roblox-social-host.md) | Coordinate actor exclusion, social caches and membership settlement. |
+| [social-records](systems/roblox-social-records.md) | Coordinate ordered durable records, ledgers, inboxes and indexes. |
+| [target-selection](systems/roblox-target-selection.md) | Cycle ordered candidates, select pointer hits and release distant targets. |
+| [thumbstick](systems/roblox-thumbstick.md) | Convert touch displacement into dead-zone movement and a bounded knob. |
+| [travel-placement](systems/roblox-travel-placement.md) | Find clear, grounded arrival/entrance positions through injected geometry. |

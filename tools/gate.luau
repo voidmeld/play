@@ -78,6 +78,7 @@ local producers: { Gate.ProducerDraft } = {
 	script("leakage", "tools/check-leakage.luau"),
 	script("public-surface", "tools/check-public-surface.luau"),
 	script("api-reference", "tools/generate-api.luau"),
+	script("examples", "tools/run-examples.luau"),
 	{
 		id = "specs",
 		kind = "tests",
