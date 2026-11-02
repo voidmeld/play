@@ -920,6 +920,14 @@ invalid action identities and metatables. Use `copy(state)` for an already typed
 
 ### `roblox.social-records.create`
 
+### `roblox.social-records.ledger`
+
+### `roblox.social-records.inbox`
+
+### `roblox.social-records.keyed`
+
+### `roblox.social-records.index`
+
 ## [`src/roblox/profile-sessions.luau`](../src/roblox/profile-sessions.luau)
 
 ### `roblox.profile-sessions.new`
