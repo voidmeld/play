@@ -17,7 +17,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [craft](systems/craft.md) | Validate and project recipe definitions into immutable material requirements. |
 | [effects](systems/effects.md) | Advance timed effects, stacks, periodic deadlines and dispels. |
 | [events](systems/events.md) | Resolve configured event schedules and track participation through reward-ticket recovery. |
-| [identity](systems/identity.md) | Coordinate rosters, names, account snapshots, creation, deletion and fenced leases. |
+| [identity](systems/identity.md) | Coordinate rosters, names, account snapshots and [character lease/retirement recovery](systems/character-leases.md). |
 | [inventory](systems/inventory.md) | Manage stack capacity and replay-safe cargo custody, drops, recovery and delivery. |
 | [ledger](systems/ledger.md) | Record value events, reservations and grouped economic operations. |
 | [loot](systems/loot.md) | Draw configured loot and settle party need/greed/pass choices. |
