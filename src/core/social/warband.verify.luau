@@ -94,6 +94,8 @@ return function(suite: Verify.Harness)
 			expect(marked.targetByActorId):toBe(parties().p2.leaderId)
 			expect(assistant.targetObjectiveId):toBe(nil)
 			expect((Core.project(marked))):toBe(marked)
+			expect(Core.read(marked)):toEqual(marked)
+			expect(Core.read({ schemaVersion = 1 })):toBeNil()
 			local malformed = table.clone(marked)
 			malformed.targetObjectiveId = ""
 			expect((Core.project(malformed))):toBe(nil)

@@ -356,6 +356,8 @@ Releases only the exact session and generation; already-released readback is ide
 
 Internal plain-record inspection used by identity codecs. Consumers use the system factories.
 
+### `test-scene.social.rig`
+
 ### `test-scene.identity.accountLimit`
 ### `test-scene.identity.realmLimit`
 ### `test-scene.identity.minLevel`
@@ -908,6 +910,15 @@ invalid action identities and metatables. Use `copy(state)` for an already typed
 ## [`src/roblox/movement-sender.luau`](../src/roblox/movement-sender.luau)
 
 ### `roblox.movement-sender.start`
+
+
+## [`src/roblox/social-host.luau`](../src/roblox/social-host.luau)
+
+### `roblox.social-host.fellowships`
+
+## [`src/roblox/social-records.luau`](../src/roblox/social-records.luau)
+
+### `roblox.social-records.create`
 
 ## [`src/roblox/profile-sessions.luau`](../src/roblox/profile-sessions.luau)
 
