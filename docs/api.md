@@ -13859,6 +13859,94 @@ coverage = function Input.coverage(profile: unknown, hosts: unknown): boolean
 start = function Input.start(rawDependencies: Dependencies): Session
 ```
 
+## `roblox.inventory`
+
+[Source](../src/roblox/inventory.luau)
+
+```luau
+local Stacks = require("../core/inventory/stacks")
+```
+
+### `roblox.inventory.Inventory`
+
+```luau
+export type Inventory = Stacks.Inventory
+```
+
+### `roblox.inventory.RewardItem`
+
+```luau
+export type RewardItem = { id: string, count: number }
+```
+
+### `roblox.inventory.Reader`
+
+```luau
+export type Reader<R, P> = (R) -> P?
+```
+
+### `roblox.inventory.Service`
+
+```luau
+export type Service<S, R, P> = {
+	read getItems: (Reader<R, P>, S) -> Inventory,
+	read getCount: (Reader<R, P>, S, string) -> number,
+	read hasItem: (Reader<R, P>, S, string, number?) -> boolean,
+	read addItem: (S, string, number) -> boolean,
+	read removeItem: (S, string, number) -> boolean,
+	read commitRewardTransaction: (S, string, { RewardItem }, number, number?, string?) -> boolean,
+}
+```
+
+### `roblox.inventory.Config`
+
+```luau
+export type Config<S, C, R, P> = {
+	read context: (S) -> C?,
+	read readable: (C) -> R,
+	read peek: (R) -> P?,
+	read update: (C, (P) -> P) -> (),
+	read inventory: (P) -> Inventory,
+	read withInventory: (P, Inventory) -> P,
+	read capacity: (P) -> number,
+	read exists: (string) -> boolean,
+	read permanent: (string) -> boolean,
+	read maxStack: number,
+	read transactionIdLimit: number,
+	read copyBag: (Inventory) -> Inventory,
+	read validCount: (unknown) -> boolean,
+	read addToBag: (Inventory, string, number) -> Inventory,
+	read removeFromBag: (Inventory, string, number) -> (Inventory, boolean),
+	read fits: (Inventory, Inventory, number) -> boolean,
+	read recorded: (P, string) -> boolean,
+	read reward: (P, string, Inventory, number, number, string?) -> P,
+}
+```
+
+### `roblox.inventory.create`
+
+```luau
+function create<S, C, R, P>(config: Config<S, C, R, P>): Service<S, R, P>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+getItems = function getItems(read: Reader<R, P>, subject: S): Inventory
+getCount = function getCount(read: Reader<R, P>, subject: S, id: string): number
+hasItem = function(read: Reader<R, P>, subject: S, id: string, count: number?): boolean
+addItem = function addItem(subject: S, id: string, count: number): boolean
+removeItem = function removeItem(subject: S, id: string, count: number): boolean
+commitRewardTransaction = function commitRewardTransaction(
+		subject: S,
+		id: string,
+		items: { RewardItem },
+		experience: number,
+		gold: number?,
+		season: string?
+	): boolean
+```
+
 ## `roblox.messaging`
 
 [Source](../src/roblox/messaging.luau)
