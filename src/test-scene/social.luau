@@ -9,8 +9,8 @@ local Social = {}
 
 export type Counters = { writes: number, clock: number }
 
-local REALMS = { dawnmoor = true, mistglen = true, rimefell = true }
-local NAME_IDS = { ash_vigil = true, lantern_watch = true, moorward_circle = true }
+local REALMS = { realm_a = true, realm_b = true, realm_c = true }
+local NAME_IDS = { group_a = true, group_b = true, group_c = true }
 
 local fellowshipCore = Fellowship.fellowship({
 	inviteTtlSec = 300,
@@ -26,14 +26,14 @@ local fellowshipCore = Fellowship.fellowship({
 	nameIds = NAME_IDS,
 	pursuits = {
 		exploration = true,
-		homeland_quests = true,
+		questing = true,
 		dungeons = true,
 		crafting_trade = true,
 		realm_war = true,
 		fellowship_roleplay = true,
 	},
 	paces = { easygoing = true, steady = true, dedicated = true },
-	welcomes = { new_players = true, all_levels = true, level_ten = true },
+	welcomes = { new_players = true, all_levels = true, experienced = true },
 	maxId = 128,
 	maxRevision = 1000000000,
 	maxFingerprint = 512,

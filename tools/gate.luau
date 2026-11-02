@@ -74,6 +74,7 @@ local producers: { Gate.ProducerDraft } = {
 	script("test-manifest", "tools/check-test-manifest.luau"),
 	script("spec-style", "tools/check-spec-style.luau"),
 	script("boundary", "tools/check-boundary.luau"),
+	script("game-canon", "tools/check-game-canon.luau"),
 	script("provenance", "tools/check-provenance.luau"),
 	script("leakage", "tools/check-leakage.luau"),
 	script("public-surface", "tools/check-public-surface.luau"),

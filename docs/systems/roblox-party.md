@@ -1,6 +1,6 @@
 # party
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Apply immutable party membership through an atomic store.
 

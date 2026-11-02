@@ -1,6 +1,6 @@
 # social-host
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Coordinate actor exclusion, social caches and membership settlement.
 

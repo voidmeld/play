@@ -1,6 +1,6 @@
 # character
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Coordinate death observations, recovery timers and cancellable body replacement.
 

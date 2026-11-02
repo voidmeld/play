@@ -7,9 +7,9 @@ local Verify = require("../../.lute/dependencies/verify/src/core")
 
 local CHARTER = {
 	fellowshipId = "f1",
-	nameId = "ash_vigil",
-	realmId = "dawnmoor",
-	homeSlotId = "lightwood.guild_banner.village_courtyard",
+	nameId = "group_a",
+	realmId = "realm_a",
+	homeSlotId = "zone_a.guild_banner.village_courtyard",
 	stewardUserId = 1,
 	stewardName = "Alden",
 }
@@ -95,7 +95,7 @@ return function(suite: Verify.Harness)
 				expectedRevision = 0,
 				actorUserId = 1,
 				targetUserId = 2,
-				targetRealmId = "dawnmoor",
+				targetRealmId = "realm_a",
 			})
 			expect(result.ok):toBe(true)
 			expect(assert(host.cachedRecord("f1")).revision):toBe(1)

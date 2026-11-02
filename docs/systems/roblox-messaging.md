@@ -1,6 +1,6 @@
 # messaging
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Publish and receive typed notices over injected messaging.
 

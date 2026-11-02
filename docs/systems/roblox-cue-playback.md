@@ -1,6 +1,6 @@
 # cue-playback
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Play admitted cue identities and drive bounded frame effects.
 

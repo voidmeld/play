@@ -1,6 +1,6 @@
 # persistence
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Provide session exclusion, profile save lifetime, ordered stores and bounded shutdown.
 

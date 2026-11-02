@@ -1,6 +1,6 @@
 # bank
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Move items between carried inventory and a vault with bounded receipt replay.
 

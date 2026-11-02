@@ -1,6 +1,6 @@
 # progression
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Compose levels, talents, recovery, consumables, action bars, reputation, seasons and reward settlement.
 

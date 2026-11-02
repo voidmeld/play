@@ -6175,7 +6175,7 @@ export type Thresholds = { read orange: number, read yellow: number, read green:
 ### `core.professions.types.Source`
 
 ```luau
-export type Source = "trainer" | "vendor" | "world_drop" | "boss_drop" | "frontier"
+export type Source = string
 ```
 
 ### `core.professions.types.Descriptor`
@@ -6211,7 +6211,7 @@ export type Recipe = {
 	read reagents: { Reagent },
 	read output: Reagent,
 	read source: Source,
-	read rung: "pve" | "rvr",
+	read rung: string,
 	read station: string?,
 	read recipeItemId: string?,
 	read trainerCost: number?,

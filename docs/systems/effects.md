@@ -1,6 +1,6 @@
 # effects
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Advance timed effects, stacks, periodic deadlines and dispels.
 

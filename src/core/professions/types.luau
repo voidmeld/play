@@ -12,7 +12,7 @@ export type Sustain = {
 export type Reagent = { read itemId: string, read quantity: number }
 export type QuestInput = { read questId: string, read objectiveId: string, read itemId: string, read quantity: number }
 export type Thresholds = { read orange: number, read yellow: number, read green: number, read grey: number }
-export type Source = "trainer" | "vendor" | "world_drop" | "boss_drop" | "frontier"
+export type Source = string
 
 export type Descriptor = {
 	read kind: "gear" | "consumable" | "material",
@@ -40,7 +40,7 @@ export type Recipe = {
 	read reagents: { Reagent },
 	read output: Reagent,
 	read source: Source,
-	read rung: "pve" | "rvr",
+	read rung: string,
 	read station: string?,
 	read recipeItemId: string?,
 	read trainerCost: number?,

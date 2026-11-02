@@ -1,6 +1,6 @@
 # professions
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Run skills, recipe transactions, harvesting, fishing and gathering sessions.
 
@@ -27,6 +27,9 @@ The linked components declare their factories and operations; see the [API refer
 ## Required host operations
 
 Supply catalogs, skill curves/chances, quality and yield rules, stations, item/profile operations, clocks and random samples. The adapter commits through injected profile/world ports.
+
+Recipe `source` and `rung` are caller-defined labels. Play does not impose a game's source taxonomy
+or activity names; the game owns their admission and presentation.
 
 Use the [host-operation contract](../../README.md#host-operation-contract) when installing state,
 handling uncertain writes and releasing resources.

@@ -1,6 +1,6 @@
 # inventory
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Manage stack capacity and replay-safe cargo custody, drops, recovery and delivery.
 

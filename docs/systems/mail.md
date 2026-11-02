@@ -1,6 +1,6 @@
 # mail
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Manage attachment custody, claims, returns and uncertain-write recovery.
 

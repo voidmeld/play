@@ -1,6 +1,6 @@
 # chat
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Project channel audiences, parse commands and budget senders.
 

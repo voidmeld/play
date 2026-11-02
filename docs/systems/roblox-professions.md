@@ -1,6 +1,6 @@
 # professions
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Coordinate profession requests with authoritative world/profile commits.
 

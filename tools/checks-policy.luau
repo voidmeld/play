@@ -110,8 +110,24 @@ local productMaterial: { Rule } = {
 	{ pattern = "%f[%w_]universeId%s*=%s*[1-9]", why = "product universe identifier" },
 }
 
+local canon: { Rule } = {
+	{ pattern = "[Aa]rtinel", why = "game identity belongs in the adopter" },
+	{ pattern = "[Dd]ewmere", why = "game destination belongs in the adopter" },
+	{ pattern = "[Ll]ightwood", why = "game destination belongs in the adopter" },
+	{ pattern = "[Ff]rostgard", why = "game destination belongs in the adopter" },
+	{ pattern = "[Ss]underfall", why = "game destination belongs in the adopter" },
+	{ pattern = "[Dd]awnmoor", why = "game faction belongs in the adopter" },
+	{ pattern = "[Mm]istglen", why = "game faction belongs in the adopter" },
+	{ pattern = "[Rr]imefell", why = "game faction belongs in the adopter" },
+	{ pattern = "[Vv]eilward", why = "game class belongs in the adopter" },
+	{ pattern = "ash_vigil", why = "game group name belongs in the adopter" },
+	{ pattern = "lantern_watch", why = "game group name belongs in the adopter" },
+	{ pattern = "moorward_circle", why = "game group name belongs in the adopter" },
+}
+
 return {
 	boundary = boundary,
+	canon = canon,
 	leakage = productMaterial,
 	selfPath = "tools/checks-policy.luau",
 }
