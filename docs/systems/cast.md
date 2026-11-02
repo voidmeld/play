@@ -1,6 +1,6 @@
 # cast
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Queue a cast near its cooldown deadline and reject stale wakeups.
 

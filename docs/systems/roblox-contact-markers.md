@@ -1,6 +1,6 @@
 # contact-markers
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Share animation-track watchers and confirm stamped contacts once.
 

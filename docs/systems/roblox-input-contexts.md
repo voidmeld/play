@@ -1,6 +1,6 @@
 # input-contexts
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Resolve native readiness against one deadline and adopt server templates.
 

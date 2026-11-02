@@ -378,8 +378,8 @@ return function(suite: Verify.Harness)
 
 		it("leaves an ability the class does not govern ungated", function()
 			local index = AbilityGrants.indexOf(RELEASE_CURVE)
-			expect(AbilityGrants.gateFor(index, "basicAttack")):toBeNil()
-			expect(AbilityGrants.isGranted(index, "basicAttack", 1)):toBe(true)
+			expect(AbilityGrants.gateFor(index, "unlisted_action")):toBeNil()
+			expect(AbilityGrants.isGranted(index, "unlisted_action", 1)):toBe(true)
 		end)
 
 		it("grants a kit progressively across ten levels", function()
@@ -426,7 +426,7 @@ return function(suite: Verify.Harness)
 			expect(AbilityGrants.problemsForClassSchema(curve)[1]):toBe("class schema grant 5 must unlock at level 5")
 		end)
 
-		it("uses Dewmere's authored Defender vocabulary for the Veilward", function()
+		it("preserves the supplied fifth class vocabulary", function()
 			expect(AbilityGrants.CLASS_KITS.class05):toEqual({
 				{ abilityId = "ability6", level = 1 },
 				{ abilityId = "ability7", level = 3 },

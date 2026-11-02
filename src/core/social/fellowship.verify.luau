@@ -22,14 +22,14 @@ return function(suite: Verify.Harness)
 		nameIds = Shape.freezeDeep({ sentry = true, beacon = true, wardens = true }),
 		pursuits = Shape.freezeDeep({
 			exploration = true,
-			homeland_quests = true,
+			questing = true,
 			dungeons = true,
 			crafting_trade = true,
 			realm_war = true,
 			fellowship_roleplay = true,
 		}),
 		paces = Shape.freezeDeep({ easygoing = true, steady = true, dedicated = true }),
-		welcomes = Shape.freezeDeep({ new_players = true, all_levels = true, level_ten = true }),
+		welcomes = Shape.freezeDeep({ new_players = true, all_levels = true, experienced = true }),
 		maxId = 128,
 		maxRevision = 1000000000,
 		maxFingerprint = 1024,
@@ -362,10 +362,10 @@ return function(suite: Verify.Harness)
 			expect((next(assert(Shape.raw(state.creed))))):toBeNil()
 			state = assert(ev(state, "promote", 11, 12, 300).state)
 			expect(creedEvent(13, state, { "dungeons" }, "steady", "all_levels").reason):toBe("forged_membership")
-			local set = assert(creedEvent(12, state, { "realm_war", "dungeons" }, "dedicated", "level_ten").state)
+			local set = assert(creedEvent(12, state, { "realm_war", "dungeons" }, "dedicated", "experienced").state)
 			expect(set.creed.pursuits):toEqual({ "dungeons", "realm_war" })
 			expect(set.creed.pace):toBe("dedicated")
-			expect(set.creed.welcome):toBe("level_ten")
+			expect(set.creed.welcome):toBe("experienced")
 			local again = assert(creedEvent(11, set, { "crafting_trade" }, "easygoing", "new_players").state)
 			expect(again.creed.pace):toBe("easygoing")
 			expect((Core.projectState(again) ~= nil)):toBe(true)

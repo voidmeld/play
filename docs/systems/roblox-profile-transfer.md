@@ -1,6 +1,6 @@
 # profile-transfer
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Read and settle profiles under exact session identity and per-key exclusion.
 

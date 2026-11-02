@@ -1,6 +1,6 @@
 # map
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Track discoveries and project normalized world markers into a viewport.
 

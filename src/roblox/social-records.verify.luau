@@ -13,18 +13,18 @@ return function(suite: Verify.Harness)
 
 	local CHARTER = {
 		fellowshipId = "f1",
-		nameId = "ash_vigil",
-		realmId = "dawnmoor",
-		homeSlotId = "lightwood.guild_banner.village_courtyard",
+		nameId = "group_a",
+		realmId = "realm_a",
+		homeSlotId = "zone_a.guild_banner.village_courtyard",
 		stewardUserId = 1,
 		stewardName = "Alden",
 	}
 
 	local FORMATION_REQUEST = {
 		formationId = "g1",
-		nameId = "ash_vigil",
-		realmId = "dawnmoor",
-		homeSlotId = "lightwood.guild_banner.village_courtyard",
+		nameId = "group_a",
+		realmId = "realm_a",
+		homeSlotId = "zone_a.guild_banner.village_courtyard",
 		initiatorId = 1,
 		initiatorName = "Alden",
 	}
@@ -68,7 +68,7 @@ return function(suite: Verify.Harness)
 				expectedRevision = 0,
 				actorUserId = 1,
 				targetUserId = 2,
-				targetRealmId = "dawnmoor",
+				targetRealmId = "realm_a",
 			}
 			local service, values, counters = Social.rig()
 			assert(service.found(CHARTER).ok)
@@ -111,7 +111,7 @@ return function(suite: Verify.Harness)
 				expectedRevision = 0,
 				actorUserId = 1,
 				targetUserId = 2,
-				targetRealmId = "dawnmoor",
+				targetRealmId = "realm_a",
 			})
 			expect(invited.ok):toBe(true)
 			expect(assert(invited.state).revision):toBe(1)
@@ -136,7 +136,7 @@ return function(suite: Verify.Harness)
 					expectedRevision = 0,
 					actorUserId = 1,
 					targetUserId = 2,
-					targetRealmId = "dawnmoor",
+					targetRealmId = "realm_a",
 				}
 				local refused = service.apply("f1", event)
 				expect(refused.ok):toBe(false)
@@ -159,14 +159,14 @@ return function(suite: Verify.Harness)
 				expectedRevision = 0,
 				actorUserId = 1,
 				targetUserId = 2,
-				targetRealmId = "dawnmoor",
+				targetRealmId = "realm_a",
 			}).ok):toBe(true)
 			expect(step({
 				kind = "accept",
 				eventId = "a2",
 				expectedRevision = 1,
 				actorUserId = 2,
-				actorRealmId = "dawnmoor",
+				actorRealmId = "realm_a",
 				actorName = "Bryn",
 			}).ok):toBe(true)
 			expect(
@@ -204,13 +204,13 @@ return function(suite: Verify.Harness)
 					eventId = "i" .. id,
 					actorUserId = 1,
 					targetUserId = id,
-					targetRealmId = "dawnmoor",
+					targetRealmId = "realm_a",
 				}).ok):toBe(true)
 				expect(apply({
 					kind = "consent",
 					eventId = "c" .. id,
 					actorUserId = id,
-					actorRealmId = "dawnmoor",
+					actorRealmId = "realm_a",
 					actorName = "M" .. id,
 				}).ok):toBe(true)
 			end
@@ -246,7 +246,7 @@ return function(suite: Verify.Harness)
 				expectedRevision = 0,
 				actorUserId = 1,
 				targetUserId = 2,
-				targetRealmId = "dawnmoor",
+				targetRealmId = "realm_a",
 			}
 			service.apply("f1", event)
 			local writes = counters.writes

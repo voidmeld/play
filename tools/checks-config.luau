@@ -66,6 +66,7 @@ end
 
 local config: {
 	boundary: Repository.Boundary,
+	canon: Repository.Boundary,
 	leakage: Repository.Scan,
 	provenance: Provenance.Config,
 	comments: () -> Comments.Config,
@@ -82,6 +83,7 @@ local config: {
 			exclude = "%.verify%.luau$",
 			rules = Policy.boundary,
 		},
+		canon = { root = "src", rules = Policy.canon },
 		leakage = {
 			untracked = true,
 			suffixes = { ".luau", ".lua", ".md", ".json", ".toml", ".txt", ".yml", ".yaml" },

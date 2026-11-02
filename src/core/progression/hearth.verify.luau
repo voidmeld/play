@@ -18,7 +18,7 @@ return function(suite: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("bind and hearth law", function()
-		it("keeps the saved Dewmere keeper and names its actual shore", function()
+		it("keeps the saved keeper and its configured destination name", function()
 			local destination = assert(Core.destination("zone_b", "keeper_d"))
 			expect(destination.npcId):toBe("keeper_d")
 			expect(destination.name):toBe("Fourth")

@@ -19,6 +19,9 @@ The fast gate checks types, the test manifest, specification style, boundaries, 
 It also checks for game data in shared code and runs the specifications and Verify checks.
 The fast gate excludes the war benchmark and the clean clone check.
 
+The `game-canon` producer checks runtime modules, specifications and fake hosts for adopter-specific
+world, faction, class and group identities. Use neutral fixture identifiers; keep game examples in the adopter.
+
 The `examples` producer runs the standalone threat, input-binding and thumbstick examples:
 
 ```sh

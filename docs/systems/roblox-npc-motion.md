@@ -1,6 +1,6 @@
 # npc-motion
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Project bounded planar movement and repair externally displaced bodies.
 

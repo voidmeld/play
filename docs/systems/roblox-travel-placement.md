@@ -1,6 +1,6 @@
 # travel-placement
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Find clear, grounded arrival/entrance positions through injected geometry.
 

@@ -1,6 +1,6 @@
 # thumbstick
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Convert touch displacement into dead-zone movement and a bounded knob.
 

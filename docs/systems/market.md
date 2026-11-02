@@ -1,6 +1,6 @@
 # market
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Coordinate listings, fills, fees, wallet holds and economic conservation.
 

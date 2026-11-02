@@ -1,6 +1,6 @@
 # equipment-queue
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Serialize equipment application per owner across yielding work.
 

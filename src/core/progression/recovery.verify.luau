@@ -27,12 +27,12 @@ return function(suite: Verify.Harness)
 			expect(Core.echoDistance({ x = 0, y = 0, z = 0 }, { x = 3, y = 0, z = 4 })):toBe(5)
 		end)
 		it("records one death, releases, and resolves at a safe anchor with the declared time cost only", function()
-			local death = assert(Core.die(nil, "wolf", "lightwood", corpse, anchor, 1.5))
+			local death = assert(Core.die(nil, "wolf", "zone_a", corpse, anchor, 1.5))
 			expect(death.generation):toBe(1)
 			expect(death.cause):toBe("wolf")
 			expect(death.corpse):toEqual(corpse)
 			expect(death.cost):toEqual({ items = 0, currency = 0, experience = 0, durability = 0, delaySec = 1.5 })
-			expect(Core.die(death, "duplicate", "lightwood", corpse, anchor, 1.5)):toBe(death)
+			expect(Core.die(death, "duplicate", "zone_a", corpse, anchor, 1.5)):toBe(death)
 			local released = assert(Core.release(death, death.generation))
 			expect(released.phase):toBe("released")
 			local recovered, point = Core.recover(released, death.generation)
@@ -43,13 +43,13 @@ return function(suite: Verify.Harness)
 			expect(duplicate):toBeNil()
 		end)
 		it("anchors trusted positions while retaining the typed travel value and cloned extra fields", function()
-			local death = assert(Core.die(nil, "fall", "lightwood", corpse, anchor, 2))
-			local travel = { bind = { zoneId = "dewmere", npcId = "hearth" }, hearthReadyAt = 42 }
+			local death = assert(Core.die(nil, "fall", "zone_a", corpse, anchor, 2))
+			local travel = { bind = { zoneId = "zone_b", npcId = "hearth" }, hearthReadyAt = 42 }
 			local current: Module.Position<typeof(travel)> & { extra: string } =
 				{ x = 9, y = 8, z = 7, yaw = 3, saved = false, travel = travel, extra = "retained" }
 			local nextPosition = Core.anchorPosition(current, death)
 			local destination: string = assert(nextPosition.travel).bind.zoneId
-			expect(destination):toBe("dewmere")
+			expect(destination):toBe("zone_b")
 			expect(nextPosition.travel):toBe(travel)
 			expect(nextPosition):toEqual({
 				x = 2,
@@ -59,7 +59,7 @@ return function(suite: Verify.Harness)
 				saved = true,
 				travel = travel,
 				extra = "retained",
-				recoveryZoneId = "lightwood",
+				recoveryZoneId = "zone_a",
 			})
 			expect(current.x):toBe(9)
 			expect(current.saved):toBe(false)
@@ -72,7 +72,7 @@ return function(suite: Verify.Harness)
 					z = 3,
 					yaw = 0,
 					saved = true,
-					recoveryZoneId = "lightwood",
+					recoveryZoneId = "zone_a",
 				})
 			end
 			expect(Core.anchoredLastPosition(nil, death)):toEqual({
@@ -81,12 +81,12 @@ return function(suite: Verify.Harness)
 				z = 3,
 				yaw = 0,
 				saved = true,
-				recoveryZoneId = "lightwood",
+				recoveryZoneId = "zone_a",
 			})
 		end)
 
 		it("refuses stale release generations", function()
-			local death = assert(Core.die(nil, "fall", "lightwood", corpse, anchor, 2))
+			local death = assert(Core.die(nil, "fall", "zone_a", corpse, anchor, 2))
 			expect(Core.release(death, 2)):toBeNil()
 			local released = assert(Core.release(death, 1))
 			local stale = Core.recover(released, 2)
@@ -94,13 +94,13 @@ return function(suite: Verify.Harness)
 		end)
 
 		it("starts another generation only after one recovery resolves", function()
-			local dead = assert(Core.die(nil, "enemy", "dewmere", corpse, anchor, 1))
+			local dead = assert(Core.die(nil, "enemy", "zone_b", corpse, anchor, 1))
 			local released = assert(Core.release(dead, 1))
 			local recovered, point = Core.recover(released, 1)
 			local resolved = assert(recovered)
 			expect(resolved.phase):toBe("resolved")
 			expect(point):toEqual(anchor)
-			local nextDeath = assert(Core.die(resolved, "enemy", "dewmere", corpse, anchor, 1))
+			local nextDeath = assert(Core.die(resolved, "enemy", "zone_b", corpse, anchor, 1))
 			expect(nextDeath.generation):toBe(2)
 		end)
 	end)

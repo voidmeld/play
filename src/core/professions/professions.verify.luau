@@ -112,6 +112,32 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("profession transactions", function()
+		it("carries caller-defined recipe sources and activity labels through planning", function()
+			local custom: Types.Recipe = {
+				id = recipe.id,
+				profession = recipe.profession,
+				slug = recipe.slug,
+				name = recipe.name,
+				requiredSkill = recipe.requiredSkill,
+				thresholds = recipe.thresholds,
+				reagents = recipe.reagents,
+				output = recipe.output,
+				source = "quest_reward",
+				rung = "ranked_arena",
+				station = recipe.station,
+				item = recipe.item,
+			}
+			local catalog = table.clone(recipes)
+			catalog.get = function(id: unknown): Types.Recipe?
+				return if id == custom.id then custom else nil
+			end
+			local configured = Crafting.create({ core = core, recipes = catalog, maxStack = 10 })
+			local planned = configured.plan(learned(), "recipe", { ore = 2 }, { bench = true })
+			expect(planned.ok):toBe(true)
+			local accepted = assert(planned.recipe)
+			expect(accepted.source):toBe("quest_reward")
+			expect(accepted.rung):toBe("ranked_arena")
+		end)
 		it("admits configured skills and releases recipes without changing the prior snapshot", function()
 			local first = assert(core.learn(core.default(), "primary"))
 			local refused, reason = core.learn(first, "other")

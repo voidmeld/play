@@ -1,6 +1,6 @@
 # vendors
 
-[System catalog](../systems.md) · [Play](../../README.md)
+[System catalog](../systems.md) Â· [Play](../../README.md)
 
 Buy and sell against configured vendors, finite stock and owner-scoped buyback.
 

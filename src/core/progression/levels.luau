@@ -30,43 +30,43 @@ function System.levels(config: Config)
 
 	local function validateCurve(candidate: unknown): Curve
 		if type(candidate) ~= "table" then
-			error("ProfileProgression: invalid authored curve id")
+			error("Play levels: invalid authored curve id")
 		end
 		local curve = assert(Value.raw(candidate))
 		if curve.id ~= CURVE_ID then
-			error("ProfileProgression: invalid authored curve id")
+			error("Play levels: invalid authored curve id")
 		end
 		if curve.maxLevel ~= EXPECTED_MAX_LEVEL then
-			error("ProfileProgression: invalid authored curve max level")
+			error("Play levels: invalid authored curve max level")
 		end
 		local maxLevel = EXPECTED_MAX_LEVEL
 		if type(curve.rows) ~= "table" then
-			error("ProfileProgression: invalid authored curve row count")
+			error("Play levels: invalid authored curve row count")
 		end
 		local rows = assert(Value.raw(curve.rows))
 		local out: { CurveRow } = {}
 		if #curve.rows ~= maxLevel then
-			error("ProfileProgression: invalid authored curve row count")
+			error("Play levels: invalid authored curve row count")
 		end
 		local previousXp = -1
 		for index, entry in rows do
 			local row = Value.raw(entry)
 			if row == nil or not validWhole(row.level) or row.level ~= index then
-				error("ProfileProgression: invalid authored curve level sequence")
+				error("Play levels: invalid authored curve level sequence")
 			end
 			local totalXp = row.totalXp
 			if type(totalXp) ~= "number" or not validWhole(totalXp) or totalXp < 0 or totalXp <= previousXp then
-				error("ProfileProgression: invalid authored curve thresholds")
+				error("Play levels: invalid authored curve thresholds")
 			end
 			if index == 1 and totalXp ~= 0 then
-				error("ProfileProgression: invalid authored curve first threshold")
+				error("Play levels: invalid authored curve first threshold")
 			end
 			previousXp = totalXp
 			assert(type(row.level) == "number" and type(index) == "number")
 			out[index] = { level = row.level, totalXp = totalXp }
 		end
 		if out[maxLevel] == nil or out[maxLevel].level ~= maxLevel then
-			error("ProfileProgression: invalid authored curve terminal row")
+			error("Play levels: invalid authored curve terminal row")
 		end
 		return { id = CURVE_ID, maxLevel = maxLevel, rows = out }
 	end
