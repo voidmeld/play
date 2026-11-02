@@ -2,7 +2,9 @@
 
 local Chat = {}
 
-function Chat.directAllowed(query: (number, { number }) -> { number }, requester: number, target: number): boolean
+export type DirectQuery = (number, { number }) -> { number }
+
+function Chat.directAllowed(query: DirectQuery, requester: number, target: number): boolean
 	local ran, allowed = pcall(query, requester, { target })
 	return ran and type(allowed) == "table" and table.find(allowed, target) ~= nil
 end

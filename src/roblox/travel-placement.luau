@@ -2,7 +2,7 @@
 
 local Travel = {}
 
-function Travel.place<Frame, Floor>(host: {
+export type PlacementHost<Frame, Floor> = {
 	count: number,
 	candidate: (number) -> Frame,
 	clear: (Frame) -> boolean,
@@ -10,7 +10,9 @@ function Travel.place<Frame, Floor>(host: {
 	floor: (Frame) -> Floor?,
 	safe: (Floor, Floor) -> boolean,
 	commit: (Frame) -> (),
-}): Frame?
+}
+
+function Travel.place<Frame, Floor>(host: PlacementHost<Frame, Floor>): Frame?
 	local ground = if host.count > 0 then host.ground() else nil
 	for index = 0, host.count * 2 do
 		local candidate = host.candidate(index)
@@ -24,7 +26,7 @@ function Travel.place<Frame, Floor>(host: {
 	return nil
 end
 
-function Travel.entrance<Frame, Point, Floor>(host: {
+export type EntranceHost<Frame, Point, Floor> = {
 	count: number,
 	point: (number) -> Point,
 	clear: (Point) -> boolean,
@@ -32,7 +34,9 @@ function Travel.entrance<Frame, Point, Floor>(host: {
 	far: (Point) -> Floor?,
 	safe: (Floor) -> boolean,
 	frame: (Floor) -> Frame,
-}): Frame?
+}
+
+function Travel.entrance<Frame, Point, Floor>(host: EntranceHost<Frame, Point, Floor>): Frame?
 	for index = 0, host.count * 2 do
 		local point = host.point(index)
 		if not host.clear(point) then
