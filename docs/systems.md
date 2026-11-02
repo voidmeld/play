@@ -1,5 +1,13 @@
 # Systems
 
+## Account transactions
+
+`core/identity/account` owns immutable account snapshots and coordination between roster, profiles,
+receipts, creation and deletion. Games provide identity policy and an extension projector that
+validates and carries their additional fields through every transition. The projector receives a
+deletion terminal only when that terminal is cleared. Storage, leases and game-specific account
+policy remain with the consumer.
+
 ## Roblox sound and effects
 
 `roblox/cue-mixer` owns retrigger admission, voice expiry and configured family ducking.
