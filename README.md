@@ -89,67 +89,67 @@ Publish, repin and test the adopter together; the game owner controls its pin up
 
 ## System catalog
 
-Each row links to an implementation family. [Systems](docs/systems.md) explains usage and
+Each row links to a system guide with its entry, state, host requirements and executable example. [Systems](docs/systems.md) explains usage and
 [API](docs/api.md) lists module exports. State and policy are explicit inputs.
 
 | Core system | Provides |
 | --- | --- |
-| [Bank](src/core/bank.luau) | Vault transfers, capacity checks and replay-safe receipts. |
-| [Cast](src/core/cast.luau) | Bounded queues, cancellation tokens and cooldown windows. |
-| [Character](src/core/character.luau) | Cancellable respawn watches and guarded body replacement. |
-| [Chat](src/core/chat.luau) | Audiences, history, commands and sender budgets. |
-| [Control](src/core/control.luau) | Diminishing durations, reset windows and immunity. |
-| [Craft](src/core/craft.luau) | Recipe projection and material requirements. |
-| [Effects](src/core/effects.luau) | Timed stacks, periodic ticks and dispels. |
-| [Events](src/core/events.luau) | Catalogs, schedules, participation and reward tickets. |
-| [Identity](src/core/identity.luau) | Rosters, claims, fenced leases and account creation/deletion. |
-| [Inventory](src/core/inventory.luau) | Stacks, bag capacity, cargo custody and delivery. |
-| [Ledger](src/core/ledger.luau) | Value events, balances, reservations and grouped operations. |
-| [Loot](src/core/loot.luau) | Weighted draws and party need/greed/pass decisions. |
-| [Mail](src/core/mail.luau) | Attachments, claims, returns, expiry and recovery. |
-| [Map](src/core/map.luau) | Discovery, coordinates, viewport geometry and update cadence. |
-| [Market](src/core/market.luau) | Listings, fills, fees, wallet holds and conservation. |
-| [Network](src/core/net.luau) | Token buckets and per-sender rate limits. |
-| [Orders](src/core/orders.luau) | Work progress, realm orders and reward claims. |
-| [Persistence](src/core/persistence.luau) | Session locks, profile lifetime, ordered stores and close draining. |
-| [Professions](src/core/professions.luau) | Skills, crafting, harvest, fishing and node sessions. |
-| [Progression](src/core/progression.luau) | Levels, talents, consumables, action bars, recovery, reputation, seasons and settlement. |
-| [Quest](src/core/quest.luau) | Objectives, indexes, progress, markers, run history and claims. |
-| [Social](src/core/social.luau) | Parties, fellowships, warbands, shared banks, allies, notes and chronicles. |
-| [Threat](src/core/threat.luau) | Target selection, taunts, contribution and encounter eligibility. |
-| [Trade](src/core/trade.luau) | Revisioned offers, mutual confirmation, receipts and recovery. |
-| [Vendors](src/core/vendors.luau) | Buying, selling, finite stock and owner-scoped buyback. |
+| [Bank](docs/systems/bank.md) | Vault transfers, capacity checks and replay-safe receipts. |
+| [Cast](docs/systems/cast.md) | Bounded queues, cancellation tokens and cooldown windows. |
+| [Character](docs/systems/character.md) | Cancellable respawn watches and guarded body replacement. |
+| [Chat](docs/systems/chat.md) | Audiences, history, commands and sender budgets. |
+| [Control](docs/systems/control.md) | Diminishing durations, reset windows and immunity. |
+| [Craft](docs/systems/craft.md) | Recipe projection and material requirements. |
+| [Effects](docs/systems/effects.md) | Timed stacks, periodic ticks and dispels. |
+| [Events](docs/systems/events.md) | Catalogs, schedules, participation and reward tickets. |
+| [Identity](docs/systems/identity.md) | Rosters, claims, fenced leases and account creation/deletion. |
+| [Inventory](docs/systems/inventory.md) | Stacks, bag capacity, cargo custody and delivery. |
+| [Ledger](docs/systems/ledger.md) | Value events, balances, reservations and grouped operations. |
+| [Loot](docs/systems/loot.md) | Weighted draws and party need/greed/pass decisions. |
+| [Mail](docs/systems/mail.md) | Attachments, claims, returns, expiry and recovery. |
+| [Map](docs/systems/map.md) | Discovery, coordinates, viewport geometry and update cadence. |
+| [Market](docs/systems/market.md) | Listings, fills, fees, wallet holds and conservation. |
+| [Network](docs/systems/net.md) | Token buckets and per-sender rate limits. |
+| [Orders](docs/systems/orders.md) | Work progress, realm orders and reward claims. |
+| [Persistence](docs/systems/persistence.md) | Session locks, profile lifetime, ordered stores and close draining. |
+| [Professions](docs/systems/professions.md) | Skills, crafting, harvest, fishing and node sessions. |
+| [Progression](docs/systems/progression.md) | Levels, talents, consumables, action bars, recovery, reputation, seasons and settlement. |
+| [Quest](docs/systems/quest.md) | Objectives, indexes, progress, markers, run history and claims. |
+| [Social](docs/systems/social.md) | Parties, fellowships, warbands, shared banks, allies, notes and chronicles. |
+| [Threat](docs/systems/threat.md) | Target selection, taunts, contribution and encounter eligibility. |
+| [Trade](docs/systems/trade.md) | Revisioned offers, mutual confirmation, receipts and recovery. |
+| [Vendors](docs/systems/vendors.md) | Buying, selling, finite stock and owner-scoped buyback. |
 
 | Roblox adapter | Provides |
 | --- | --- |
-| [camera](src/roblox/camera.luau) | Follow dynamics, springs and obstruction clearance. |
-| [chat](src/roblox/chat.luau) | Native channels and platform privacy admission. |
-| [consumables](src/roblox/consumables.luau) | Durable consumption and revalidated recovery dispatch. |
-| [contact-markers](src/roblox/contact-markers.luau) | Ref-counted animation contacts with action stamps. |
-| [conversation-camera](src/roblox/conversation-camera.luau) | Conversation ownership and framing beside UI. |
-| [cue-mixer](src/roblox/cue-mixer.luau) | Retrigger admission, voice caps and ducking. |
-| [cue-playback](src/roblox/cue-playback.luau) | Voice lifetime and effect progression. |
-| [data-store](src/roblox/data-store.luau) | Storage retries, delays and jitter. |
-| [equipment-queue](src/roblox/equipment-queue.luau) | Serial per-owner application and fencing. |
-| [equipment-rig](src/roblox/equipment-rig.luau) | Construction ownership, mesh joins and slot settlement. |
-| [input-bindings](src/roblox/input-bindings.luau) | Keyboard/gamepad bindings, labels and chords. |
-| [input-contexts](src/roblox/input-contexts.luau) | Deadline-bound readiness and template adoption. |
-| [input-profile](src/roblox/input-profile.luau) | Device coverage and rollback-safe binding sessions. |
-| [messaging](src/roblox/messaging.luau) | Notices, filtering and subscription cleanup. |
-| [movement-intake](src/roblox/movement-intake.luau) | Epochs, acknowledgments and speed enforcement. |
-| [movement-sender](src/roblox/movement-sender.luau) | Handshake, resend ledger and revocation. |
-| [npc-motion](src/roblox/npc-motion.luau) | Planar steps, leash geometry and puppet projection. |
-| [party](src/roblox/party.luau) | Atomic membership persistence and exact readback. |
-| [professions](src/roblox/professions.luau) | Profile/world coordination and durable commits. |
-| [profile-sessions](src/roblox/profile-sessions.luau) | Lease admission, save, renewal, close and drain. |
-| [profile-transfer](src/roblox/profile-transfer.luau) | Session identity, settled writes and per-key exclusion. |
-| [remote-events](src/roblox/remote-events.luau) | Shared channel dispatch and handler release. |
-| [screen-labels](src/roblox/screen-labels.luau) | Priority labels and reserved-screen avoidance. |
-| [social-host](src/roblox/social-host.luau) | Actor exclusion, caches and membership settlement. |
-| [social-records](src/roblox/social-records.luau) | Durable records, ledgers, inboxes and indexes. |
-| [target-selection](src/roblox/target-selection.luau) | Cycling, pointer selection and range release. |
-| [thumbstick](src/roblox/thumbstick.luau) | Dead-zone movement and knob displacement. |
-| [travel-placement](src/roblox/travel-placement.luau) | Grounded destinations without collisions. |
+| [camera](docs/systems/roblox-camera.md) | Follow dynamics, springs and obstruction clearance. |
+| [chat](docs/systems/roblox-chat.md) | Native channels and platform privacy admission. |
+| [consumables](docs/systems/roblox-consumables.md) | Durable consumption and revalidated recovery dispatch. |
+| [contact-markers](docs/systems/roblox-contact-markers.md) | Ref-counted animation contacts with action stamps. |
+| [conversation-camera](docs/systems/roblox-conversation-camera.md) | Conversation ownership and framing beside UI. |
+| [cue-mixer](docs/systems/roblox-cue-mixer.md) | Retrigger admission, voice caps and ducking. |
+| [cue-playback](docs/systems/roblox-cue-playback.md) | Voice lifetime and effect progression. |
+| [data-store](docs/systems/roblox-data-store.md) | Storage retries, delays and jitter. |
+| [equipment-queue](docs/systems/roblox-equipment-queue.md) | Serial per-owner application and fencing. |
+| [equipment-rig](docs/systems/roblox-equipment-rig.md) | Construction ownership, mesh joins and slot settlement. |
+| [input-bindings](docs/systems/roblox-input-bindings.md) | Keyboard/gamepad bindings, labels and chords. |
+| [input-contexts](docs/systems/roblox-input-contexts.md) | Deadline-bound readiness and template adoption. |
+| [input-profile](docs/systems/roblox-input-profile.md) | Device coverage and rollback-safe binding sessions. |
+| [messaging](docs/systems/roblox-messaging.md) | Notices, filtering and subscription cleanup. |
+| [movement-intake](docs/systems/roblox-movement-intake.md) | Epochs, acknowledgments and speed enforcement. |
+| [movement-sender](docs/systems/roblox-movement-sender.md) | Handshake, resend ledger and revocation. |
+| [npc-motion](docs/systems/roblox-npc-motion.md) | Planar steps, leash geometry and puppet projection. |
+| [party](docs/systems/roblox-party.md) | Atomic membership persistence and exact readback. |
+| [professions](docs/systems/roblox-professions.md) | Profile/world coordination and durable commits. |
+| [profile-sessions](docs/systems/roblox-profile-sessions.md) | Lease admission, save, renewal, close and drain. |
+| [profile-transfer](docs/systems/roblox-profile-transfer.md) | Session identity, settled writes and per-key exclusion. |
+| [remote-events](docs/systems/roblox-remote-events.md) | Shared channel dispatch and handler release. |
+| [screen-labels](docs/systems/roblox-screen-labels.md) | Priority labels and reserved-screen avoidance. |
+| [social-host](docs/systems/roblox-social-host.md) | Actor exclusion, caches and membership settlement. |
+| [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes. |
+| [target-selection](docs/systems/roblox-target-selection.md) | Cycling, pointer selection and range release. |
+| [thumbstick](docs/systems/roblox-thumbstick.md) | Dead-zone movement and knob displacement. |
+| [travel-placement](docs/systems/roblox-travel-placement.md) | Grounded destinations without collisions. |
 
 ## Host-operation contract
 

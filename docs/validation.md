@@ -19,6 +19,14 @@ The fast gate checks types, the test manifest, specification style, boundaries, 
 It also checks for game data in shared code and runs the specifications and Verify checks.
 The fast gate excludes the war benchmark and the clean clone check.
 
+The `examples` producer runs the standalone threat, input-binding and thumbstick examples:
+
+```sh
+lute run tools/run-examples.luau
+```
+
+Every [system guide](systems.md) also links an executable Verify example and its focused command.
+
 The API reference is generated from parsed exported declarations and public operations.
 After changing an exported type, function signature or returned operation, regenerate it:
 
