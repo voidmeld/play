@@ -1,5 +1,26 @@
 # Public API
 
+## [`src/roblox/equipment-rig.luau`](../src/roblox/equipment-rig.luau)
+
+### `roblox.equipment-rig.lifetime`
+
+Owns loose construction scopes, checkpoint rollback for refused or failed attempts, generation
+fences and disposal of stale externally acquired meshes. The host supplies ownership operations,
+adoption and warning delivery. `stale` retains one identity for cancellation recognition.
+
+### `roblox.equipment-rig.meshCache`
+
+Owns mesh refusal and in-flight state around a caller-owned retained cache. Concurrent joins wait
+for the configured ceiling using injected clock and step functions, then return a settled entry or
+report pending. Failed acquisition clears the in-flight flag; explicit refusals remain held.
+
+### `roblox.equipment-rig.applyBatch`
+
+Settles independent application slots under child owners. Reused pieces retain their owners;
+refused creation or attachment preserves previous pieces in that slot. Successful replacement
+retires all siblings sharing the previous owner. The host owns recipes, mode admission, native
+attachment, generation checks, diagnostics and final transaction commit or rollback.
+
 ## [`src/core/identity/account.luau`](../src/core/identity/account.luau)
 
 ### `core.identity.account.create`

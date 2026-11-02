@@ -21,6 +21,10 @@ Games own movement law, actor targeting, pathfinding, grounding queries, native 
 
 ## Roblox rig lifetime
 
+`roblox/equipment-rig` owns scoped construction attempts, stale external-result disposal, bounded
+mesh joins and per-slot application settlement. Games supply native construction and attachment,
+recipes, body fitting, admission and transaction presentation recovery.
+
 `roblox/equipment-queue` serializes and fences asynchronous equipment application per character owner.
 `roblox/contact-markers` coordinates ref-counted native animation contacts with stamped actions.
 Games retain rigs, equipment fitting and attachment, clip selection, marker admission and playback policy.
