@@ -135,6 +135,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [input-bindings](docs/systems/roblox-input-bindings.md) | Keyboard/gamepad bindings, labels and chords. |
 | [input-contexts](docs/systems/roblox-input-contexts.md) | Deadline-bound readiness and template adoption. |
 | [input-profile](docs/systems/roblox-input-profile.md) | Device coverage and rollback-safe binding sessions. |
+| [inventory](docs/systems/roblox-inventory.md) | Context-fenced item mutation and atomic reward bundles over supplied profiles. |
 | [messaging](docs/systems/roblox-messaging.md) | Notices, filtering and subscription cleanup. |
 | [movement-intake](docs/systems/roblox-movement-intake.md) | Epochs, acknowledgments and speed enforcement. |
 | [movement-sender](docs/systems/roblox-movement-sender.md) | Handshake, resend ledger and revocation. |
