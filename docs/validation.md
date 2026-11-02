@@ -19,6 +19,19 @@ The fast gate checks types, the test manifest, specification style, boundaries, 
 It also checks for game data in shared code and runs the specifications and Verify checks.
 The fast gate excludes the war benchmark and the clean clone check.
 
+The API reference is generated from parsed exported declarations and public operations.
+After changing an exported type, function signature or returned operation, regenerate it:
+
+```sh
+lute run tools/generate-api.luau --write
+```
+
+`lute run tools/generate-api.luau` checks freshness without writing. The `api-reference`
+gate producer runs this check. Core system entries are `src/core/<system>.luau`, with an
+exported `API` type and component-prefixed aliases for their exported types. Existing
+component imports remain compatible. Helpers live under `src/core/internal`; the old
+value/shape paths forward to their implementations for existing adopters.
+
 For a focused check, select a producer:
 
 ```sh

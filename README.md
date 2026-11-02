@@ -50,7 +50,10 @@ assert(scene.snapshot().targetActorId == "guard")
 Save this snippet under `tools/` to preserve its relative import. The game chose the ratios;
 Play chose the target. The full example also checks absent/dead actor pruning and the fake clock.
 It prints `Threat: takeover, taunt and host pruning passed at t=1`.
-Production hosts import `src/core/threat/table`, supply observations and install returned state.
+Production hosts import `src/core/threat` and use its `table` component, supply observations and install returned state.
+Each core family has one entry module with an exported `API` type and component-prefixed type aliases.
+For example, `Threat.TableState` names the state accepted by `Threat.table.rules`. Existing component
+paths remain compatible while adopters move to these entries.
 
 ## Pin and consume
 
@@ -91,31 +94,31 @@ Each row links to an implementation family. [Systems](docs/systems.md) explains 
 
 | Core system | Provides |
 | --- | --- |
-| [Bank](src/core/bank) | Vault transfers, capacity checks and replay-safe receipts. |
-| [Cast](src/core/cast) | Bounded queues, cancellation tokens and cooldown windows. |
-| [Character](src/core/character) | Cancellable respawn watches and guarded body replacement. |
-| [Chat](src/core/chat) | Audiences, history, commands and sender budgets. |
-| [Control](src/core/control) | Diminishing durations, reset windows and immunity. |
-| [Craft](src/core/craft) | Recipe projection and material requirements. |
-| [Effects](src/core/effects) | Timed stacks, periodic ticks and dispels. |
-| [Events](src/core/events) | Catalogs, schedules, participation and reward tickets. |
-| [Identity](src/core/identity) | Rosters, claims, fenced leases and account creation/deletion. |
-| [Inventory](src/core/inventory) | Stacks, bag capacity, cargo custody and delivery. |
-| [Ledger](src/core/ledger) | Value events, balances, reservations and grouped operations. |
-| [Loot](src/core/loot) | Weighted draws and party need/greed/pass decisions. |
-| [Mail](src/core/mail) | Attachments, claims, returns, expiry and recovery. |
-| [Map](src/core/map) | Discovery, coordinates, viewport geometry and update cadence. |
-| [Market](src/core/market) | Listings, fills, fees, wallet holds and conservation. |
-| [Network](src/core/net) | Token buckets and per-sender rate limits. |
-| [Orders](src/core/orders) | Work progress, realm orders and reward claims. |
-| [Persistence](src/core/persistence) | Session locks, profile lifetime, ordered stores and close draining. |
-| [Professions](src/core/professions) | Skills, crafting, harvest, fishing and node sessions. |
-| [Progression](src/core/progression) | Levels, talents, consumables, action bars, recovery, reputation, seasons and settlement. |
-| [Quest](src/core/quest) | Objectives, indexes, progress, markers, run history and claims. |
-| [Social](src/core/social) | Parties, fellowships, warbands, shared banks, allies, notes and chronicles. |
-| [Threat](src/core/threat) | Target selection, taunts, contribution and encounter eligibility. |
-| [Trade](src/core/trade) | Revisioned offers, mutual confirmation, receipts and recovery. |
-| [Vendors](src/core/vendors) | Buying, selling, finite stock and owner-scoped buyback. |
+| [Bank](src/core/bank.luau) | Vault transfers, capacity checks and replay-safe receipts. |
+| [Cast](src/core/cast.luau) | Bounded queues, cancellation tokens and cooldown windows. |
+| [Character](src/core/character.luau) | Cancellable respawn watches and guarded body replacement. |
+| [Chat](src/core/chat.luau) | Audiences, history, commands and sender budgets. |
+| [Control](src/core/control.luau) | Diminishing durations, reset windows and immunity. |
+| [Craft](src/core/craft.luau) | Recipe projection and material requirements. |
+| [Effects](src/core/effects.luau) | Timed stacks, periodic ticks and dispels. |
+| [Events](src/core/events.luau) | Catalogs, schedules, participation and reward tickets. |
+| [Identity](src/core/identity.luau) | Rosters, claims, fenced leases and account creation/deletion. |
+| [Inventory](src/core/inventory.luau) | Stacks, bag capacity, cargo custody and delivery. |
+| [Ledger](src/core/ledger.luau) | Value events, balances, reservations and grouped operations. |
+| [Loot](src/core/loot.luau) | Weighted draws and party need/greed/pass decisions. |
+| [Mail](src/core/mail.luau) | Attachments, claims, returns, expiry and recovery. |
+| [Map](src/core/map.luau) | Discovery, coordinates, viewport geometry and update cadence. |
+| [Market](src/core/market.luau) | Listings, fills, fees, wallet holds and conservation. |
+| [Network](src/core/net.luau) | Token buckets and per-sender rate limits. |
+| [Orders](src/core/orders.luau) | Work progress, realm orders and reward claims. |
+| [Persistence](src/core/persistence.luau) | Session locks, profile lifetime, ordered stores and close draining. |
+| [Professions](src/core/professions.luau) | Skills, crafting, harvest, fishing and node sessions. |
+| [Progression](src/core/progression.luau) | Levels, talents, consumables, action bars, recovery, reputation, seasons and settlement. |
+| [Quest](src/core/quest.luau) | Objectives, indexes, progress, markers, run history and claims. |
+| [Social](src/core/social.luau) | Parties, fellowships, warbands, shared banks, allies, notes and chronicles. |
+| [Threat](src/core/threat.luau) | Target selection, taunts, contribution and encounter eligibility. |
+| [Trade](src/core/trade.luau) | Revisioned offers, mutual confirmation, receipts and recovery. |
+| [Vendors](src/core/vendors.luau) | Buying, selling, finite stock and owner-scoped buyback. |
 
 | Roblox adapter | Provides |
 | --- | --- |

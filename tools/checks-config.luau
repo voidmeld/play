@@ -50,7 +50,7 @@ end
 
 local packages: { Surface.Package } = {}
 for _, file in Walk.paths("src", { ".luau" }) do
-	if string.match(file, "%.verify%.luau$") == nil then
+	if string.match(file, "%.verify%.luau$") == nil and string.find(file, "/internal/", 1, true) == nil then
 		local module = string.sub(file, 1, -6)
 		table.insert(packages, {
 			prefix = string.gsub(string.sub(module, 5), "/", "."),
@@ -126,7 +126,7 @@ local config: {
 		},
 		comments = comments,
 		manifest = manifest,
-		publicSurface = { docs = "docs/api.md", packages = packages },
+		publicSurface = { docs = "docs/api.md", packages = packages, includeTypes = true },
 		cleanClone = {
 			prefix = "play-clean-clone",
 			command = { "lute", "run", "tools/gate.luau", "--tier", "fast" },

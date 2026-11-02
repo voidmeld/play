@@ -1,1183 +1,15316 @@
 # Public API
 
-## [`src/roblox/equipment-rig.luau`](../src/roblox/equipment-rig.luau)
-
-### `roblox.equipment-rig.lifetime`
-
-Owns loose construction scopes, checkpoint rollback for refused or failed attempts, generation
-fences and disposal of stale externally acquired meshes. The host supplies ownership operations,
-adoption and warning delivery. `stale` retains one identity for cancellation recognition.
-
-### `roblox.equipment-rig.meshCache`
-
-Owns mesh refusal and in-flight state around a caller-owned retained cache. Concurrent joins wait
-for the configured ceiling using injected clock and step functions, then return a settled entry or
-report pending. Failed acquisition clears the in-flight flag; explicit refusals remain held.
-
-### `roblox.equipment-rig.applyBatch`
-
-Settles independent application slots under child owners. Reused pieces retain their owners;
-refused creation or attachment preserves previous pieces in that slot. Successful replacement
-retires all siblings sharing the previous owner. The host owns recipes, mode admission, native
-attachment, generation checks, diagnostics and final transaction commit or rollback.
-
-## [`src/core/identity/account.luau`](../src/core/identity/account.luau)
-
-### `core.identity.account.create`
-
-Creates an account aggregate from identity `Policy` and `Extension<E>`. `Base` owns roster,
-creation and deletion state, pending profiles, committed profiles and matching receipts.
-`Account<E>` adds game-owned fields without changing their saved shape. The extension lists its
-optional field names and projects validated base state plus raw extension fields into a complete
-account. Every transition carries the current extension through that projector; clearing a deletion
-terminal also supplies its validated deletion state. Games own extension validation and policy.
-
-The aggregate validates detached immutable snapshots, exact fields, account identity, seed/receipt
-correspondence, transaction revisions and exclusion between creation and deletion. It exposes
-creation/deletion transitions, terminal clearing, character removal, card updates, receipt queries,
-stored validation and equality. Identity catalogs, storage operations and extension policy stay
-with the caller.
-
-## [`src/core/threat/contribution.luau`](../src/core/threat/contribution.luau)
-
-### `core.threat.contribution.create`
-
-Creates combat credit and encounter participation rules from `Config`. The caller supplies credit
-categories, relation eligibility, observation and reward radii, inactivity retention, recent-defeat
-grace, short-encounter duration and sustained-action/interrupt thresholds.
-
-`creditFor` caps credit by attempted, effective and eligible amounts. `record` and `observe` return
-new participation records. `finish` snapshots character identity, three-dimensional distance,
-life state and dungeon admission once at encounter end. Later movement, replacement characters or
-admission changes cannot rewrite that snapshot. `eligible` and `eligibleAtEnd` apply the supplied
-reward criteria. `asParticipant` preserves an already projected participant; `CATEGORY_BY_KIND`
-exposes the supplied category map. Actual reward selection and durable grants belong to the game.
-
-## [`src/core/progression/consumables.luau`](../src/core/progression/consumables.luau)
-
-### `core.progression.consumables.create`
-
-Creates an isolated item registry and recovery rules from `Config`. `register` and `registerAll`
-validate and copy definitions, freezing accepted items and their buff statistics. `item` reads
-registered definitions. `copy`, `begin`, `interrupt`, `activeStats` and `advance` operate on recovery
-state. `advance` returns new state and separate health/mana gains without mutating the input actor.
-The reducer may use `interruptActor` to advance the interruption generation and clear channels.
-Rule inputs use `ActorView` and read-only mob maps so authoritative game records can be borrowed
-without conversion or copying. `Actor` describes a mutable fixture or standalone actor.
-
-Health and mana channels have independent absolute deadlines. Repeated or reversed samples award
-no duplicate recovery. Movement, combat and control interrupt recovery. Completed food can apply a
-timed buff; immediate buffs occupy food or elixir slots. `eligibility` reports admission refusals.
-Games supply catalogue entries, class resource policy, buff limits, movement tolerance and cue text.
-
-## [`src/roblox/consumables.luau`](../src/roblox/consumables.luau)
-
-### `roblox.consumables.decodeUseRequest`
-
-Accepts an item lookup and raw item/order values. Returns a registered item and positive safe-integer
-order as a `use` request, or `refused`.
-
-### `roblox.consumables.create`
-
-Creates `use`, `status`, `enforce` and `forget` operations over injected character snapshots,
-profile presence, receipt readback, durable commits and authoritative begin/cancel commands.
-An uncertain commit retains its receipt and blocks switching items until reconciled. Rejected
-commits clear the pending use. Successful commits recheck character identity, health, movement and
-interruption generation before dispatching recovery. Consumed items are not refunded by a later
-interruption. The game owns inventory mutation, profile schema, native observations and remote wiring.
-
-## [`src/core/progression/talent-ranks.luau`](../src/core/progression/talent-ranks.luau)
-
-Exports read-only `Node`, `Tier`, `Line` and `Spec` definitions, plus `Bucket`, `Loadout` and `Result`.
-The game supplies unique role definitions and a nonnegative integer point budget. It owns level curves,
-signatures, ability compilation and player-facing presentation. Definition arrays can carry extra fields.
-
-### `core.progression.talent-ranks.bucketOf`
-
-Reads a role's bucket or returns an empty bucket. Treat existing buckets as borrowed state.
-
-### `core.progression.talent-ranks.spendByLine`
-
-Totals rank costs by line, optionally counting only nodes below a tier.
-
-### `core.progression.talent-ranks.stateProblem`
-
-Refuses invalid budgets, stored ranks, respec counts, unmet same-line tier gates and overspending.
-
-### `core.progression.talent-ranks.rankRefusal`
-
-Checks role selection, stored state, node rank limit, tier gate and available points in that order.
-
-### `core.progression.talent-ranks.addRank`
-
-Returns detached state with one additional rank, or a refusal without changing the input.
-
-### `core.progression.talent-ranks.respecRole`
-
-Clears only the selected role's ranks and increments its respec count in detached state.
-
-### `core.progression.talent-ranks.spentPoints`
-
-Totals the selected role's spent rank costs. An absent role definition returns zero.
-
-### `core.progression.talent-ranks.availablePoints`
-
-Returns the supplied point budget minus spent points, with a zero floor.
-
-### `core.progression.talent-ranks.UNKNOWN_TALENT`
-
-An unknown node or missing tier definition.
-
-### `core.progression.talent-ranks.FULL_RANK`
-
-The node has reached its rank limit.
-
-### `core.progression.talent-ranks.TIER_LOCKED`
-
-The same line lacks the required lower-tier spend.
-
-### `core.progression.talent-ranks.NO_POINTS`
-
-The remaining budget cannot cover the next rank.
-
-### `core.progression.talent-ranks.INVALID_STATE`
-
-The stored state or supplied budget is invalid.
-
-### `roblox.input-contexts.create`
-
-Takes native find/wait, clock, context/action conversion, name and minimumWait operations.
-Returns context and action. Context readiness shares the caller's deadline across the path and
-required actions; action resolution refuses missing or wrong-class nodes.
-
-### `roblox.input-contexts.mount`
-
-Takes Template rows, Surfaces and mounted/refused phase names. Reuses existing contexts and adopts
-missing templates. A failed existing query, missing template or failed adoption refuses the mount.
-Both the readback record and its names list are frozen.
-Exports Template, Surfaces and Mounted. Games own templates, destinations, names and admission.
-
-### `roblox.cue-mixer.new`
-
-Takes a CueSource and clock. Returns Mixer with admit, gate, activeVoices, duckGain and
-setVoiceActive. Exports MixSpec, DuckSpec, CueSource and Mixer. Per-cue retrigger intervals and
-per-family voice caps use caller specs. Unknown cues refuse admit and pass gate; ducking follows
-the caller's active families and voice policy.
-
-### `roblox.cue-playback.make`
-
-Takes Deps<N, V> with catalog, admission, native mount/play, scheduler, home and tailSec.
-Returns a boolean cue-id player, using a spatial target when supplied and retiring the voice after
-its configured lifetime and tail. Exports VoiceProps, PlaySpec, Source and Deps.
-
-### `roblox.cue-playback.animator`
-
-Takes clock and render-connect operations. Returns a duration/step/finish driver that starts at
-zero, clamps progress, disconnects and finishes at completion. Effect recipes and cue catalogs
-belong to the caller.
-
-### `roblox.npc-motion.projection`
-
-Takes epsilon, facingEpsilon and minimumDt. Returns plan, groundedPivotY and anchoredSurfaceY.
-Projection compares both cached and observed transforms, so an externally displaced body is repaired.
-Exports Planar, Point, Observed, Projection and Changes.
-
-### `roblox.npc-motion.movement`
-
-Takes an epsilon and returns moveToward and insideLeash. Movement limits a planar step and preserves
-the source elevation. A missing leash origin or radius admits the point. Games own pursuit, path
-selection, control state, leash reset, terrain queries and authoritative commits.
-
-### `roblox.npc-motion.distance`
-
-Returns planar distance between two Point values.
-
-### `roblox.equipment-queue.create`
-
-Takes Deps<P, C> with spawn, active, current, perform and warn. Returns Queue<P, C> with request,
-invalidate, forget, generation, running and dispose. Applications drain serially per player,
-coalesce to the newest pending body and receive a generation fence across yielding host work.
-The caller owns service lifetime, body identity, equipment policy and attachment operations.
-
-### `roblox.contact-markers.create`
-
-Takes stamp, listen, marker and admit operations. Returns watch, onContact, confirmed and retrigger.
-Ref-counted watchers bind tracks once, reject a marker from an old action stamp, present one contact
-per admitted stamp, cancel older waiters and release the final watcher. The caller owns native
-track discovery, marker names, clip identity, health and world admission, and playback.
-
-### `roblox.screen-labels.create`
-
-Takes maximum, farDistance, farCount, focusPriority and defaultPriority. Returns placementForScreen,
-which admits priority-ordered anchored labels against caller reserves, topbar and screen bounds.
-Overlapping or overflow labels collapse without moving their anchors. Exports ScreenRect,
-ScreenPlate and ScreenPlacement.
-
-### `roblox.screen-labels.rect`
-
-Builds left/top/right/bottom bounds from a position and nonnegative-clamped dimensions.
-
-### `roblox.screen-labels.rectsOverlap`
-
-Tests strict overlap. Touching edges are clear.
-
-### `roblox.screen-labels.contains`
-
-Tests inclusive containment of an inner rectangle in an outer rectangle.
-
-### `roblox.screen-labels.horizontalAvoidance`
-
-Returns the shorter horizontal escape for overlapping label and reserved band, with a caller gap.
-
-### `roblox.target-selection.pickNext`
-
-Cycles a caller-ordered list, wrapping and recovering from an absent current identifier.
-
-### `roblox.target-selection.create`
-
-Takes a coordinate reader and returns pickNearestToTap and tapSelection over `Candidate<P>`.
-Radius admission is inclusive; equal-distance candidates use lexical identifiers. Exact hits win.
-
-### `roblox.target-selection.release`
-
-Returns a Release with observe and reset, taking positive range and grace duration. In-range
-observations reset the clock seam; missing positions count as outside. Exports Release and Candidate.
-
-## Roblox input
-
-### `roblox.camera.create`
-
-Takes Tuning and returns zoomLimits, isCameraStructure, smoothObstruction, obstructedDistance,
-newSpring, springStep, shoulderOffset, sprintWiden, fovTarget and yields. Exports Tuning,
-Spring and Obstruction. Games own camera mode admission, tuning, collision queries and transforms.
-
-### `roblox.conversation-camera.create`
-
-Takes spring operations and Tuning. Returns new, step, space, views, choose and cameraGesture.
-Exports Tuning, Point, Rect, View and State. Framing chooses available space beside a caller's
-card and generates configured view candidates; the caller tests their actual sightlines.
-Temporary unavailability permits reacquisition. Player override or departure releases ownership
-until the conversation key changes. Games supply speaker identity, two-person bounds, measurements,
-angle preferences and native camera application.
-
-### `roblox.input-profile.create`
-
-Takes named `Profile` records and mounted/refused phase names. Returns profile, reach, parity,
-coverage, deviceOfInputName and start, with DEVICES. Exports Device, TouchAffordance, Action,
-Profile and Session. A session owns only its requested actions, dispatches through injected bind,
-thumbstick, dispatch and intent operations, rolls back partial mounts, and rejects input after stop.
-Screen actions use the caller's existing surface. Mouse input belongs to the keyboard device family.
-
-### `roblox.input-bindings.create`
-
-Takes `Action<C>` rows, display labels and a chord modifier name. Returns actions, GAMEPAD_GAPS,
-CHORD_MODIFIER, get, keyboardNames, primaryKeyboard, gamepad, matches, keyboardLabel,
-gamepadLabel, matchesCode, matchesInput and forContext. The caller supplies enum values and a held
-button query. Action names, contexts, keys, labels and touch affordances belong to the game.
-
-### `roblox.thumbstick.create`
-
-Takes radiusPx, deadZone, zoneWidth and zoneHeight. Returns anchorAt, drag, release, vectorFor,
-knobFor and the configured RADIUS_PX, DEAD_ZONE, ZONE_WIDTH_SCALE and ZONE_HEIGHT_SCALE.
-Exports Vec2 and Stick. The caller owns touch tracking, rendering and movement submission.
-
-## [`src/core/social/membership.luau`](../src/core/social/membership.luau)
-
-### `core.social.membership.membership`
-
-Creates immutable party membership with named leader invitations, reserved seats, explicit
-accept/decline/leave/kick, acknowledged leader transfer, absence recovery and disband tombstones.
-The caller supplies realm admission, capacity, time and identifier bounds, invitation and recovery
-durations and default loot mode. Authority and platform group admission remain caller-owned.
-Returns projectState, open, invite, accept, decline, leave, kick, transferLeader,
-acceptLeaderTransfer, disband, setLootMode, markAbsent, markPresent and sweep.
-
-## [`src/roblox/party.luau`](../src/roblox/party.luau)
-
-### `roblox.party.party`
-
-Creates an atomic-store host for a membership core, exact record schema and caller boundary text.
-Returns mount, SCHEMA_VERSION and REASONS. Mount takes an atomic update store, party-key builder
-and membership reader. The host resets captured results whenever a store retries its transform,
-refuses failed or mismatched readbacks and performs reads with a cancelling transform.
-Only the configured schema is admitted. Store namespaces, engine wiring, admission and notices
-remain in the consumer. The host provides no membership index or matchmaking.
-
-## Account and character identity
-
-The `core/identity` factories take `policy.Policy`. The caller owns canonical name validation,
-registry-key construction and validation, profile partition keys, destination syntax, allowed
-realms and peoples, account and per-realm capacity, and level bounds. Keep these callbacks pure
-and stable for the lifetime of the returned slice. Creation choices and routing admission belong
-to the caller. The modules preserve schema version 1 and never perform host writes.
-
-### `core.identity.roster.create`
-
-Returns detached roster validation, stored validation, add/remove, monotonic played/level updates,
-destination updates and recent-play realm projections. Stored validation permits retired realm
-and people identifiers; ordinary admission uses the supplied policy. IDs remain independent of names.
-Exports `CharacterIdentity` and `Roster` types.
-
-### `core.identity.name-claims.create`
-
-Returns validated atomic claim, exact-owner release and advisory availability transforms. A claim
-from a different registry key refuses. Case and canonicalization come entirely from the policy.
-Exports `Claim`, `ClaimStatus`, `ReleaseStatus` and `Availability` types.
-
-### `core.identity.name-record.create`
-
-Returns immutable revisioned claim records, validation, copy/equality, empty records, claim/release
-and availability. Releases retain a tombstone. Revision exhaustion refuses mutation; foreign
-owners survive stale release. The caller supplies the entire key namespace.
-Exports `Record` and `Claim` types.
-
-### `core.identity.creation.create`
-
-Returns a typed creation transaction: `prepare`, `plan`, `observeName`, `observeProfile`,
-`observeRoster`, `requestRollback`, `observeRollback`, `observeLeaseRelease` and `takeover`.
-Also supplies ordinary/stored validation, fingerprinting and copies. Plans do not perform writes.
-Each observation checks the operation fingerprint, revision, fence and exact readback. Absent,
-foreign, stale and future records remain distinct refusals. Takeover advances the lease generation
-without changing the original creation identity. Rollback requires proof that owned names were released.
-Exports `State`, `Prepared`, `Phase`, `Plan`, `Result`, `Accepted` and `Rejected` types.
-
-### `core.identity.deletion.create`
-
-Returns a typed deletion transaction with prepare/plan, roster-removal observation, name-release
-observation, lease-release observation, rollback, takeover, validation, fingerprinting and copies.
-An exact roster readback precedes name release; a received post-release read precedes completion.
-Exports `State`, `Prepared`, `Phase`, `Plan`, `Result`, `Accepted` and `Rejected` types.
-
-### `core.identity.creation-record.create`
-
-Returns immutable prepared profile seeds and committed receipts, their validators, copies and
-cross-record identity matching. Seeds can be issued only after profile preparation; receipts only
-after the roster commit. Both retain the original generation across takeover. Exports `Seed` and
-`Receipt` types.
-
-### `core.identity.account-lease.SCHEMA_VERSION`
-### `core.identity.account-lease.MAX_REVISION`
-### `core.identity.account-lease.MAX_FENCE`
-### `core.identity.account-lease.MAX_SAFE_INTEGER`
-### `core.identity.account-lease.MAX_ID_BYTES`
-
-Persisted lease schema and finite numeric/string bounds. Exports the `Lease` type.
-
-### `core.identity.account-lease.validate`
-### `core.identity.account-lease.copy`
-
-Return a detached immutable lease or nil for an invalid shape, identity or generation.
-
-### `core.identity.account-lease.empty`
-
-Creates an unowned lease for a positive integer account ID.
-
-### `core.identity.account-lease.equal`
-
-Compares validated lease values, including the acquisition ID and generation.
-
-### `core.identity.account-lease.acquire`
-
-Acquires or exactly replays a session/acquisition pair using injected time and duration.
-An unexpired foreign owner holds the lease; takeover at expiry increments its fence and revision.
-
-### `core.identity.account-lease.renew`
-
-Renews only the exact live session, fence and revision. Stale or expired authority refuses.
-
-### `core.identity.account-lease.release`
-
-Releases only the exact session and generation; already-released readback is idempotent.
-
-### `core.identity.value.check`
-### `core.identity.value.fields`
-
-Internal plain-record inspection used by identity codecs. Consumers use the system factories.
-
-### `test-scene.social.rig`
-
-### `test-scene.identity.accountLimit`
-### `test-scene.identity.realmLimit`
-### `test-scene.identity.minLevel`
-### `test-scene.identity.maxLevel`
-### `test-scene.identity.realms`
-### `test-scene.identity.peoples`
-### `test-scene.identity.profilePartitionKey`
-### `test-scene.identity.registryKey`
-### `test-scene.identity.validDestination`
-### `test-scene.identity.validRegistryKey`
-### `test-scene.identity.validateName`
-
-Neutral identity policy fixture for Lute specifications. Its claim and profile namespaces differ
-from consumer namespaces. Exclude this test fixture from shipped module trees.
-
-## Profession systems
-
-### `core.professions.skills.create`
-
-Takes a profession catalogue, skill cap, primary slot count, start skill, advancement chances,
-recipe lookups and a saved quest-input projector. Returns normalization, detached copy, learn,
-unlearn, recipe admission, trainer projection and skill advancement operations. The caller owns
-catalogue order, trainer eligibility, costs and quest rewards. Refusal does not mutate the input.
-
-### `core.professions.crafting.create`
-
-Takes skill operations, recipe and quality policies and a stack limit. Returns plan and craft.
-Craft checks profession, recipe knowledge, required skill, stations, reagents, output stack and
-entry capacity before returning detached inventory and skill state. Stack changes use inventory/stacks.
-Quality selection and recipe content come from the caller.
-
-### `core.professions.harvest.create`
-
-Takes skill operations and the skinning profession ID. Returns admission, node harvesting and
-skinning operations. The caller supplies each node or skin row, including yields, extras, thresholds
-and random samples. Failed admission returns the unchanged skill state.
-
-### `core.professions.fishing.create`
-
-Takes skill operations, profession ID, waiting range, bite window and zone catch/junk tables.
-Returns idle, cast, observe, hook, weighted selection and reel operations. Injected time controls
-the bite window; junk catches never grant advancement. The caller owns catch content and weights.
-
-### `core.professions.session.create`
-
-Takes movement tolerance and a host admission policy. Returns begin and check for timed work.
-The caller supplies clock, position, health, life and combat samples. Damage, movement, combat,
-death or a host refusal interrupts before completion.
-
-### `core.professions.gathering.create`
-
-Takes allowed affiliations, multiplier bounds and a yield resolver. Returns emptyState, projectNode,
-computeYield and step for timed gathering, respawn slots and replay-safe claims. A repeated event
-returns its original amount. Invalid shapes, backwards clocks and refused yield policy return nil.
-Population calculations, resource definitions and yield policy remain with the caller.
-
-### `roblox.professions.decodeIntent`
-
-Reads a string action and optional string arguments. Unknown actions are ignored by the host.
-
-### `roblox.professions.new`
-
-Takes typed profile reads/updates, session context, clock, randomness, world queries, message delivery,
-receipt identity and durable commit operations, plus the profession policies. Returns handle,
-interrupt, step, forget and harvestedSlots. The host owns active work, fishing lines, harvest slots,
-skin claims, stock windows, repair quotes and pending craft saves. A failed save blocks subsequent
-actions until that context settles. The game retains trainer admission, recipes, nodes, yields,
-quest inputs, progress rewards, repair law, profile composition and all mounted input/presentation.
-Hosts must serialize updates and commits through their authoritative store, provide trusted content
-and random samples, call step with the game clock, and call forget on departure. These operations
-do not establish persisted durability by themselves.
-
-## [`src/core/quest/run.luau`](../src/core/quest/run.luau)
-
-### `core.quest.run.run`
-
-Creates immutable, revisioned run progress with exact event receipts, checkpoints,
-disconnect recovery, leader succession, wipes and replacement seats. The caller supplies
-package validation, checkpoint validity, wipe progress, replacement admission and member limits.
-The typed package stays private to the injected policies; describe projects only generic run fields.
-Returns transition, projectRunState and refusal reasons. Clocks must be finite and monotonic.
-Reusing an event ID with another fingerprint refuses without advancing state.
-
-## [`src/core/quest/claims.luau`](../src/core/quest/claims.luau)
-
-### `core.quest.claims.claims`
-
-Creates reservation records and pure atomic-store transforms for claim, renewal, close,
-write-through and replacement rosters. The caller supplies lease and record durations,
-member count, carrier contract, text limit and retry delays. Writes require a current job
-lease and a newer run revision. Rejoin targets validate membership and record expiry.
-The host remains responsible for atomic storage, ordered writes and destination authority.
-
-## [`src/core/progression/settlement.luau`](../src/core/progression/settlement.luau)
-
-### `core.progression.settlement.settlement`
-
-Creates per-character run reward history and replay-safe settlement. Package, run and personal
-state readers, reward qualities, role eligibility, reward choice and personal grants are injected.
-A grant must be pure and return a detached state. Failed grants do not advance reward history.
-Replay requires matching receipts in both ledgers; another transaction cannot reward the same run.
-Returns emptyRewardHistory and applyPersonalReward. Reward content and grant limits belong to the caller.
-
-## [`src/core/progression/talents.luau`](../src/core/progression/talents.luau)
-
-### `core.progression.talents.default`
-
-Creates empty ranks with revision and respec count zero.
-
-### `core.progression.talents.toLoadout`
-
-Copies state ranks into a role loadout.
-
-### `core.progression.talents.fromLoadout`
-
-Copies role ranks into state with the supplied revision.
-
-### `core.progression.talents.decodeIntent`
-
-Reads exact plain view, select and respec requests. Talent IDs contain 1 to 128 bytes.
-Wire revisions are nonnegative integers. The existing wire contract also permits positive infinity.
-Persisted counts must be finite.
-
-### `core.progression.talents.change`
-
-Checks the revision and respec admission before calling the supplied rank operation.
-An accepted change returns detached ranks and increases the revision once.
-A refused change returns nil and its reason. A view returns the input state.
-The caller must supply validated state, a decoded intent and a pure rank operation.
-
-### `core.progression.talents.rules`
-
-Takes a runtime identity reader and a loadout compiler.
-Returns normalize and load operations. Normalize rejects invalid saved fields, identity, ranks or compilation.
-Load refunds an invalid save to empty state only when that state compiles for the supplied runtime.
-The game supplies talent rules, point limits and ability compilation.
-
-The headings list the module exports.
-Each source link gives the declaration and signature.
-The game supplies host operations to Roblox adapters.
-Test scenes run only in Lute.
-
-[Return to Play](../README.md).
-
-## [`src/core/bank/vault.luau`](../src/core/bank/vault.luau)
+Generated by `lute run tools/generate-api.luau --write`; do not edit by hand.
+The gate checks freshness against parsed exported types, function declarations and returned operations.
+Use `src/core/<system>.luau` as the system entry; its API type names each component.
+Existing component paths remain compatible. The roblox modules are individual adapter entries.
+Test-scene entries are verification fixtures. Internal implementations are excluded.
+For behavior, host requirements and examples, see [Systems](systems.md).
+
+## `core.bank.vault`
+
+[Source](../src/core/bank/vault.luau)
+
+### `core.bank.vault.Inventory`
+
+```luau
+export type Inventory = { [string]: number }
+```
+
+### `core.bank.vault.Request`
+
+```luau
+export type Request =
+	{ kind: "deposit" | "withdraw", itemId: string, count: number, bankerId: string, requestId: string }
+```
+
+### `core.bank.vault.State`
+
+```luau
+export type State = { items: Inventory, receipts: { [string]: Request }, receiptOrder: { string } }
+```
+
+### `core.bank.vault.Config`
+
+```luau
+export type Config<T> = {
+	maxStack: number,
+	maxBagSlots: number,
+	maxBankSlots: number,
+	maxReceipts: number,
+	itemIdLimit: number,
+	bankerIdLimit: number,
+	requestIdLimit: number,
+	readProfile: (T) -> unknown,
+	writeProfile: (T, Inventory, State) -> T,
+	permanent: (string) -> boolean,
+	fits: (T, Inventory, Inventory) -> boolean,
+	transfer: (T, Request) -> T,
+}
+```
+
+### `core.bank.vault.Vault`
+
+```luau
+export type Vault<T> = {
+	sameRequest: (Request, Request) -> boolean,
+	default: () -> State,
+	request: (unknown) -> Request?,
+	project: (unknown) -> State?,
+	apply: (T, unknown) -> (T?, string?),
+}
+```
 
 ### `core.bank.vault.adjust`
 
+```luau
+function Bank.adjust(
+	inventory: Inventory,
+	itemId: string,
+	delta: number,
+	maxCount: number,
+	maxEntries: number
+): (Inventory?, string?)
+```
+
 ### `core.bank.vault.vault`
 
-## [`src/core/cast/queue.luau`](../src/core/cast/queue.luau)
+```luau
+function Bank.vault<T>(config: Config<T>): Vault<T>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+sameRequest = function sameRequest(first: Request, second: Request): boolean
+default = function default(): State
+request = function request(value: unknown): Request?
+project = function project(value: unknown): State?
+apply = function(profile: T, value: unknown): (T?, string?)
+```
+
+## `core.bank`
+
+[Source](../src/core/bank.luau)
+
+```luau
+local Vault = require("./bank/vault")
+```
+
+### `core.bank.VaultInventory`
+
+```luau
+export type VaultInventory = Vault.Inventory
+```
+
+### `core.bank.VaultRequest`
+
+```luau
+export type VaultRequest = Vault.Request
+```
+
+### `core.bank.VaultState`
+
+```luau
+export type VaultState = Vault.State
+```
+
+### `core.bank.VaultConfig`
+
+```luau
+export type VaultConfig<T> = Vault.Config<T>
+```
+
+### `core.bank.VaultVault`
+
+```luau
+export type VaultVault<T> = Vault.Vault<T>
+```
+
+### `core.bank.API`
+
+```luau
+export type API = {
+	read vault: typeof(Vault),
+}
+```
+
+### `core.bank.vault`
+
+Exported value; see its declaration in [source](../src/core/bank.luau).
+
+## `core.cast.queue`
+
+[Source](../src/core/cast/queue.luau)
+
+### `core.cast.queue.Config`
+
+```luau
+export type Config = { windowSec: number, maxRequeues: number, minRetrySec: number }
+```
+
+### `core.cast.queue.Entry`
+
+```luau
+export type Entry<T> = { token: number, payload: T, requeues: number, dueAt: number }
+```
+
+### `core.cast.queue.State`
+
+```luau
+export type State<T> = { nextToken: number, queued: Entry<T>? }
+```
+
+### `core.cast.queue.Windows`
+
+```luau
+export type Windows = { gcdReadyAt: number, castReadyAt: number, channelReadyAt: number }
+```
 
 ### `core.cast.queue.cancel`
 
+```luau
+function Queue.cancel<T>(state: State<T>, token: number?): State<T>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+nextToken = state.nextToken
+```
+
 ### `core.cast.queue.empty`
+
+```luau
+function Queue.empty<T>(): State<T>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+nextToken = 1
+```
 
 ### `core.cast.queue.ready`
 
+```luau
+function Queue.ready(windows: Windows, now: number): boolean
+```
+
 ### `core.cast.queue.remaining`
+
+```luau
+function Queue.remaining(windows: Windows, now: number): (number, number, number)
+```
 
 ### `core.cast.queue.rules`
 
+```luau
+function Queue.rules(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+shouldQueue = function shouldQueue(reason: string?, remainingSec: number?): boolean
+delayFor = function delayFor(remainingSec: number): number
+minimumCadenceSec = function(gcdSec: number): number
+enqueue = function enqueue<T>(
+		state: State<T>,
+		payload: T,
+		requeues: number,
+		reason: string?,
+		remainingSec: number?,
+		now: number
+	): (State<T>, Entry<T>?)
+```
+
 ### `core.cast.queue.take`
+
+```luau
+function Queue.take<T>(state: State<T>, token: number, now: number): (State<T>, Entry<T>?)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+nextToken = state.nextToken
+```
 
 ### `core.cast.queue.windows`
 
-## [`src/core/chat/channels.luau`](../src/core/chat/channels.luau)
-
-### `core.chat.channels.allows`
-
-### `core.chat.channels.consume`
-
-### `core.chat.channels.pairName`
-
-### `core.chat.channels.parse`
-
-### `core.chat.channels.trim`
-
-### `core.chat.channels.window`
-
-## [`src/core/control/diminishing.luau`](../src/core/control/diminishing.luau)
-
-### `core.control.diminishing.empty`
-
-[Source](../src/core/control/diminishing.luau). Signature: `empty(): State`.
-Creates an empty category and family ledger.
-
-### `core.control.diminishing.clone`
-
-[Source](../src/core/control/diminishing.luau). Signature: `clone(state: State): State`.
-Copies the ledger and each bucket.
-The copy includes expired entries.
-
-### `core.control.diminishing.rules`
-
-[Source](../src/core/control/diminishing.luau). Signature: `rules(config: Config)`.
-
-The configuration supplies positive `resetSec`, duration `multipliers`, and `categories`.
-The multiplier list must contain at least one value.
-Each multiplier must be between zero and one, inclusive.
-Each category supplies a family key, duration cap, and immunity price and bounds.
-Family keys must differ from all category keys.
-Categories can share a family.
-The price and bounds must be zero or more.
-The maximum must be at least the minimum.
-
-The returned `apply(state, category, baseDurationSec, nowSec)` returns a detached `dr` ledger.
-Each result also has `grantedSec`, `multiplier`, `step`, and `immune`.
-The configuration is a copy.
-
-Use nonnegative integer counts, finite deadlines, and a monotonic clock.
-A live family window prevents application before the category count changes.
-Otherwise, the category count selects a multiplier.
-Counts beyond the list use the last multiplier.
-The first counted application starts the fixed reset window.
-Later applications keep its deadline.
-Equality at an expiry permits application or reset.
-The system applies the duration cap before multiplication.
-
-Positive granted duration starts family immunity at the application clock.
-The granted duration times the price gives the immunity duration, within the configured bounds.
-A zero maximum disables immunity.
-Expired family counts continue when the family starts again.
-The returned ledger keeps expired buckets.
-
-Unknown categories and nonfinite clocks return an immune result.
-Ledger values stay the same.
-Nonpositive or nonfinite requested durations grant zero but consume a category step.
-The `step` and `immune` fields describe the multiplier.
-Zero granted seconds do not necessarily indicate immunity.
-
-Supply category names and caps from game tuning.
-Install the returned state atomically.
-Keep effect lifetimes in the host.
-Reset the ledger at lifecycle boundaries.
-Do not clear its ledger when you cleanse an effect.
-
-## [`src/core/craft/recipes.luau`](../src/core/craft/recipes.luau)
-
-### `core.craft.recipes.catalog`
-
-## [`src/core/effects/timed.luau`](../src/core/effects/timed.luau)
-
-### `core.effects.timed.advance`
-
-### `core.effects.timed.advanceTimes`
-
-### `core.effects.timed.application`
-
-### `core.effects.timed.count`
-
-### `core.effects.timed.dispelFirst`
-
-### `core.effects.timed.expired`
-
-### `core.effects.timed.refresh`
-
-### `core.effects.timed.remainingFraction`
-
-### `core.effects.timed.remainingSec`
-
-## [`src/core/events/catalog.luau`](../src/core/events/catalog.luau)
-
-### `core.events.catalog.catalog`
-
-### `core.events.catalog.finite`
-
-## [`src/core/events/schedule.luau`](../src/core/events/schedule.luau)
-
-### `core.events.schedule.schedule`
-
-## [`src/core/events/watch.luau`](../src/core/events/watch.luau)
-
-### `core.events.watch.watch`
-
-## [`src/core/inventory/stacks.luau`](../src/core/inventory/stacks.luau)
-
-### `core.inventory.stacks.stacks`
-
-## [`src/core/ledger/ledger.luau`](../src/core/ledger/ledger.luau)
-
-### `core.ledger.ledger.ledger`
-
-## [`src/core/loot/roll.luau`](../src/core/loot/roll.luau)
-
-### `core.loot.roll.roll`
-
-## [`src/core/loot/decision.luau`](../src/core/loot/decision.luau)
-
-### `core.loot.decision.decision`
-
-## [`src/core/mail/mailbox.luau`](../src/core/mail/mailbox.luau)
-
-### `core.mail.mailbox.mailbox`
-
-`read` validates unknown stored data and returns a detached typed envelope, or nil for a refused value.
-
-## [`src/core/market/book.luau`](../src/core/market/book.luau)
-
-### `core.market.book.book`
-
-## [`src/core/market/conservation.luau`](../src/core/market/conservation.luau)
-
-### `core.market.conservation.conservation`
-
-## [`src/core/market/goods.luau`](../src/core/market/goods.luau)
-
-### `core.market.goods.catalog`
-
-## [`src/core/market/wallet.luau`](../src/core/market/wallet.luau)
-
-### `core.market.wallet.wallet`
-
-## [`src/core/net/rate-limit.luau`](../src/core/net/rate-limit.luau)
-
-### `core.net.rate-limit.consume`
-
-### `core.net.rate-limit.newBucket`
-
-### `core.net.rate-limit.tryConsume`
-
-## [`src/core/orders/patron.luau`](../src/core/orders/patron.luau)
-
-### `core.orders.patron.patron`
-
-## [`src/core/orders/work.luau`](../src/core/orders/work.luau)
-
-### `core.orders.work.emptyState`
-
-### `core.orders.work.projectOrder`
-
-### `core.orders.work.projectState`
-
-### `core.orders.work.step`
-
-## [`src/core/persistence/session-lock.luau`](../src/core/persistence/session-lock.luau)
-
-### `core.persistence.session-lock.isLocked`
-
-### `core.persistence.session-lock.release`
-
-### `core.persistence.session-lock.tryAcquire`
-
-## [`src/core/progression/actionbar.luau`](../src/core/progression/actionbar.luau)
-
-### `core.progression.actionbar.actionbar`
-
-The configured system's `project(raw)` validates a persisted action bar and returns a typed state
-with independent slots, or `nil`. It rejects unknown fields, invalid levels, malformed slot keys,
-invalid action identities and metatables. Use `copy(state)` for an already typed state.
-
-## [`src/core/progression/grants.luau`](../src/core/progression/grants.luau)
-
-### `core.progression.grants.grants`
-
-## [`src/core/progression/hearth.luau`](../src/core/progression/hearth.luau)
-
-### `core.progression.hearth.hearth`
-
-## [`src/core/progression/levels.luau`](../src/core/progression/levels.luau)
-
-### `core.progression.levels.levels`
-
-## [`src/core/progression/recovery.luau`](../src/core/progression/recovery.luau)
-
-### `core.progression.recovery.recovery`
-
-## [`src/core/progression/season.luau`](../src/core/progression/season.luau)
-
-### `core.progression.season.season`
-
-## [`src/core/progression/tracking.luau`](../src/core/progression/tracking.luau)
-
-### `core.progression.tracking.tracking`
-
-## [`src/core/progression/transactions.luau`](../src/core/progression/transactions.luau)
-
-### `core.progression.transactions.transactions`
-
-## [`src/core/quest/counter.luau`](../src/core/quest/counter.luau)
-
-### `core.quest.counter.counter`
-
-## [`src/core/quest/index.luau`](../src/core/quest/index.luau)
-
-### `core.quest.index.index`
-
-## [`src/core/quest/lifecycle.luau`](../src/core/quest/lifecycle.luau)
-
-### `core.quest.lifecycle.lifecycle`
-
-## [`src/core/quest/markers.luau`](../src/core/quest/markers.luau)
-
-### `core.quest.markers.markers`
-
-## [`src/core/quest/objectives.luau`](../src/core/quest/objectives.luau)
-
-### `core.quest.objectives.catalog`
-
-## [`src/core/social/allies.luau`](../src/core/social/allies.luau)
-
-### `core.social.allies.allies`
-
-## [`src/core/social/chronicle.luau`](../src/core/social/chronicle.luau)
-
-### `core.social.chronicle.chronicle`
-
-## [`src/core/social/fellowship.luau`](../src/core/social/fellowship.luau)
-
-### `core.social.fellowship.fellowship`
-
-## [`src/core/social/formation.luau`](../src/core/social/formation.luau)
-
-### `core.social.formation.formation`
-
-## [`src/core/social/group.luau`](../src/core/social/group.luau)
-
-### `core.social.group.group`
-
-## [`src/core/social/guildbank.luau`](../src/core/social/guildbank.luau)
-
-### `core.social.guildbank.guildbank`
-
-## [`src/core/social/guildhome.luau`](../src/core/social/guildhome.luau)
-
-### `core.social.guildhome.guildhome`
-
-## [`src/core/social/guildledger.luau`](../src/core/social/guildledger.luau)
-
-### `core.social.guildledger.guildledger`
-
-## [`src/core/social/notes.luau`](../src/core/social/notes.luau)
-
-### `core.social.notes.notes`
-
-## [`src/core/social/profile.luau`](../src/core/social/profile.luau)
-
-### `core.social.profile.profile`
-
-## [`src/core/social/rally.luau`](../src/core/social/rally.luau)
-
-### `core.social.rally.rally`
-
-## [`src/core/social/roster.luau`](../src/core/social/roster.luau)
-
-### `core.social.roster.roster`
-
-## [`src/core/social/shape.luau`](../src/core/social/shape.luau)
-
-### `core.social.shape.array`
-
-### `core.social.shape.boolean`
-
-### `core.social.shape.dense`
-
-### `core.social.shape.denseLength`
-
-### `core.social.shape.exact`
-
-### `core.social.shape.freezeDeep`
-
-### `core.social.shape.freezeDeepWithKeys`
-
-### `core.social.shape.map`
-
-### `core.social.shape.number`
-
-### `core.social.shape.onlyFields`
-
-### `core.social.shape.opaque`
-
-### `core.social.shape.raw`
-
-### `core.social.shape.string`
-
-### `core.social.shape.whole`
-
-## [`src/core/social/warband.luau`](../src/core/social/warband.luau)
-
-### `core.social.warband.warband`
-
-## [`src/core/threat/table.luau`](../src/core/threat/table.luau)
-
-### `core.threat.table.empty`
-
-### `core.threat.table.prune`
-
-### `core.threat.table.remove`
-
-### `core.threat.table.rules`
-
-### `core.threat.table.targetFor`
-
-## [`src/core/trade/exchange.luau`](../src/core/trade/exchange.luau)
-
-### `core.trade.exchange.exchange`
-
-## [`src/core/trade/receipt.luau`](../src/core/trade/receipt.luau)
-
-### `core.trade.receipt.receipts`
-
-## [`src/core/value.luau`](../src/core/value.luau)
-
-### `core.value.dense`
-
-### `core.value.finite`
-
-### `core.value.freezeDeep`
-
-### `core.value.identifier`
-
-### `core.value.nonempty`
-
-### `core.value.opaque`
-
-### `core.value.raw`
-
-### `core.value.record`
-
-### `core.value.whole`
-
-## [`src/core/vendors/exchange.luau`](../src/core/vendors/exchange.luau)
-
-### `core.vendors.exchange.empty`
-
-### `core.vendors.exchange.vendor`
-
-## [`src/roblox/chat.luau`](../src/roblox/chat.luau)
-
-### `roblox.chat.directAllowed`
-
-### `roblox.chat.permission`
-
-### `roblox.chat.removeForeign`
-
-### `roblox.chat.seat`
-
-## [`src/roblox/data-store.luau`](../src/roblox/data-store.luau)
-
-### `roblox.data-store.retryPolicy`
-
-## [`src/roblox/messaging.luau`](../src/roblox/messaging.luau)
-
-### `roblox.messaging.bind`
-
-## [`src/roblox/movement-intake.luau`](../src/roblox/movement-intake.luau)
-
-### `roblox.movement-intake.start`
-
-## [`src/roblox/movement-sender.luau`](../src/roblox/movement-sender.luau)
-
-### `roblox.movement-sender.start`
-
-
-## [`src/roblox/social-host.luau`](../src/roblox/social-host.luau)
-
-### `roblox.social-host.fellowships`
-
-## [`src/roblox/social-records.luau`](../src/roblox/social-records.luau)
-
-### `roblox.social-records.create`
-
-### `roblox.social-records.ledger`
-
-### `roblox.social-records.inbox`
-
-### `roblox.social-records.keyed`
-
-### `roblox.social-records.index`
-
-## [`src/roblox/profile-sessions.luau`](../src/roblox/profile-sessions.luau)
-
-### `roblox.profile-sessions.new`
-
-## [`src/roblox/profile-transfer.luau`](../src/roblox/profile-transfer.luau)
-
-### `roblox.profile-transfer.exclusive`
-
-### `roblox.profile-transfer.profileFor`
-
-### `roblox.profile-transfer.sameSession`
-
-### `roblox.profile-transfer.settle`
-
-## [`src/roblox/remote-events.luau`](../src/roblox/remote-events.luau)
-
-### `roblox.remote-events.transport`
-
-## [`src/roblox/travel-placement.luau`](../src/roblox/travel-placement.luau)
-
-### `roblox.travel-placement.entrance`
-
-### `roblox.travel-placement.place`
-
-## [`src/test-scene/cast.luau`](../src/test-scene/cast.luau)
-
-### `test-scene.cast.new`
-
-## [`src/test-scene/clock.luau`](../src/test-scene/clock.luau)
-
-### `test-scene.clock.new`
-
-## [`src/test-scene/diminishing.luau`](../src/test-scene/diminishing.luau)
-
-### `test-scene.diminishing.new`
-
-[Source](../src/test-scene/diminishing.luau). Signature: `new(config: Config)`.
-Creates an isolated ledger host with a fake `clock`.
-It supplies `apply(category, durationSec)` and detached `snapshot()` values.
-It does not schedule work or install effects.
-
-## [`src/test-scene/effects.luau`](../src/test-scene/effects.luau)
-
-### `test-scene.effects.new`
-
-## [`src/test-scene/owner.luau`](../src/test-scene/owner.luau)
-
-### `test-scene.owner.new`
-
-## [`src/test-scene/signal.luau`](../src/test-scene/signal.luau)
-
-### `test-scene.signal.new`
-
-## [`src/test-scene/threat.luau`](../src/test-scene/threat.luau)
-
-### `test-scene.threat.new`
-
-## [`src/test-scene/vendor.luau`](../src/test-scene/vendor.luau)
-
-### `test-scene.vendor.new`
-
-## [`src/core/internal/chronicle-read.luau`](../src/core/internal/chronicle-read.luau)
-
-The system module uses these internal input readers.
-Use the system module for game code.
-
-### `core.internal.chronicle-read.readDefinition`
-
-### `core.internal.chronicle-read.readActiveVow`
-
-### `core.internal.chronicle-read.readDeed`
-
-### `core.internal.chronicle-read.readState`
-
-## [`src/core/internal/fellowship-read.luau`](../src/core/internal/fellowship-read.luau)
-
-The system module uses these internal input readers.
-Use the system module for game code.
-
-### `core.internal.fellowship-read.readState`
-
-### `core.internal.fellowship-read.readFoundRequest`
-
-### `core.internal.fellowship-read.readFormationRequest`
-
-## [`src/core/internal/season-read.luau`](../src/core/internal/season-read.luau)
-
-The system module uses these internal input readers.
-Use the system module for game code.
-
-### `core.internal.season-read.readState`
-
-### `core.internal.season-read.readAuthoredDefinition`
-
-### `core.internal.season-read.readEvent`
-
-[Source](../src/core/internal/season-read.luau).
-
-## [`src/core/map/exploration.luau`](../src/core/map/exploration.luau)
-
-### `core.map.exploration.new`
-
-Supply the marker-kind decoder and reveal radius. The immutable system validates catalogs and
-saved discoveries, merges explored identities, applies observations, and projects one-time discovery
-presentations. The decoder admits the existing string kind without rewriting its identity. Invalid
-input refuses without changing the prior state. Catalog order governs output.
-
-## [`src/core/map/coordinates.luau`](../src/core/map/coordinates.luau)
-
-### `core.map.coordinates.worldToMap`
-
-### `core.map.coordinates.mapToWorld`
-
-Convert finite coordinates through validated bounds, clamping at the map boundary.
-
-## [`src/core/map/geometry.luau`](../src/core/map/geometry.luau)
-
-### `core.map.geometry.imagePan`
-
-### `core.map.geometry.projectMarker`
-
-### `core.map.geometry.projectTrackedWaypoint`
-
-Project normalized markers into a circular viewport. Only tracked waypoints clamp to its edge.
-
-## [`src/core/map/viewport.luau`](../src/core/map/viewport.luau)
-
-### `core.map.viewport.build`
-
-Build the player-centered viewport from validated explored identities and normalized marker rows.
-
-## [`src/core/map/updates.luau`](../src/core/map/updates.luau)
-
-### `core.map.updates.new`
-
-Supply the update frequency. Pan follows that cadence; changed marker revisions update immediately.
-Reversed clocks and invalid samples refuse.
-
-## [`src/core/map/renderer.luau`](../src/core/map/renderer.luau)
-
-### `core.map.renderer.new`
-
-Compose surface policy, update state and viewport projection. Supply catalog normalization, surface
-resolution and update transition functions. Disabled surfaces retain their previous update state.
-
-## [`src/core/map/polyline.luau`](../src/core/map/polyline.luau)
-
-### `core.map.polyline.simplifyPolyline`
-
-### `core.map.polyline.smoothPolyline`
-
-Simplify by caller tolerance and smooth map paths while preserving both endpoints.
-
-## [`src/core/inventory/cargo.luau`](../src/core/inventory/cargo.luau)
-
-### `core.inventory.cargo.create`
-
-Creates immutable claim custody, drop recovery, expiry and delivery transitions.
-The caller supplies text, quantity and clock bounds and ledger intent identifiers.
-State projection refuses inconsistent custody. Claims and deliveries are replay-safe;
-clocks are monotonic, recovery closes at expiry and delivery can select carried claims.
-The game owns goods, admission, supply rules, rewards and durable intent settlement.
-
-## [`src/core/progression/reputation.luau`](../src/core/progression/reputation.luau)
-
-### `core.progression.reputation.create`
-
-Creates a replay-safe event ledger and derived seasonal/lifetime standings. The caller supplies
-admitted earning kinds and realms, numeric bounds, curve requirements, rates, thresholds and titles.
-Saved history refuses duplicate event identities and regressed timestamps. Replaying identical credit
-does not award twice; conflicting credit refuses. Standings are sorted by account, realm and season.
-
-## [`src/core/progression/standing-credit.luau`](../src/core/progression/standing-credit.luau)
-
-### `core.progression.standing-credit.create`
-
-Coordinates bounded cumulative standing credit through injected authority, clock, readiness,
-committed totals and write callbacks. Flush retains accrual made during a write and retires only
-captured acknowledgments. Transient budget deferral retains authority; uncertain writes stop it.
-Saved floors prevent replay after reconnect. Offline recovery verifies the exact identity and amount
-before acknowledgment. The caller owns persistence, stream identifiers, profile schema and rewards.
-
-## [`src/core/persistence/store-host.luau`](../src/core/persistence/store-host.luau)
-
-### `core.persistence.store-host.create`
-
-Builds memory and injected persistent store adapters and bounded close draining. The caller supplies
-retry timing, key bounds, backend operations, uncached-read options, budget admission and circuit policy.
-Queued operations retain per-key order across handles that share a state identity. Failed atomic
-outcome transforms are removed rather than silently replayed later. Legacy queued writes retain
-their retry behavior. Memory transactions copy inputs and readback and reject cycles and non-data
-values. Observations report operation latency, budget waits and retries. Profile schema, partition
-keys, lease authority and durable record validation belong to the consumer.
-
-## [`src/core/persistence/profile-session.luau`](../src/core/persistence/profile-session.luau)
-
-### `core.persistence.profile-session.create`
-
-Creates a mutable session lifetime state machine with injected lease, renewal, coalescing and close
-budgets and admitted dirty reasons. In-flight generations preserve concurrent changes. Expiry fences
-late write completion; successful close releases only within the shutdown budget. The consumer owns
-lease acquisition, renewal, durable readback, schema and partition keys.
-## [`src/core/character/respawn-host.luau`](../src/core/character/respawn-host.luau)
+```luau
+function Queue.windows(now: number, gcdSec: number, castSec: number, channelSec: number): Windows
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+gcdReadyAt = now + gcdSec
+castReadyAt = now + castSec
+channelReadyAt = now + channelSec
+```
+
+## `core.cast`
+
+[Source](../src/core/cast.luau)
+
+```luau
+local Queue = require("./cast/queue")
+```
+
+### `core.cast.QueueConfig`
+
+```luau
+export type QueueConfig = Queue.Config
+```
+
+### `core.cast.QueueEntry`
+
+```luau
+export type QueueEntry<T> = Queue.Entry<T>
+```
+
+### `core.cast.QueueState`
+
+```luau
+export type QueueState<T> = Queue.State<T>
+```
+
+### `core.cast.QueueWindows`
+
+```luau
+export type QueueWindows = Queue.Windows
+```
+
+### `core.cast.API`
+
+```luau
+export type API = {
+	read queue: typeof(Queue),
+}
+```
+
+### `core.cast.queue`
+
+Exported value; see its declaration in [source](../src/core/cast.luau).
+
+## `core.character.respawn-host`
+
+[Source](../src/core/character/respawn-host.luau)
+
+### `core.character.respawn-host.Refresh`
+
+```luau
+export type Refresh<C> = { previous: C?, character: C?, invalid: boolean? }
+```
+
+### `core.character.respawn-host.Observation`
+
+```luau
+export type Observation<C> = {
+	characterPresent: boolean,
+	engineCharacter: C?,
+	liveBody: boolean,
+	actorPresent: boolean,
+	alive: boolean,
+	hp: number?,
+	zoneId: string,
+}
+```
+
+### `core.character.respawn-host.Dependencies`
+
+```luau
+export type Dependencies<P, C, H, O, S> = {
+	owner: O,
+	child: (O) -> O,
+	dispose: (O) -> (),
+	own: (O, () -> ()) -> (),
+	clock: () -> number,
+	schedule: (number, () -> ()) -> () -> (),
+	spawn: (() -> ()) -> () -> (),
+	pollSec: number,
+	observe: (O, P, (Observation<C>) -> ()) -> (),
+	sample: (P) -> Observation<C>,
+	stamp: (P, string) -> boolean,
+	record: (P, string) -> (),
+	error: (P, unknown) -> (),
+	characterChanged: (P) -> (),
+	rememberBody: (P) -> (),
+	nextPending: (boolean?, boolean, number?, number, boolean) -> number?,
+	recordDeath: (P) -> (),
+	onCancel: (P, string) -> (),
+	onUntrack: (P) -> (),
+	canSchedule: (P) -> boolean,
+	delaySec: () -> number,
+	automatic: (P) -> boolean,
+	respawn: (P) -> boolean,
+	ready: (P) -> (),
+	isNative: (P) -> boolean,
+	currentCharacter: (P) -> C?,
+	observeCharacter: (O, P, (C?) -> ()) -> (),
+	findHumanoid: (C) -> H?,
+	waitHumanoid: (C) -> H?,
+	prepareHumanoid: (H) -> (),
+	observeDeath: (O, H, () -> ()) -> (),
+	isDead: (H) -> boolean,
+	engineDeath: (P) -> (),
+	context: (P) -> S?,
+	present: (P) -> boolean,
+	refreshPending: (P, boolean) -> (),
+}
+```
+
+### `core.character.respawn-host.Host`
+
+```luau
+export type Host<P, C, O> = {
+	pendingAt: { [P]: number },
+	watchers: { [P]: O },
+	plannedRefresh: { [P]: boolean },
+	refreshes: { [P]: Refresh<C> },
+	cancelPending: (P, string) -> (),
+	schedulePending: (P) -> (),
+	reschedule: () -> (),
+	track: (P) -> (),
+	untrack: (P) -> (),
+	refresh: <F>(
+		P,
+		(() -> boolean) -> (unknown, string?, F?),
+		() -> boolean,
+		() -> (),
+		(F?, () -> boolean) -> ()
+	) -> boolean,
+	dispose: () -> (),
+}
+```
 
 ### `core.character.respawn-host.completeSpawn`
 
-Attempts a supplied spawn up to three times. Current-session and body-validity predicates must hold
-before a destination can be restored. Exceptions and cancellation return explicit refusal reasons.
+```luau
+function Respawn.completeSpawn<F>(
+	spawn: () -> (unknown, string?, F?),
+	valid: () -> boolean,
+	current: () -> boolean,
+	pause: () -> (),
+	restore: (F?) -> ()
+): (boolean, string?)
+```
 
 ### `core.character.respawn-host.create`
 
-Creates cancellable character watches, recovery timers and guarded character replacement through
-injected owners, observations, scheduling and engine operations. Character generations reject stale
-humanoid waits. Context changes and replacement characters revoke an outstanding spawn. The caller
-owns death timing, persistence admission, bind destinations, recovery rules, protection and presentation.
+```luau
+function Respawn.create<P, C, H, O, S>(deps: Dependencies<P, C, H, O, S>): Host<P, C, O>
+```
+
+## `core.character`
+
+[Source](../src/core/character.luau)
+
+```luau
+local RespawnHost = require("./character/respawn-host")
+```
+
+### `core.character.RespawnHostRefresh`
+
+```luau
+export type RespawnHostRefresh<C> = RespawnHost.Refresh<C>
+```
+
+### `core.character.RespawnHostObservation`
+
+```luau
+export type RespawnHostObservation<C> = RespawnHost.Observation<C>
+```
+
+### `core.character.RespawnHostDependencies`
+
+```luau
+export type RespawnHostDependencies<P, C, H, O, S> = RespawnHost.Dependencies<P, C, H, O, S>
+```
+
+### `core.character.RespawnHostHost`
+
+```luau
+export type RespawnHostHost<P, C, O> = RespawnHost.Host<P, C, O>
+```
+
+### `core.character.API`
+
+```luau
+export type API = {
+	read respawn_host: typeof(RespawnHost),
+}
+```
+
+### `core.character.respawn_host`
+
+Exported value; see its declaration in [source](../src/core/character.luau).
+
+## `core.chat.channels`
+
+[Source](../src/core/chat/channels.luau)
+
+```luau
+local Rate = require("../net/rate-limit")
+```
+
+### `core.chat.channels.Member`
+
+```luau
+export type Member = {
+	id: number,
+	realm: unknown,
+	party: unknown,
+	guild: unknown,
+	warband: unknown,
+}
+```
+
+### `core.chat.channels.Audience`
+
+```luau
+export type Audience = "say" | "realm" | "party" | "guild" | "warband" | "whisper"
+```
+
+### `core.chat.channels.Rule`
+
+```luau
+export type Rule = {
+	audience: Audience,
+	sameRealm: boolean,
+	selfDelivery: boolean,
+}
+```
+
+### `core.chat.channels.Bucket`
+
+```luau
+export type Bucket = Rate.Bucket
+```
+
+### `core.chat.channels.Budget`
+
+```luau
+export type Budget = Rate.Config
+```
+
+### `core.chat.channels.allows`
+
+```luau
+function Channels.allows(rule: Rule, speaker: Member, listener: Member, reachable: boolean, pair: { number }?): boolean
+```
+
+### `core.chat.channels.consume`
+
+```luau
+function Channels.consume(bucket: Bucket?, budget: Budget, now: number, cost: number?): (boolean, Bucket)
+```
+
+### `core.chat.channels.pairName`
+
+```luau
+function Channels.pairName(prefix: string, first: number, second: number): string
+```
+
+### `core.chat.channels.parse`
+
+```luau
+function Channels.parse(input: string, commands: { [string]: string }): (string?, string)
+```
+
+### `core.chat.channels.trim`
+
+```luau
+function Channels.trim<T>(lines: { T }, limit: number): { T }
+```
+
+### `core.chat.channels.window`
+
+```luau
+function Channels.window<T>(lines: { T }, now: number, duration: number, timeOf: (T) -> number): { T }
+```
+
+## `core.chat`
+
+[Source](../src/core/chat.luau)
+
+```luau
+local Channels = require("./chat/channels")
+```
+
+### `core.chat.ChannelsMember`
+
+```luau
+export type ChannelsMember = Channels.Member
+```
+
+### `core.chat.ChannelsAudience`
+
+```luau
+export type ChannelsAudience = Channels.Audience
+```
+
+### `core.chat.ChannelsRule`
+
+```luau
+export type ChannelsRule = Channels.Rule
+```
+
+### `core.chat.ChannelsBucket`
+
+```luau
+export type ChannelsBucket = Channels.Bucket
+```
+
+### `core.chat.ChannelsBudget`
+
+```luau
+export type ChannelsBudget = Channels.Budget
+```
+
+### `core.chat.API`
+
+```luau
+export type API = {
+	read channels: typeof(Channels),
+}
+```
+
+### `core.chat.channels`
+
+Exported value; see its declaration in [source](../src/core/chat.luau).
+
+## `core.control.diminishing`
+
+[Source](../src/core/control/diminishing.luau)
+
+### `core.control.diminishing.Bucket`
+
+```luau
+export type Bucket = { count: number, windowExpiry: number }
+```
+
+### `core.control.diminishing.State`
+
+```luau
+export type State = { [string]: Bucket }
+```
+
+### `core.control.diminishing.Category`
+
+```luau
+export type Category = {
+	family: string,
+	durationCapSec: number,
+	immunityPrice: number,
+	immunityMinSec: number,
+	immunityMaxSec: number,
+}
+```
+
+### `core.control.diminishing.Config`
+
+```luau
+export type Config = { resetSec: number, multipliers: { number }, categories: { [string]: Category } }
+```
+
+### `core.control.diminishing.Step`
+
+```luau
+export type Step = "full" | "reduced" | "immune"
+```
+
+### `core.control.diminishing.Result`
+
+```luau
+export type Result = { dr: State, grantedSec: number, multiplier: number, step: Step, immune: boolean }
+```
+
+### `core.control.diminishing.clone`
+
+```luau
+function Diminishing.clone(state: State): State
+```
+
+### `core.control.diminishing.empty`
+
+```luau
+function Diminishing.empty(): State
+```
+
+### `core.control.diminishing.rules`
+
+```luau
+function Diminishing.rules(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+apply = function apply(state: State, category: string, baseDurationSec: number, nowSec: number): Result
+```
+
+## `core.control`
+
+[Source](../src/core/control.luau)
+
+```luau
+local Diminishing = require("./control/diminishing")
+```
+
+### `core.control.DiminishingBucket`
+
+```luau
+export type DiminishingBucket = Diminishing.Bucket
+```
+
+### `core.control.DiminishingState`
+
+```luau
+export type DiminishingState = Diminishing.State
+```
+
+### `core.control.DiminishingCategory`
+
+```luau
+export type DiminishingCategory = Diminishing.Category
+```
+
+### `core.control.DiminishingConfig`
+
+```luau
+export type DiminishingConfig = Diminishing.Config
+```
+
+### `core.control.DiminishingStep`
+
+```luau
+export type DiminishingStep = Diminishing.Step
+```
+
+### `core.control.DiminishingResult`
+
+```luau
+export type DiminishingResult = Diminishing.Result
+```
+
+### `core.control.API`
+
+```luau
+export type API = {
+	read diminishing: typeof(Diminishing),
+}
+```
+
+### `core.control.diminishing`
+
+Exported value; see its declaration in [source](../src/core/control.luau).
+
+## `core.craft.recipes`
+
+[Source](../src/core/craft/recipes.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.craft.recipes.MaterialStack`
+
+```luau
+export type MaterialStack = { materialId: string, source: string, quantity: number }
+```
+
+### `core.craft.recipes.Recipe`
+
+```luau
+export type Recipe = { id: string, rung: string, outputItemId: string, inputs: { MaterialStack } }
+```
+
+### `core.craft.recipes.SourceRule`
+
+```luau
+export type SourceRule = { min: number?, max: number? }
+```
+
+### `core.craft.recipes.Config`
+
+```luau
+export type Config = { sources: { [string]: boolean }, rungs: { [string]: { [string]: SourceRule } } }
+```
+
+### `core.craft.recipes.Catalog`
+
+```luau
+export type Catalog = { projectRecipe: (unknown) -> Recipe? }
+```
+
+### `core.craft.recipes.catalog`
+
+```luau
+function Recipes.catalog(config: Config): Catalog
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+projectRecipe = function(value: unknown): Recipe?
+```
+
+## `core.craft`
+
+[Source](../src/core/craft.luau)
+
+```luau
+local Recipes = require("./craft/recipes")
+```
+
+### `core.craft.RecipesMaterialStack`
+
+```luau
+export type RecipesMaterialStack = Recipes.MaterialStack
+```
+
+### `core.craft.RecipesRecipe`
+
+```luau
+export type RecipesRecipe = Recipes.Recipe
+```
+
+### `core.craft.RecipesSourceRule`
+
+```luau
+export type RecipesSourceRule = Recipes.SourceRule
+```
+
+### `core.craft.RecipesConfig`
+
+```luau
+export type RecipesConfig = Recipes.Config
+```
+
+### `core.craft.RecipesCatalog`
+
+```luau
+export type RecipesCatalog = Recipes.Catalog
+```
+
+### `core.craft.API`
+
+```luau
+export type API = {
+	read recipes: typeof(Recipes),
+}
+```
+
+### `core.craft.recipes`
+
+Exported value; see its declaration in [source](../src/core/craft.luau).
+
+## `core.effects.timed`
+
+[Source](../src/core/effects/timed.luau)
+
+### `core.effects.timed.Entry`
+
+```luau
+export type Entry = {
+	remainingSec: number,
+	totalSec: number,
+	stacks: number?,
+	tickInSec: number?,
+}
+```
+
+### `core.effects.timed.Application`
+
+```luau
+export type Application = {
+	durationSec: number,
+	stacks: number?,
+	stackLimit: number?,
+	tickInSec: number?,
+}
+```
+
+### `core.effects.timed.Refresh`
+
+```luau
+export type Refresh = "reset" | "extend" | "keep"
+```
+
+### `core.effects.timed.advance`
+
+```luau
+function Timed.advance(effect: Entry, dt: number): Entry
+```
+
+### `core.effects.timed.advanceTimes`
+
+```luau
+function Timed.advanceTimes(remainingSec: number, tickInSec: number?, dt: number): (number, number?)
+```
+
+### `core.effects.timed.application`
+
+```luau
+function Timed.application(prior: Entry?, application: Application): Entry
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+remainingSec = application.durationSec
+totalSec = application.durationSec
+stacks = stacks
+tickInSec = application.tickInSec
+```
+
+### `core.effects.timed.count`
+
+```luau
+function Timed.count<A, B>(buffs: { [string]: A }, debuffs: { [string]: B }): number
+```
+
+### `core.effects.timed.dispelFirst`
+
+```luau
+function Timed.dispelFirst<T>(effects: { T }, matches: (T) -> boolean, copy: (T) -> T): ({ T }, T?)
+```
+
+### `core.effects.timed.expired`
+
+```luau
+function Timed.expired(effect: Entry, epsilon: number): boolean
+```
+
+### `core.effects.timed.refresh`
+
+```luau
+function Timed.refresh(effect: Entry, duration: number, mode: Refresh): Entry
+```
+
+### `core.effects.timed.remainingFraction`
+
+```luau
+function Timed.remainingFraction(endsAt: number, totalSec: number, now: number): number
+```
+
+### `core.effects.timed.remainingSec`
+
+```luau
+function Timed.remainingSec(endsAt: number, now: number): number
+```
+
+## `core.effects`
+
+[Source](../src/core/effects.luau)
+
+```luau
+local Timed = require("./effects/timed")
+```
+
+### `core.effects.TimedEntry`
+
+```luau
+export type TimedEntry = Timed.Entry
+```
+
+### `core.effects.TimedApplication`
+
+```luau
+export type TimedApplication = Timed.Application
+```
+
+### `core.effects.TimedRefresh`
+
+```luau
+export type TimedRefresh = Timed.Refresh
+```
+
+### `core.effects.API`
+
+```luau
+export type API = {
+	read timed: typeof(Timed),
+}
+```
+
+### `core.effects.timed`
+
+Exported value; see its declaration in [source](../src/core/effects.luau).
+
+## `core.events.catalog`
+
+[Source](../src/core/events/catalog.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.events.catalog.Flag`
+
+```luau
+export type Flag = string | boolean | number
+```
+
+### `core.events.catalog.Rollout`
+
+```luau
+export type Rollout = { mode: string, percent: number?, salt: string? }
+```
+
+### `core.events.catalog.Schedule`
+
+```luau
+export type Schedule = { startUnix: number, endUnix: number }
+```
+
+### `core.events.catalog.Event`
+
+```luau
+export type Event = {
+	id: string,
+	title: string,
+	realm: string,
+	priority: number?,
+	schedule: Schedule,
+	rollout: Rollout?,
+	rewards: { [string]: number }?,
+	contentScale: { [string]: { string } },
+	flags: { [string]: Flag }?,
+}
+```
+
+### `core.events.catalog.Catalog`
+
+```luau
+export type Catalog = { schemaVersion: number, events: { Event } }
+```
+
+### `core.events.catalog.Config`
+
+```luau
+export type Config = { schemaVersion: number, contentKeys: { string } }
+```
+
+### `core.events.catalog.catalog`
+
+```luau
+function System.catalog(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+projectEvent = function projectEvent(value: unknown): (Event?, string?)
+validateCatalog = function validateCatalog(value: unknown): (boolean, { string })
+SCHEMA_VERSION = config.schemaVersion
+```
+
+### `core.events.catalog.finite`
+
+```luau
+function finite(value: unknown): number?
+```
+
+## `core.events.schedule`
+
+[Source](../src/core/events/schedule.luau)
+
+```luau
+local Catalog = require("./catalog")
+```
+
+### `core.events.schedule.Event`
+
+```luau
+export type Event = Catalog.Event
+```
+
+### `core.events.schedule.Catalog`
+
+```luau
+export type Catalog = Catalog.Catalog
+```
+
+### `core.events.schedule.Context`
+
+```luau
+export type Context = {
+	nowUnix: number,
+	shardId: string?,
+	playerId: number?,
+	liveConfig: { flags: { [string]: Catalog.Flag }, killSwitches: { [string]: boolean } }?,
+}
+```
+
+### `core.events.schedule.Effect`
+
+```luau
+export type Effect = {
+	rewards: { [string]: number },
+	flags: { [string]: Catalog.Flag },
+	contentScale: { [string]: { string } },
+}
+```
+
+### `core.events.schedule.Resolution`
+
+```luau
+export type Resolution = { events: { Event }, effect: Effect }
+```
+
+### `core.events.schedule.Config`
+
+```luau
+export type Config = {
+	catalog: Catalog,
+	schemaVersion: number,
+	maxRewardMultiplier: number,
+	multiplierKeys: { string },
+	bonusKeys: { string },
+	contentKeys: { string },
+	killSwitch: string,
+	enabledFlag: string,
+}
+```
+
+### `core.events.schedule.schedule`
+
+```luau
+function System.schedule(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+resolve = function resolve(supplied: Catalog?, context: Context): Resolution
+validateCatalog = function validateCatalog(value: Catalog?): (boolean, { string })
+stableBucket = function stableBucket(key: string): number
+MAX_REWARD_MULTIPLIER = config.maxRewardMultiplier
+SCHEMA_VERSION = config.schemaVersion
+```
+
+## `core.events.watch`
+
+[Source](../src/core/events/watch.luau)
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.events.watch.Phase`
+
+```luau
+export type Phase = "dormant" | "active" | "succeeded" | "failed" | "recovery"
+```
+
+### `core.events.watch.WorkPoint`
+
+```luau
+export type WorkPoint = { id: string, actionText: string, position: { x: number, y: number, z: number } }
+```
+
+### `core.events.watch.Event`
+
+```luau
+export type Event = {
+	workPoints: { WorkPoint },
+	protectionPlacementIds: { string },
+	id: string,
+	realmId: string,
+	zoneKey: string,
+	surfacePoiId: string,
+	surfaceName: string,
+	questId: string,
+	mobId: string,
+	arrivalText: string,
+	activeText: string,
+	successText: string,
+	failureText: string,
+	rewardId: string,
+	durationSec: number,
+	recoverySec: number,
+	maxParticipants: number,
+}
+```
+
+### `core.events.watch.State`
+
+```luau
+export type State = {
+	workDone: { [string]: boolean },
+	protectionCount: number,
+	lastClockSec: number,
+	cycle: number,
+	phase: Phase,
+	startedAtSec: number?,
+	endsAtSec: number?,
+	recoversAtSec: number?,
+	target: number,
+	progress: number,
+	participantCount: number,
+	participants: { [string]: boolean },
+	contributions: { [string]: number },
+	contributionEvents: { [string]: string },
+	claims: { [string]: string },
+}
+```
+
+### `core.events.watch.Result`
+
+```luau
+export type Result = {
+	state: State,
+	ok: boolean,
+	reason: string?,
+	replayed: boolean,
+	rewardId: string?,
+	rewardTicket: string?,
+}
+```
+
+### `core.events.watch.Config`
+
+```luau
+export type Config = {
+	realms: { [string]: boolean },
+	workPointCount: number,
+	minProtectionPlacements: number,
+	protectionTarget: number,
+	ticketPrefix: string,
+	ordinaryTiers: { [string]: boolean },
+}
+```
+
+### `core.events.watch.watch`
+
+```luau
+function System.watch(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+projectEvent = function PublicWatchCore.projectEvent(value: unknown): Event?
+protectionBindingsValid = function PublicWatchCore.protectionBindingsValid(event: Event, placements: unknown, mobs: unknown): boolean
+emptyState = function PublicWatchCore.emptyState(): State
+sync = function PublicWatchCore.sync(state: State, event: Event, nowSec: number): Result
+join = function PublicWatchCore.join(
+		state: State,
+		event: Event,
+		actorId: string,
+		actorRealmId: string,
+		nowSec: number
+	): Result
+work = function PublicWatchCore.work(
+		state: State,
+		event: Event,
+		actorId: string,
+		realmId: string,
+		pointId: string,
+		nowSec: number
+	): Result
+protect = function PublicWatchCore.protect(
+		state: State,
+		event: Event,
+		eventId: string,
+		actorIds: { string },
+		nowSec: number
+	): Result
+leave = function PublicWatchCore.leave(state: State, event: Event, actorId: string, nowSec: number): Result
+claim = function PublicWatchCore.claim(
+		state: State,
+		event: Event,
+		actorId: string,
+		actorRealmId: string,
+		nowSec: number
+	): Result
+```
+
+## `core.events`
+
+[Source](../src/core/events.luau)
+
+```luau
+local Catalog = require("./events/catalog")
+```
+
+```luau
+local Schedule = require("./events/schedule")
+```
+
+```luau
+local Watch = require("./events/watch")
+```
+
+### `core.events.CatalogFlag`
+
+```luau
+export type CatalogFlag = Catalog.Flag
+```
+
+### `core.events.CatalogRollout`
+
+```luau
+export type CatalogRollout = Catalog.Rollout
+```
+
+### `core.events.CatalogSchedule`
+
+```luau
+export type CatalogSchedule = Catalog.Schedule
+```
+
+### `core.events.CatalogEvent`
+
+```luau
+export type CatalogEvent = Catalog.Event
+```
+
+### `core.events.CatalogCatalog`
+
+```luau
+export type CatalogCatalog = Catalog.Catalog
+```
+
+### `core.events.CatalogConfig`
+
+```luau
+export type CatalogConfig = Catalog.Config
+```
+
+### `core.events.ScheduleEvent`
+
+```luau
+export type ScheduleEvent = Schedule.Event
+```
+
+### `core.events.ScheduleCatalog`
+
+```luau
+export type ScheduleCatalog = Schedule.Catalog
+```
+
+### `core.events.ScheduleContext`
+
+```luau
+export type ScheduleContext = Schedule.Context
+```
+
+### `core.events.ScheduleEffect`
+
+```luau
+export type ScheduleEffect = Schedule.Effect
+```
+
+### `core.events.ScheduleResolution`
+
+```luau
+export type ScheduleResolution = Schedule.Resolution
+```
+
+### `core.events.ScheduleConfig`
+
+```luau
+export type ScheduleConfig = Schedule.Config
+```
+
+### `core.events.WatchPhase`
+
+```luau
+export type WatchPhase = Watch.Phase
+```
+
+### `core.events.WatchWorkPoint`
+
+```luau
+export type WatchWorkPoint = Watch.WorkPoint
+```
+
+### `core.events.WatchEvent`
+
+```luau
+export type WatchEvent = Watch.Event
+```
+
+### `core.events.WatchState`
+
+```luau
+export type WatchState = Watch.State
+```
+
+### `core.events.WatchResult`
+
+```luau
+export type WatchResult = Watch.Result
+```
+
+### `core.events.WatchConfig`
+
+```luau
+export type WatchConfig = Watch.Config
+```
+
+### `core.events.API`
+
+```luau
+export type API = {
+	read catalog: typeof(Catalog),
+	read schedule: typeof(Schedule),
+	read watch: typeof(Watch),
+}
+```
+
+### `core.events.catalog`
+
+Exported value; see its declaration in [source](../src/core/events.luau).
+
+### `core.events.schedule`
+
+Exported value; see its declaration in [source](../src/core/events.luau).
+
+### `core.events.watch`
+
+Exported value; see its declaration in [source](../src/core/events.luau).
+
+## `core.identity.account-lease`
+
+[Source](../src/core/identity/account-lease.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.identity.account-lease.Lease`
+
+```luau
+export type Lease = {
+	schemaVersion: number,
+	userId: number,
+	revision: number,
+	fence: number,
+	sessionId: string | false,
+	acquisitionId: string | false,
+	expiresAtUnix: number,
+}
+```
+
+### `core.identity.account-lease.MAX_FENCE`
+
+Exported value; see its declaration in [source](../src/core/identity/account-lease.luau).
+
+### `core.identity.account-lease.MAX_ID_BYTES`
+
+Exported value; see its declaration in [source](../src/core/identity/account-lease.luau).
+
+### `core.identity.account-lease.MAX_REVISION`
+
+Exported value; see its declaration in [source](../src/core/identity/account-lease.luau).
+
+### `core.identity.account-lease.MAX_SAFE_INTEGER`
+
+Exported value; see its declaration in [source](../src/core/identity/account-lease.luau).
+
+### `core.identity.account-lease.SCHEMA_VERSION`
+
+Exported value; see its declaration in [source](../src/core/identity/account-lease.luau).
+
+### `core.identity.account-lease.acquire`
+
+```luau
+function Record.acquire(
+	currentRaw: unknown,
+	userIdValue: unknown,
+	sessionIdValue: unknown,
+	acquisitionIdValue: unknown,
+	nowValue: unknown,
+	ttlValue: unknown
+): (Lease?, string)
+```
+
+### `core.identity.account-lease.copy`
+
+```luau
+function Record.copy(raw: unknown): Lease?
+```
+
+### `core.identity.account-lease.empty`
+
+```luau
+function Record.empty(userId: unknown): Lease?
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+schemaVersion = Record.SCHEMA_VERSION
+userId = userId
+revision = 0
+fence = 0
+sessionId = false
+acquisitionId = false
+expiresAtUnix = 0
+```
+
+### `core.identity.account-lease.equal`
+
+```luau
+function Record.equal(leftRaw: unknown, rightRaw: unknown): boolean
+```
+
+### `core.identity.account-lease.release`
+
+```luau
+function Record.release(
+	currentRaw: unknown,
+	userIdValue: unknown,
+	sessionIdValue: unknown,
+	acquisitionIdValue: unknown,
+	expectedRevisionValue: unknown,
+	expectedFenceValue: unknown
+): (Lease?, string)
+```
+
+### `core.identity.account-lease.renew`
+
+```luau
+function Record.renew(
+	currentRaw: unknown,
+	userIdValue: unknown,
+	sessionIdValue: unknown,
+	acquisitionIdValue: unknown,
+	expectedRevisionValue: unknown,
+	expectedFenceValue: unknown,
+	nowValue: unknown,
+	ttlValue: unknown
+): (Lease?, string)
+```
+
+### `core.identity.account-lease.validate`
+
+```luau
+function Record.validate(raw: unknown): Lease?
+```
+
+## `core.identity.account`
+
+[Source](../src/core/identity/account.luau)
+
+```luau
+local Shape = require("../social/shape")
+```
+
+```luau
+local Creation = require("./creation")
+```
+
+```luau
+local CreationRecord = require("./creation-record")
+```
+
+```luau
+local Deletion = require("./deletion")
+```
+
+```luau
+local HasMetatable = require("./value")
+```
+
+```luau
+local Roster = require("./roster")
+```
+
+### `core.identity.account.DeletionState`
+
+```luau
+export type DeletionState = Deletion.State
+```
+
+### `core.identity.account.Base`
+
+```luau
+export type Base = {
+	schemaVersion: number,
+	userId: number,
+	revision: number,
+	roster: RosterState,
+	profiles: { Seed },
+	pendingProfile: Seed | false,
+	activeCreation: CreationState | false,
+	activeDeletion: DeletionState | false,
+	receipts: { Receipt },
+}
+```
+
+### `core.identity.account.CreationReceipt`
+
+```luau
+export type CreationReceipt = {
+	characterId: string,
+	displayName: string,
+	realmId: string,
+	peopleId: string,
+	classId: string,
+	appearancePresetId: string,
+	receipt: Receipt,
+}
+```
+
+### `core.identity.account.Account`
+
+```luau
+export type Account<E> = Base & E
+```
+
+### `core.identity.account.Extension`
+
+```luau
+export type Extension<E> = {
+	read fields: { read [string]: boolean },
+	read project: (Base, unknown, DeletionState?) -> Account<E>?,
+}
+```
+
+```luau
+local Policy = require("./policy")
+```
+
+### `core.identity.account.create`
+
+```luau
+function create<E>(policy: Policy.Policy, extension: Extension<E>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+transition = function Aggregate.transition(raw: unknown, nextRaw: unknown): (State?, string?)
+transitionDeletion = function Aggregate.transitionDeletion(raw: unknown, nextRaw: unknown): (State?, string?)
+clearDeletionTerminal = function Aggregate.clearDeletionTerminal(raw: unknown): (State?, string?)
+validate = function Aggregate.validate(candidate: unknown): State?
+validateStored = function Aggregate.validateStored(candidate: unknown): State?
+copy = function Aggregate.copy(raw: unknown): State?
+clearTerminal = function Aggregate.clearTerminal(raw: unknown): (State?, string?)
+removeCharacter = function Aggregate.removeCharacter(raw: unknown, characterId: unknown): (State?, string?)
+markCharacterLevel = function Aggregate.markCharacterLevel(raw: unknown, characterId: unknown, level: unknown): (State?, string?)
+markCharacterDeparted = function Aggregate.markCharacterDeparted(
+		raw: unknown,
+		characterId: unknown,
+		destinationId: unknown
+	): (State?, string?)
+markCharacterPlayed = function Aggregate.markCharacterPlayed(raw: unknown, characterId: unknown, playedAtUnix: unknown): (State?, string?)
+characterCard = function Aggregate.characterCard(raw: unknown, characterId: unknown): RosterCharacter?
+receiptFor = function Aggregate.receiptFor(raw: unknown, candidate: unknown): CreationReceipt?
+equal = function Aggregate.equal(leftRaw: unknown, rightRaw: unknown): boolean
+equalStored = function Aggregate.equalStored(leftRaw: unknown, rightRaw: unknown): boolean
+empty = function Aggregate.empty(userId: unknown): State?
+```
+
+## `core.identity.creation-record`
+
+[Source](../src/core/identity/creation-record.luau)
+
+```luau
+local Creation = require("./creation")
+```
+
+```luau
+local HasMetatable = require("./value")
+```
+
+```luau
+local Policy = require("./policy")
+```
+
+```luau
+local Roster = require("./roster")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.identity.creation-record.Seed`
+
+```luau
+export type Seed = {
+	schemaVersion: number,
+	userId: number,
+	operationId: string,
+	fingerprint: string,
+	characterId: string,
+	displayName: string,
+	realmId: string,
+	peopleId: string,
+	classId: string,
+	appearancePresetId: string,
+	createdAtUnix: number,
+	preparedRevision: number,
+	fence: number,
+	leaseRevision: number,
+}
+```
+
+### `core.identity.creation-record.Receipt`
+
+```luau
+export type Receipt = {
+	schemaVersion: number,
+	userId: number,
+	operationId: string,
+	fingerprint: string,
+	characterId: string,
+	committedRevision: number,
+	fence: number,
+	leaseRevision: number,
+}
+```
+
+### `core.identity.creation-record.create`
+
+```luau
+function create(policy: Policy.Policy)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+validate = function Record.validate(candidate: unknown): Seed?
+validateStored = function Record.validateStored(candidate: unknown): Seed?
+copy = function Record.copy(raw: unknown): Seed?
+fromTransaction = function Record.fromTransaction(raw: unknown): Seed?
+validateReceipt = function Record.validateReceipt(candidate: unknown): Receipt?
+copyReceipt = function Record.copyReceipt(raw: unknown): Receipt?
+receiptFromTransaction = function Record.receiptFromTransaction(raw: unknown): Receipt?
+receiptMatchesSeed = function Record.receiptMatchesSeed(receiptRaw: unknown, seedRaw: unknown, stored: boolean?): boolean
+matchesTransaction = function Record.matchesTransaction(seedRaw: unknown, candidate: unknown, stored: boolean?): boolean
+seedMatchesReceipt = function Record.seedMatchesReceipt(seedRaw: unknown, receiptRaw: unknown): boolean
+```
+
+## `core.identity.creation`
+
+[Source](../src/core/identity/creation.luau)
+
+```luau
+local NameRegistry = require("./name-claims")
+```
+
+```luau
+local Policy = require("./policy")
+```
+
+```luau
+local Roster = require("./roster")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.identity.creation.Completion`
+
+```luau
+export type Completion = {
+	[string]: unknown,
+	expectedRevision: number,
+	expectedFence: number,
+	fence: number?,
+	leaseRevision: number?,
+}
+```
+
+### `core.identity.creation.Receipt`
+
+```luau
+export type Receipt = {
+	[string]: unknown,
+	operationId: string,
+	fingerprint: string,
+	characterId: string,
+	revision: number,
+	fence: number,
+	leaseRevision: number?,
+}
+```
+
+### `core.identity.creation.Phase`
+
+```luau
+export type Phase =
+	"prepared"
+	| "name_owned"
+	| "profile_prepared"
+	| "committed"
+	| "lease_released"
+	| "rolling_back"
+	| "aborted"
+```
+
+### `core.identity.creation.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	userId: number,
+	operationId: string,
+	fingerprint: string,
+	characterId: string,
+	displayName: string,
+	realmId: string,
+	peopleId: string,
+	classId: string,
+	appearancePresetId: string,
+	createdAtUnix: number,
+	phase: Phase,
+	revision: number,
+	fence: number,
+	leaseRevision: number,
+	initialFence: number,
+	initialLeaseRevision: number,
+	rollbackNeedsNameRelease: boolean,
+}
+```
+
+### `core.identity.creation.Prepared`
+
+```luau
+export type Prepared = {
+	userId: number,
+	operationId: string,
+	characterId: string,
+	displayName: string,
+	realmId: string,
+	peopleId: string,
+	classId: string,
+	appearancePresetId: string,
+	createdAtUnix: number,
+	fence: number,
+	leaseRevision: number,
+}
+```
+
+### `core.identity.creation.Rejected`
+
+```luau
+export type Rejected = { ok: false, state: State?, reason: string }
+```
+
+### `core.identity.creation.Accepted`
+
+```luau
+export type Accepted = { ok: true, state: State, replayed: boolean, reason: nil }
+```
+
+### `core.identity.creation.Result`
+
+```luau
+export type Result = Rejected | Accepted
+```
+
+### `core.identity.creation.Plan`
+
+```luau
+export type Plan = {
+	expectedRevision: number,
+	expectedFence: number,
+	kind: string,
+	claim: NameClaim?,
+	character: RosterCharacter?,
+}
+```
+
+### `core.identity.creation.create`
+
+```luau
+function create(policy: Policy.Policy)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+prepare = function prepare(existing: unknown, request: unknown): Result
+plan = function plan(raw: unknown): Plan?
+observeName = function observeName(raw: unknown, candidate: unknown): Result
+observeProfile = function observeProfile(raw: unknown, candidate: unknown): Result
+observeRoster = function observeRoster(raw: unknown, candidate: unknown): Result
+requestRollback = function requestRollback(raw: unknown, candidate: unknown): Result
+observeRollback = function observeRollback(raw: unknown, candidate: unknown): Result
+observeLeaseRelease = function observeLeaseRelease(raw: unknown, candidate: unknown): Result
+takeover = function takeover(raw: unknown, candidate: unknown): Result
+validate = function(candidate: unknown): State?
+validateStored = function(candidate: unknown): State?
+fingerprint = function fingerprint(candidate: unknown): string?
+copy = function copy(state: State): State
+SCHEMA_VERSION = SCHEMA_VERSION
+MAX_REVISION = MAX_REVISION
+MAX_FENCE = MAX_FENCE
+MAX_SAFE_INTEGER = MAX_SAFE_INTEGER
+```
+
+## `core.identity.deletion`
+
+[Source](../src/core/identity/deletion.luau)
+
+```luau
+local NameRegistry = require("./name-claims")
+```
+
+```luau
+local Policy = require("./policy")
+```
+
+```luau
+local Roster = require("./roster")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.identity.deletion.Phase`
+
+```luau
+export type Phase = "prepared" | "roster_removed" | "name_released" | "lease_released" | "rolling_back" | "aborted"
+```
+
+### `core.identity.deletion.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	userId: number,
+	operationId: string,
+	fingerprint: string,
+	characterId: string,
+	displayName: string,
+	requestedAtUnix: number,
+	phase: Phase,
+	revision: number,
+	fence: number,
+	leaseRevision: number,
+	initialFence: number,
+	initialLeaseRevision: number,
+}
+```
+
+### `core.identity.deletion.Prepared`
+
+```luau
+export type Prepared = {
+	userId: number,
+	operationId: string,
+	characterId: string,
+	displayName: string,
+	requestedAtUnix: number,
+	fence: number,
+	leaseRevision: number,
+}
+```
+
+### `core.identity.deletion.Rejected`
+
+```luau
+export type Rejected = { ok: false, state: State?, reason: string }
+```
+
+### `core.identity.deletion.Accepted`
+
+```luau
+export type Accepted = { ok: true, state: State, replayed: boolean, reason: nil }
+```
+
+### `core.identity.deletion.Result`
+
+```luau
+export type Result = Rejected | Accepted
+```
+
+### `core.identity.deletion.Plan`
+
+```luau
+export type Plan = {
+	expectedRevision: number,
+	expectedFence: number,
+	kind: string,
+	characterId: string?,
+	release: { displayName: string, userId: number, characterId: string }?,
+}
+```
+
+### `core.identity.deletion.create`
+
+```luau
+function create(policy: Policy.Policy)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+prepare = function prepare(existing: unknown, request: unknown): Result
+plan = function plan(raw: unknown): Plan?
+observeRoster = function observeRoster(raw: unknown, candidate: unknown): Result
+observeNameRelease = function observeNameRelease(raw: unknown, candidate: unknown): Result
+observeLeaseRelease = function observeLeaseRelease(raw: unknown, candidate: unknown): Result
+requestRollback = function requestRollback(raw: unknown, candidate: unknown): Result
+observeRollback = function observeRollback(raw: unknown, candidate: unknown): Result
+takeover = function takeover(raw: unknown, candidate: unknown): Result
+validate = function validate(candidate: unknown): State?
+fingerprint = function fingerprint(candidate: unknown): string?
+copy = function copy(state: State): State
+SCHEMA_VERSION = SCHEMA_VERSION
+MAX_REVISION = MAX_REVISION
+MAX_FENCE = MAX_FENCE
+MAX_SAFE_INTEGER = MAX_SAFE_INTEGER
+```
+
+## `core.identity.name-claims`
+
+[Source](../src/core/identity/name-claims.luau)
+
+```luau
+local Policy = require("./policy")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.identity.name-claims.Claim`
+
+```luau
+export type Claim = {
+	displayName: string,
+	userId: number,
+	characterId: string,
+	claimedAtUnix: number,
+	schemaVersion: number,
+}
+```
+
+### `core.identity.name-claims.ClaimStatus`
+
+```luau
+export type ClaimStatus = "claimed" | "owned" | "taken"
+```
+
+### `core.identity.name-claims.ReleaseStatus`
+
+```luau
+export type ReleaseStatus = "released" | "absent" | "mismatch"
+```
+
+### `core.identity.name-claims.Availability`
+
+```luau
+export type Availability = "available" | "owned" | "taken"
+```
+
+### `core.identity.name-claims.create`
+
+```luau
+function create(policy: Policy.Policy)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+validate = function validate(candidate: unknown): Claim
+claim = function claim(current: unknown, requested: unknown): (Claim, ClaimStatus)
+release = function release(current: unknown, userId: unknown, characterId: unknown): (Claim?, ReleaseStatus)
+availability = function availability(current: unknown, userId: unknown, characterId: unknown): Availability
+SCHEMA_VERSION = SCHEMA_VERSION
+```
+
+## `core.identity.name-record`
+
+[Source](../src/core/identity/name-record.luau)
+
+```luau
+local Policy = require("./policy")
+```
+
+```luau
+local Registry = require("./name-claims")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.identity.name-record.Record`
+
+```luau
+export type Record = NameRecord
+```
+
+### `core.identity.name-record.Claim`
+
+```luau
+export type Claim = Registry.Claim
+```
+
+### `core.identity.name-record.create`
+
+```luau
+function create(policy: Policy.Policy)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+validate = function Record.validate(raw: unknown): NameRecord?
+copy = function Record.copy(raw: unknown): NameRecord?
+empty = function Record.empty(displayNameRaw: unknown): NameRecord?
+equal = function Record.equal(leftRaw: unknown, rightRaw: unknown): boolean
+claim = function Record.claim(currentRaw: unknown, requestedRaw: unknown): (NameRecord?, string)
+release = function Record.release(
+		currentRaw: unknown,
+		displayNameRaw: unknown,
+		userId: unknown,
+		characterId: unknown
+	): (NameRecord?, string)
+availability = function Record.availability(
+		currentRaw: unknown,
+		displayNameRaw: unknown,
+		userId: unknown,
+		characterId: unknown
+	): string
+```
+
+## `core.identity.policy`
+
+[Source](../src/core/identity/policy.luau)
+
+### `core.identity.policy.Policy`
+
+```luau
+export type Policy = {
+	read validateName: (unknown) -> (boolean, string?, string?),
+	read registryKey: (unknown) -> (string?, string?),
+	read validRegistryKey: (unknown) -> boolean,
+	read validDestination: (unknown) -> boolean,
+	read profilePartitionKey: (unknown, unknown) -> string,
+	read realms: { [string]: boolean },
+	read peoples: { [string]: boolean },
+	read accountLimit: number,
+	read realmLimit: number,
+	read minLevel: number,
+	read maxLevel: number,
+}
+```
+
+## `core.identity.roster`
+
+[Source](../src/core/identity/roster.luau)
+
+```luau
+local Policy = require("./policy")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.identity.roster.CharacterIdentity`
+
+```luau
+export type CharacterIdentity = {
+	characterId: string,
+	displayName: string,
+	realmId: string,
+	peopleId: string,
+	classId: string,
+	appearancePresetId: string,
+	createdAtUnix: number,
+	lastPlayedAtUnix: number,
+	level: number,
+	lastDestinationId: string | false,
+}
+```
+
+### `core.identity.roster.Roster`
+
+```luau
+export type Roster = {
+	schemaVersion: number,
+	userId: number,
+	characters: { CharacterIdentity },
+}
+```
+
+### `core.identity.roster.create`
+
+```luau
+function create(policy: Policy.Policy)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+validate = function(candidate: unknown): Roster
+validateStored = function(candidate: unknown): Roster
+add = function add(roster: unknown, character: unknown): Roster
+remove = function(roster: unknown, characterId: unknown): (Roster, CharacterIdentity)
+removeStored = function(roster: unknown, characterId: unknown): (Roster, CharacterIdentity)
+markPlayed = function markPlayed(roster: unknown, characterId: unknown, playedAtUnix: unknown): Roster
+markLevel = function markLevel(roster: unknown, characterId: unknown, level: unknown): Roster
+markDeparted = function markDeparted(roster: unknown, characterId: unknown, destinationId: unknown): Roster
+realmCards = function realmCards(roster: unknown, realmId: unknown): { CharacterIdentity }
+profilePartitionKey = profilePartitionKey
+SCHEMA_VERSION = SCHEMA_VERSION
+ACCOUNT_LIMIT = ACCOUNT_LIMIT
+REALM_LIMIT = REALM_LIMIT
+MIN_LEVEL = MIN_LEVEL
+MAX_LEVEL = MAX_LEVEL
+NEVER_DEPARTED = NEVER_DEPARTED
+REALMS = REALMS
+```
+
+## `core.identity.value`
+
+[Source](../src/core/identity/value.luau)
+
+```luau
+local Internal = require("../internal/identity-value")
+```
+
+### `core.identity.value.check`
+
+Exported value; see its declaration in [source](../src/core/identity/value.luau).
+
+### `core.identity.value.fields`
+
+Exported value; see its declaration in [source](../src/core/identity/value.luau).
+
+## `core.identity`
+
+[Source](../src/core/identity.luau)
+
+```luau
+local Account = require("./identity/account")
+```
+
+```luau
+local AccountLease = require("./identity/account-lease")
+```
+
+```luau
+local Creation = require("./identity/creation")
+```
+
+```luau
+local CreationRecord = require("./identity/creation-record")
+```
+
+```luau
+local Deletion = require("./identity/deletion")
+```
+
+```luau
+local NameClaims = require("./identity/name-claims")
+```
+
+```luau
+local NameRecord = require("./identity/name-record")
+```
+
+```luau
+local Policy = require("./identity/policy")
+```
+
+```luau
+local Roster = require("./identity/roster")
+```
+
+### `core.identity.AccountLeaseLease`
+
+```luau
+export type AccountLeaseLease = AccountLease.Lease
+```
+
+### `core.identity.AccountDeletionState`
+
+```luau
+export type AccountDeletionState = Account.DeletionState
+```
+
+### `core.identity.AccountBase`
+
+```luau
+export type AccountBase = Account.Base
+```
+
+### `core.identity.AccountCreationReceipt`
+
+```luau
+export type AccountCreationReceipt = Account.CreationReceipt
+```
+
+### `core.identity.AccountAccount`
+
+```luau
+export type AccountAccount<E> = Account.Account<E>
+```
+
+### `core.identity.AccountExtension`
+
+```luau
+export type AccountExtension<E> = Account.Extension<E>
+```
+
+### `core.identity.CreationRecordSeed`
+
+```luau
+export type CreationRecordSeed = CreationRecord.Seed
+```
+
+### `core.identity.CreationRecordReceipt`
+
+```luau
+export type CreationRecordReceipt = CreationRecord.Receipt
+```
+
+### `core.identity.CreationCompletion`
+
+```luau
+export type CreationCompletion = Creation.Completion
+```
+
+### `core.identity.CreationReceipt`
+
+```luau
+export type CreationReceipt = Creation.Receipt
+```
+
+### `core.identity.CreationPhase`
+
+```luau
+export type CreationPhase = Creation.Phase
+```
+
+### `core.identity.CreationState`
+
+```luau
+export type CreationState = Creation.State
+```
+
+### `core.identity.CreationPrepared`
+
+```luau
+export type CreationPrepared = Creation.Prepared
+```
+
+### `core.identity.CreationRejected`
+
+```luau
+export type CreationRejected = Creation.Rejected
+```
+
+### `core.identity.CreationAccepted`
+
+```luau
+export type CreationAccepted = Creation.Accepted
+```
+
+### `core.identity.CreationResult`
+
+```luau
+export type CreationResult = Creation.Result
+```
+
+### `core.identity.CreationPlan`
+
+```luau
+export type CreationPlan = Creation.Plan
+```
+
+### `core.identity.DeletionPhase`
+
+```luau
+export type DeletionPhase = Deletion.Phase
+```
+
+### `core.identity.DeletionState`
+
+```luau
+export type DeletionState = Deletion.State
+```
+
+### `core.identity.DeletionPrepared`
+
+```luau
+export type DeletionPrepared = Deletion.Prepared
+```
+
+### `core.identity.DeletionRejected`
+
+```luau
+export type DeletionRejected = Deletion.Rejected
+```
+
+### `core.identity.DeletionAccepted`
+
+```luau
+export type DeletionAccepted = Deletion.Accepted
+```
+
+### `core.identity.DeletionResult`
+
+```luau
+export type DeletionResult = Deletion.Result
+```
+
+### `core.identity.DeletionPlan`
+
+```luau
+export type DeletionPlan = Deletion.Plan
+```
+
+### `core.identity.NameClaimsClaim`
+
+```luau
+export type NameClaimsClaim = NameClaims.Claim
+```
+
+### `core.identity.NameClaimsClaimStatus`
+
+```luau
+export type NameClaimsClaimStatus = NameClaims.ClaimStatus
+```
+
+### `core.identity.NameClaimsReleaseStatus`
+
+```luau
+export type NameClaimsReleaseStatus = NameClaims.ReleaseStatus
+```
+
+### `core.identity.NameClaimsAvailability`
+
+```luau
+export type NameClaimsAvailability = NameClaims.Availability
+```
+
+### `core.identity.NameRecordRecord`
+
+```luau
+export type NameRecordRecord = NameRecord.Record
+```
+
+### `core.identity.NameRecordClaim`
+
+```luau
+export type NameRecordClaim = NameRecord.Claim
+```
+
+### `core.identity.PolicyPolicy`
+
+```luau
+export type PolicyPolicy = Policy.Policy
+```
+
+### `core.identity.RosterCharacterIdentity`
+
+```luau
+export type RosterCharacterIdentity = Roster.CharacterIdentity
+```
+
+### `core.identity.RosterRoster`
+
+```luau
+export type RosterRoster = Roster.Roster
+```
+
+### `core.identity.API`
+
+```luau
+export type API = {
+	read account_lease: typeof(AccountLease),
+	read account: typeof(Account),
+	read creation_record: typeof(CreationRecord),
+	read creation: typeof(Creation),
+	read deletion: typeof(Deletion),
+	read name_claims: typeof(NameClaims),
+	read name_record: typeof(NameRecord),
+	read policy: typeof(Policy),
+	read roster: typeof(Roster),
+}
+```
+
+### `core.identity.account`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.account_lease`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.creation`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.creation_record`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.deletion`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.name_claims`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.name_record`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.policy`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.roster`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+## `core.inventory.cargo`
+
+[Source](../src/core/inventory/cargo.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.inventory.cargo.Status`
+
+```luau
+export type Status = "carried" | "dropped" | "banked" | "lost"
+```
+
+### `core.inventory.cargo.Cause`
+
+```luau
+export type Cause = "death" | "disconnect" | "teleport"
+```
+
+### `core.inventory.cargo.Claim`
+
+```luau
+export type Claim = {
+	claimId: string,
+	materialId: string,
+	count: number,
+	originActorId: string,
+	status: Status,
+	holderId: string,
+}
+```
+
+### `core.inventory.cargo.Drop`
+
+```luau
+export type Drop = {
+	dropId: string,
+	actorId: string,
+	cause: Cause,
+	droppedAtSec: number,
+	expiresAtSec: number,
+	claimIds: { string },
+	recoveredBy: string?,
+	expired: boolean,
+}
+```
+
+### `core.inventory.cargo.Total`
+
+```luau
+export type Total = {
+	materialId: string,
+	count: number,
+}
+```
+
+### `core.inventory.cargo.Extraction`
+
+```luau
+export type Extraction = {
+	extractionId: string,
+	actorId: string,
+	campId: string,
+	atSec: number,
+	claimIds: { string },
+	totals: { Total },
+}
+```
+
+### `core.inventory.cargo.State`
+
+```luau
+export type State = {
+	lastClockSec: number,
+	claims: { Claim },
+	drops: { Drop },
+	extractions: { Extraction },
+}
+```
+
+### `core.inventory.cargo.Intent`
+
+```luau
+export type Intent = {
+	eventId: string,
+	kind: string,
+	materialId: string,
+	count: number,
+	actorId: string,
+	at: number,
+}
+```
+
+### `core.inventory.cargo.CommandKind`
+
+```luau
+export type CommandKind = "carry" | "release" | "recover" | "expire" | "extract"
+```
+
+### `core.inventory.cargo.Command`
+
+```luau
+export type Command = {
+	claimIds: { string }?,
+	kind: CommandKind,
+	claimId: string?,
+	actorId: string?,
+	materialId: string?,
+	count: number?,
+	dropId: string?,
+	cause: Cause?,
+	expiresAtSec: number?,
+	extractionId: string?,
+	campId: string?,
+}
+```
+
+### `core.inventory.cargo.Result`
+
+```luau
+export type Result = {
+	state: State,
+	replayed: boolean,
+	carriedCount: number,
+	droppedCount: number,
+	recoveredCount: number,
+	expiredCount: number,
+	bankedCount: number,
+	dropId: string?,
+	extractionId: string?,
+	intents: { Intent },
+}
+```
+
+### `core.inventory.cargo.CensusRow`
+
+```luau
+export type CensusRow = {
+	materialId: string,
+	carried: number,
+	dropped: number,
+	banked: number,
+	lost: number,
+}
+```
+
+### `core.inventory.cargo.Config`
+
+```luau
+export type Config = {
+	maxText: number,
+	maxCount: number,
+	maxAt: number,
+	ledgerEventKind: string,
+	intentPrefix: string,
+	intentSeparator: string,
+}
+```
+
+### `core.inventory.cargo.create`
+
+```luau
+function Cargo.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function Claims.emptyState(): State
+projectState = function Claims.projectState(value: unknown): (State?, string?)
+retireTransient = function Claims.retireTransient(stateValue: unknown): (State?, string?)
+step = function Claims.step(stateValue: unknown, commandValue: unknown, nowSecValue: unknown): (Result?, string?)
+carriedOf = function Claims.carriedOf(stateValue: unknown, actorIdValue: unknown): ({ Total }?, string?)
+census = function Claims.census(stateValue: unknown): ({ CensusRow }?, string?)
+openDrops = function Claims.openDrops(stateValue: unknown, nowSecValue: unknown): ({ Drop }?, string?)
+```
+
+## `core.inventory.stacks`
+
+[Source](../src/core/inventory/stacks.luau)
+
+```luau
+local Value = require("../value")
+```
+
+```luau
+local Vault = require("../bank/vault")
+```
+
+### `core.inventory.stacks.Inventory`
+
+```luau
+export type Inventory = { [string]: number }
+```
+
+### `core.inventory.stacks.Holdings`
+
+```luau
+export type Holdings = {
+	read inventory: Inventory,
+	read equipment: { [string]: string },
+	read bank: unknown,
+	read itemWear: { equipped: { [string]: number }, bag: { [string]: { number } }, bank: { [string]: { number } } }?,
+	read boundItems: Inventory?,
+}
+```
+
+### `core.inventory.stacks.Config`
+
+```luau
+export type Config = {
+	maxStack: number,
+	baseCapacity: number,
+	permanentItems: { [string]: boolean },
+	bagBonus: {
+		[string]: number,
+	},
+}
+```
+
+### `core.inventory.stacks.stacks`
+
+```luau
+function System.stacks(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+isValidCount = function isValidCount(count: unknown): boolean
+addToBag = function addToBag(bag: Inventory, itemId: string, count: number): Inventory
+removeFromBag = function removeFromBag(bag: Inventory, itemId: string, count: number): (Inventory, boolean)
+hasItem = function hasItem(bag: Inventory, itemId: string, count: number?): boolean
+copyBag = function copyBag(bag: Inventory): Inventory
+MAX_STACK = MAX_STACK
+BASE_CAPACITY = BASE_CAPACITY
+permanent = function permanent(itemId: string): boolean
+capacity = function capacity(bagItem: string?): number
+entries = function entries(bag: Inventory): number
+fits = function fits(before: Inventory, after: Inventory, limit: number): boolean
+normalizeBindings = function normalizeBindings(raw: unknown, profile: Holdings): Inventory
+unboundCount = function unboundCount(profile: Holdings, itemId: string): number
+```
+
+## `core.inventory`
+
+[Source](../src/core/inventory.luau)
+
+```luau
+local Cargo = require("./inventory/cargo")
+```
+
+```luau
+local Stacks = require("./inventory/stacks")
+```
+
+### `core.inventory.CargoStatus`
+
+```luau
+export type CargoStatus = Cargo.Status
+```
+
+### `core.inventory.CargoCause`
+
+```luau
+export type CargoCause = Cargo.Cause
+```
+
+### `core.inventory.CargoClaim`
+
+```luau
+export type CargoClaim = Cargo.Claim
+```
+
+### `core.inventory.CargoDrop`
+
+```luau
+export type CargoDrop = Cargo.Drop
+```
+
+### `core.inventory.CargoTotal`
+
+```luau
+export type CargoTotal = Cargo.Total
+```
+
+### `core.inventory.CargoExtraction`
+
+```luau
+export type CargoExtraction = Cargo.Extraction
+```
+
+### `core.inventory.CargoState`
+
+```luau
+export type CargoState = Cargo.State
+```
+
+### `core.inventory.CargoIntent`
+
+```luau
+export type CargoIntent = Cargo.Intent
+```
+
+### `core.inventory.CargoCommandKind`
+
+```luau
+export type CargoCommandKind = Cargo.CommandKind
+```
+
+### `core.inventory.CargoCommand`
+
+```luau
+export type CargoCommand = Cargo.Command
+```
+
+### `core.inventory.CargoResult`
+
+```luau
+export type CargoResult = Cargo.Result
+```
+
+### `core.inventory.CargoCensusRow`
+
+```luau
+export type CargoCensusRow = Cargo.CensusRow
+```
+
+### `core.inventory.CargoConfig`
+
+```luau
+export type CargoConfig = Cargo.Config
+```
+
+### `core.inventory.StacksInventory`
+
+```luau
+export type StacksInventory = Stacks.Inventory
+```
+
+### `core.inventory.StacksHoldings`
+
+```luau
+export type StacksHoldings = Stacks.Holdings
+```
+
+### `core.inventory.StacksConfig`
+
+```luau
+export type StacksConfig = Stacks.Config
+```
+
+### `core.inventory.API`
+
+```luau
+export type API = {
+	read cargo: typeof(Cargo),
+	read stacks: typeof(Stacks),
+}
+```
+
+### `core.inventory.cargo`
+
+Exported value; see its declaration in [source](../src/core/inventory.luau).
+
+### `core.inventory.stacks`
+
+Exported value; see its declaration in [source](../src/core/inventory.luau).
+
+## `core.ledger.ledger`
+
+[Source](../src/core/ledger/ledger.luau)
+
+### `core.ledger.ledger.EventKind`
+
+```luau
+export type EventKind = "grant" | "craft_consume" | "craft_yield" | "trade_out" | "trade_in"
+```
+
+### `core.ledger.ledger.Event`
+
+```luau
+export type Event = {
+	eventId: string,
+	kind: EventKind,
+	materialId: string,
+	count: number,
+	actorId: string,
+	at: number,
+	groupId: string?,
+	groupSize: number?,
+}
+```
+
+### `core.ledger.ledger.State`
+
+```luau
+export type State = {
+	events: { Event },
+}
+```
+
+### `core.ledger.ledger.ApplyResult`
+
+```luau
+export type ApplyResult = {
+	state: State,
+	replayed: boolean,
+	settled: boolean,
+	groupId: string?,
+}
+```
+
+### `core.ledger.ledger.TornGroup`
+
+```luau
+export type TornGroup = {
+	groupId: string,
+	groupSize: number,
+	memberCount: number,
+}
+```
+
+### `core.ledger.ledger.Config`
+
+```luau
+export type Config = {
+	maxText: number,
+	maxCount: number,
+	maxAt: number,
+	minGroupSize: number,
+	maxGroupSize: number,
+}
+```
+
+### `core.ledger.ledger.Journal`
+
+```luau
+export type Journal = {
+	emptyState: () -> State,
+	projectEvent: (unknown) -> (Event?, string?),
+	projectState: (unknown) -> (State?, string?),
+	apply: (unknown, unknown) -> (ApplyResult?, string?),
+	balances: (unknown) -> ({ [string]: { [string]: number } }?, string?),
+	available: (unknown, unknown, unknown) -> (number?, string?),
+	tornGroups: (unknown) -> ({ TornGroup }?, string?),
+	REASONS: { string },
+	KINDS: { [string]: boolean },
+}
+```
+
+### `core.ledger.ledger.ledger`
+
+```luau
+function Ledger.ledger(config: Config): Journal
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function Journal.emptyState(): State
+projectEvent = function Journal.projectEvent(value: unknown): (Event?, string?)
+projectState = function Journal.projectState(value: unknown): (State?, string?)
+apply = function Journal.apply(stateValue: unknown, eventValue: unknown): (ApplyResult?, string?)
+balances = function Journal.balances(stateValue: unknown): ({ [string]: { [string]: number } }?, string?)
+available = function Journal.available(stateValue: unknown, actorIdValue: unknown, materialIdValue: unknown): (number?, string?)
+tornGroups = function Journal.tornGroups(stateValue: unknown): ({ TornGroup }?, string?)
+```
+
+## `core.ledger`
+
+[Source](../src/core/ledger.luau)
+
+```luau
+local Ledger = require("./ledger/ledger")
+```
+
+### `core.ledger.LedgerEventKind`
+
+```luau
+export type LedgerEventKind = Ledger.EventKind
+```
+
+### `core.ledger.LedgerEvent`
+
+```luau
+export type LedgerEvent = Ledger.Event
+```
+
+### `core.ledger.LedgerState`
+
+```luau
+export type LedgerState = Ledger.State
+```
+
+### `core.ledger.LedgerApplyResult`
+
+```luau
+export type LedgerApplyResult = Ledger.ApplyResult
+```
+
+### `core.ledger.LedgerTornGroup`
+
+```luau
+export type LedgerTornGroup = Ledger.TornGroup
+```
+
+### `core.ledger.LedgerConfig`
+
+```luau
+export type LedgerConfig = Ledger.Config
+```
+
+### `core.ledger.LedgerJournal`
+
+```luau
+export type LedgerJournal = Ledger.Journal
+```
+
+### `core.ledger.API`
+
+```luau
+export type API = {
+	read ledger: typeof(Ledger),
+}
+```
+
+### `core.ledger.ledger`
+
+Exported value; see its declaration in [source](../src/core/ledger.luau).
+
+## `core.loot.decision`
+
+[Source](../src/core/loot/decision.luau)
+
+### `core.loot.decision.Choice`
+
+```luau
+export type Choice = "need" | "greed" | "pass"
+```
+
+### `core.loot.decision.Seat`
+
+```luau
+export type Seat = { userId: string, needLegal: boolean }
+```
+
+### `core.loot.decision.Result`
+
+```luau
+export type Result = {
+	winner: string?,
+	by: "need" | "greed" | "round_robin",
+	rolls: { [string]: number },
+	cursorAfter: number,
+}
+```
+
+### `core.loot.decision.Decision`
+
+```luau
+export type Decision = {
+	id: string,
+	itemId: string,
+	openedAt: number,
+	deadline: number,
+	seats: { Seat },
+	declarations: { [string]: Choice },
+	cursor: number,
+	result: Result?,
+}
+```
+
+### `core.loot.decision.Refusal`
+
+```luau
+export type Refusal =
+	"settled"
+	| "closed"
+	| "not_eligible"
+	| "need_not_legal"
+	| "already_declared"
+	| "bad_choice"
+	| "not_due"
+```
+
+### `core.loot.decision.Config`
+
+```luau
+export type Config = { windowSeconds: number }
+```
+
+### `core.loot.decision.decision`
+
+```luau
+function System.decision(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+open = function open(id: string, itemId: string, seats: { Seat }, now: number, cursor: number): Decision?
+declare = function declare(decision: Decision, userId: string, choice: unknown, now: number): (Decision?, Refusal?)
+due = function due(decision: Decision, now: number): boolean
+settle = function settle(decision: Decision, now: number): (Decision?, Refusal?)
+```
+
+## `core.loot.roll`
+
+[Source](../src/core/loot/roll.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.loot.roll.Roll`
+
+```luau
+export type Roll = {
+	itemId: string,
+	weight: number,
+	minCount: number,
+	maxCount: number,
+}
+```
+
+### `core.loot.roll.Table`
+
+```luau
+export type Table = {
+	id: string,
+	zoneId: string?,
+	mobIds: { string },
+	rolls: { Roll },
+	picks: number?,
+}
+```
+
+### `core.loot.roll.Drop`
+
+```luau
+export type Drop = {
+	tableId: string,
+	itemId: string,
+	count: number,
+}
+```
+
+### `core.loot.roll.Config`
+
+```luau
+export type Config = { receiptPrefix: string }
+```
+
+### `core.loot.roll.roll`
+
+```luau
+function System.roll(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+validRoll = function validRoll(raw: unknown): Roll?
+tableForMob = function tableForMob<T>(tables: { T }?, mobId: unknown): T?
+dropFor = function dropFor(tables: unknown, mobId: unknown, actorId: unknown, tickIndex: unknown): Drop?
+dropsFor = function dropsFor(tables: unknown, mobId: unknown, actorId: unknown, tickIndex: unknown): { Drop }
+receiptFor = function receiptFor(
+		drop: Drop,
+		mobId: string,
+		actorId: string,
+		tickIndex: number,
+		epoch: number?,
+		pick: number?
+	): string
+```
+
+## `core.loot`
+
+[Source](../src/core/loot.luau)
+
+```luau
+local Decision = require("./loot/decision")
+```
+
+```luau
+local Roll = require("./loot/roll")
+```
+
+### `core.loot.DecisionChoice`
+
+```luau
+export type DecisionChoice = Decision.Choice
+```
+
+### `core.loot.DecisionSeat`
+
+```luau
+export type DecisionSeat = Decision.Seat
+```
+
+### `core.loot.DecisionResult`
+
+```luau
+export type DecisionResult = Decision.Result
+```
+
+### `core.loot.DecisionDecision`
+
+```luau
+export type DecisionDecision = Decision.Decision
+```
+
+### `core.loot.DecisionRefusal`
+
+```luau
+export type DecisionRefusal = Decision.Refusal
+```
+
+### `core.loot.DecisionConfig`
+
+```luau
+export type DecisionConfig = Decision.Config
+```
+
+### `core.loot.RollRoll`
+
+```luau
+export type RollRoll = Roll.Roll
+```
+
+### `core.loot.RollTable`
+
+```luau
+export type RollTable = Roll.Table
+```
+
+### `core.loot.RollDrop`
+
+```luau
+export type RollDrop = Roll.Drop
+```
+
+### `core.loot.RollConfig`
+
+```luau
+export type RollConfig = Roll.Config
+```
+
+### `core.loot.API`
+
+```luau
+export type API = {
+	read decision: typeof(Decision),
+	read roll: typeof(Roll),
+}
+```
+
+### `core.loot.decision`
+
+Exported value; see its declaration in [source](../src/core/loot.luau).
+
+### `core.loot.roll`
+
+Exported value; see its declaration in [source](../src/core/loot.luau).
+
+## `core.mail.mailbox`
+
+[Source](../src/core/mail/mailbox.luau)
+
+### `core.mail.mailbox.Inventory`
+
+```luau
+export type Inventory = { [unknown]: unknown }
+```
+
+### `core.mail.mailbox.Account`
+
+```luau
+export type Account = { coin: number, inventory: Inventory }
+```
+
+### `core.mail.mailbox.Stack`
+
+```luau
+export type Stack = { itemId: string, count: number }
+```
+
+### `core.mail.mailbox.Attachments`
+
+```luau
+export type Attachments = { coin: number, items: { Stack } }
+```
+
+### `core.mail.mailbox.Phase`
+
+```luau
+export type Phase =
+	"prepared"
+	| "in_transit"
+	| "claiming"
+	| "returning"
+	| "expired"
+	| "claimed"
+	| "returned"
+	| "cancelled"
+```
+
+### `core.mail.mailbox.Envelope`
+
+```luau
+export type Envelope = {
+	id: string,
+	senderId: number,
+	recipientId: number,
+	attachments: Attachments,
+	createdAt: number,
+	expiresAt: number,
+	phase: Phase,
+	senderCharacterId: string?,
+	recipientCharacterId: string?,
+	returnedAt: number?,
+}
+```
+
+### `core.mail.mailbox.Pointer`
+
+```luau
+export type Pointer = { id: string, envelope: Envelope, intent: "hold" | "claim" }
+```
+
+### `core.mail.mailbox.Config`
+
+```luau
+export type Config<T> = {
+	maxItems: number,
+	maxCount: number,
+	maxCoin: number,
+	maxUserId: number,
+	maxTimestamp: number,
+	maxTtl: number,
+	itemIdLimit: number,
+	requestIdLimit: number,
+	characterIdLimit: number,
+	maxPointers: number,
+	readAccount: (T) -> unknown,
+	writeAccount: (T, Account) -> T,
+	capacity: (T) -> number,
+	entries: (Inventory) -> number,
+}
+```
+
+### `core.mail.mailbox.Mailbox`
+
+```luau
+export type Mailbox<T> = {
+	attachments: (unknown) -> Attachments?,
+	id: (number, unknown) -> string?,
+	prepare: (string, number, number, unknown, number, number) -> Envelope?,
+	read: (unknown) -> Envelope?,
+	valid: (unknown) -> boolean,
+	pointers: (unknown) -> { [string]: Pointer }?,
+	sameRequest: (unknown, unknown) -> boolean,
+	advance: (unknown, string, number?) -> Envelope?,
+	debit: (T, Attachments) -> (T?, string?),
+	credit: (T, Attachments) -> (T?, string?),
+}
+```
+
+### `core.mail.mailbox.mailbox`
+
+```luau
+function Mail.mailbox<T>(config: Config<T>): Mailbox<T>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+attachments = function attachments(value: unknown): Attachments?
+read = function envelope(value: unknown): Envelope?
+id = function id(senderId: number, requestId: unknown): string?
+prepare = function(
+			mailId: string,
+			senderId: number,
+			recipientId: number,
+			value: unknown,
+			now: number,
+			ttl: number
+		): Envelope?
+valid = function(value: unknown): boolean
+pointers = function(value: unknown): { [string]: Pointer }?
+sameRequest = function(first: unknown, second: unknown): boolean
+advance = function(value: unknown, action: string, at: number?): Envelope?
+debit = function(profile: T, value: Attachments): (T?, string?)
+credit = function(profile: T, value: Attachments): (T?, string?)
+```
+
+## `core.mail`
+
+[Source](../src/core/mail.luau)
+
+```luau
+local Mailbox = require("./mail/mailbox")
+```
+
+### `core.mail.MailboxInventory`
+
+```luau
+export type MailboxInventory = Mailbox.Inventory
+```
+
+### `core.mail.MailboxAccount`
+
+```luau
+export type MailboxAccount = Mailbox.Account
+```
+
+### `core.mail.MailboxStack`
+
+```luau
+export type MailboxStack = Mailbox.Stack
+```
+
+### `core.mail.MailboxAttachments`
+
+```luau
+export type MailboxAttachments = Mailbox.Attachments
+```
+
+### `core.mail.MailboxPhase`
+
+```luau
+export type MailboxPhase = Mailbox.Phase
+```
+
+### `core.mail.MailboxEnvelope`
+
+```luau
+export type MailboxEnvelope = Mailbox.Envelope
+```
+
+### `core.mail.MailboxPointer`
+
+```luau
+export type MailboxPointer = Mailbox.Pointer
+```
+
+### `core.mail.MailboxConfig`
+
+```luau
+export type MailboxConfig<T> = Mailbox.Config<T>
+```
+
+### `core.mail.MailboxMailbox`
+
+```luau
+export type MailboxMailbox<T> = Mailbox.Mailbox<T>
+```
+
+### `core.mail.API`
+
+```luau
+export type API = {
+	read mailbox: typeof(Mailbox),
+}
+```
+
+### `core.mail.mailbox`
+
+Exported value; see its declaration in [source](../src/core/mail.luau).
+
+## `core.map.coordinates`
+
+[Source](../src/core/map/coordinates.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.map.coordinates.Bounds`
+
+```luau
+export type Bounds = {
+	minX: number,
+	maxX: number,
+	minZ: number,
+	maxZ: number,
+}
+```
+
+### `core.map.coordinates.WorldPoint`
+
+```luau
+export type WorldPoint = {
+	x: number,
+	z: number,
+}
+```
+
+### `core.map.coordinates.NormalizedPoint`
+
+```luau
+export type NormalizedPoint = {
+	u: number,
+	v: number,
+}
+```
+
+### `core.map.coordinates.mapToWorld`
+
+```luau
+function ZoneMapProjectionCore.mapToWorld(boundsValue: unknown, normalizedValue: unknown): WorldPoint?
+```
+
+### `core.map.coordinates.worldToMap`
+
+```luau
+function ZoneMapProjectionCore.worldToMap(boundsValue: unknown, worldValue: unknown): NormalizedPoint?
+```
+
+## `core.map.exploration`
+
+[Source](../src/core/map/exploration.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.map.exploration.Record`
+
+```luau
+export type Record<K> = {
+	zoneId: string,
+	poiId: string,
+	displayName: string,
+	kind: K,
+	position: { u: number, v: number },
+	hub: boolean?,
+}
+```
+
+### `core.map.exploration.CatalogValue`
+
+```luau
+export type CatalogValue<K> = { records: { Record<K> }, byZone: { [string]: { Record<K> } } }
+```
+
+### `core.map.exploration.ExploredState`
+
+```luau
+export type ExploredState = { [string]: { [string]: true } }
+```
+
+### `core.map.exploration.Identity`
+
+```luau
+export type Identity = { zoneId: string, poiId: string }
+```
+
+### `core.map.exploration.WorldPoint`
+
+```luau
+export type WorldPoint = { x: number, z: number }
+```
+
+### `core.map.exploration.Poi`
+
+```luau
+export type Poi = { zoneId: string, poiId: string, position: WorldPoint }
+```
+
+### `core.map.exploration.Observation`
+
+```luau
+export type Observation = { zoneId: string, position: WorldPoint }
+```
+
+### `core.map.exploration.RevealResult`
+
+```luau
+export type RevealResult = { ok: boolean, reason: string?, state: ExploredState, discoveries: { Identity } }
+```
+
+### `core.map.exploration.Presentation`
+
+```luau
+export type Presentation<K> = { zoneId: string, poiId: string, name: string, kind: K, hub: boolean? }
+```
+
+### `core.map.exploration.Transition`
+
+```luau
+export type Transition<K> = { state: ExploredState, presentations: { Presentation<K> } }
+```
+
+### `core.map.exploration.System`
+
+```luau
+export type System<K> = {
+	catalog: { normalize: (unknown) -> CatalogValue<K>? },
+	reveal: {
+		emptyState: () -> ExploredState,
+		transition: (ExploredState, Observation, { Poi }) -> RevealResult,
+		REVEAL_RADIUS_STUDS: number,
+	},
+	state: {
+		defaultState: () -> ExploredState,
+		resetState: () -> ExploredState,
+		normalize: (unknown, unknown) -> ExploredState?,
+		merge: (unknown, unknown, unknown) -> ExploredState?,
+		ordered: (unknown, unknown) -> { Identity }?,
+	},
+	discovery: { project: (unknown, unknown) -> { Presentation<K> }? },
+	pipeline: { transition: (unknown, unknown, unknown, unknown) -> Transition<K>? },
+}
+```
+
+### `core.map.exploration.new`
+
+```luau
+function Exploration.new<K>(config: { read readKind: (unknown) -> K?, read revealRadius: number }): System<K>
+```
+
+## `core.map.geometry`
+
+[Source](../src/core/map/geometry.luau)
+
+### `core.map.geometry.PanOffset`
+
+```luau
+export type PanOffset = {
+	x: number,
+	y: number,
+}
+```
+
+### `core.map.geometry.MarkerProjection`
+
+```luau
+export type MarkerProjection = {
+	x: number,
+	y: number,
+	withinWindow: boolean,
+	edgeClamped: boolean,
+}
+```
+
+### `core.map.geometry.imagePan`
+
+```luau
+function MinimapGeometry.imagePan(playerU: unknown, playerV: unknown, imageScale: unknown): PanOffset?
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+x = 0.5 - playerU * imageScale
+y = 0.5 - playerV * imageScale
+```
+
+### `core.map.geometry.projectMarker`
+
+```luau
+function MinimapGeometry.projectMarker(
+	playerU: unknown,
+	playerV: unknown,
+	markerU: unknown,
+	markerV: unknown,
+	imageScale: unknown
+): MarkerProjection?
+```
+
+### `core.map.geometry.projectTrackedWaypoint`
+
+```luau
+function MinimapGeometry.projectTrackedWaypoint(
+	playerU: unknown,
+	playerV: unknown,
+	waypointU: unknown,
+	waypointV: unknown,
+	imageScale: unknown
+): MarkerProjection?
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+x = 0.5 + deltaX * edgeScale
+y = 0.5 + deltaY * edgeScale
+withinWindow = false
+edgeClamped = true
+```
+
+## `core.map.polyline`
+
+[Source](../src/core/map/polyline.luau)
+
+### `core.map.polyline.PixelPoint`
+
+```luau
+export type PixelPoint = { x: number, y: number }
+```
+
+### `core.map.polyline.simplifyPolyline`
+
+```luau
+function Polyline.simplifyPolyline(points: { PixelPoint }, tolerance: number): { PixelPoint }
+```
+
+### `core.map.polyline.smoothPolyline`
+
+```luau
+function Polyline.smoothPolyline(points: { PixelPoint }): { PixelPoint }
+```
+
+## `core.map.renderer`
+
+[Source](../src/core/map/renderer.luau)
+
+```luau
+local Exploration = require("./exploration")
+```
+
+```luau
+local MapViewportModel = require("./viewport")
+```
+
+```luau
+local UpdateTypes = require("./updates")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.map.renderer.PreferredInput`
+
+```luau
+export type PreferredInput = "pointer" | "touch"
+```
+
+### `core.map.renderer.Surface`
+
+```luau
+export type Surface = {
+	preferredInput: PreferredInput,
+	enabled: boolean,
+	diameterPx: number,
+	northLocked: boolean,
+	rotates: boolean,
+}
+```
+
+### `core.map.renderer.Input`
+
+```luau
+export type Input<K> = {
+	preferredInput: PreferredInput,
+	explicitEnabled: boolean?,
+	previousUpdateState: UpdateTypes.State,
+	sample: UpdateTypes.Sample,
+	zoneId: string,
+	markerRows: { Exploration.Record<K> },
+	exploredMap: Exploration.ExploredState,
+	imageScale: number,
+	trackedWaypoint: MapViewportModel.TrackedWaypoint?,
+}
+```
+
+### `core.map.renderer.Result`
+
+```luau
+export type Result = {
+	surface: Surface,
+	updateState: UpdateTypes.State,
+	viewportUpdate: MapViewportModel.Viewport?,
+}
+```
+
+### `core.map.renderer.new`
+
+```luau
+function Renderer.new<K>(deps: {
+	read normalize: (unknown) -> Exploration.CatalogValue<K>?,
+	read resolve: (unknown, unknown) -> Surface?,
+	read update: (unknown, unknown) -> UpdateTypes.Result?,
+})
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+compose = function MinimapRenderCore.compose(input: unknown): Result?
+```
+
+## `core.map.updates`
+
+[Source](../src/core/map/updates.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.map.updates.NormalizedPoint`
+
+```luau
+export type NormalizedPoint = {
+	u: number,
+	v: number,
+}
+```
+
+### `core.map.updates.Sample`
+
+```luau
+export type Sample = {
+	atSeconds: number,
+	player: NormalizedPoint,
+	markerRevision: number,
+}
+```
+
+### `core.map.updates.State`
+
+```luau
+export type State = {
+	lastSampleAtSeconds: number?,
+	lastPanAtSeconds: number?,
+	markerRevision: number?,
+}
+```
+
+### `core.map.updates.PanUpdate`
+
+```luau
+export type PanUpdate = {
+	atSeconds: number,
+	player: NormalizedPoint,
+}
+```
+
+### `core.map.updates.MarkerUpdate`
+
+```luau
+export type MarkerUpdate = {
+	atSeconds: number,
+	player: NormalizedPoint,
+	revision: number,
+}
+```
+
+### `core.map.updates.Output`
+
+```luau
+export type Output = {
+	pan: PanUpdate?,
+	markers: MarkerUpdate?,
+}
+```
+
+### `core.map.updates.Result`
+
+```luau
+export type Result = {
+	state: State,
+	output: Output,
+}
+```
+
+### `core.map.updates.new`
+
+```luau
+function Updates.new(updateHz: number)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function MinimapUpdateCore.emptyState(): State
+transition = function MinimapUpdateCore.transition(previous: unknown, nextSample: unknown): Result?
+```
+
+## `core.map.viewport`
+
+[Source](../src/core/map/viewport.luau)
+
+```luau
+local Value = require("../value")
+```
+
+```luau
+local MapRevealCore = require("./exploration")
+```
+
+```luau
+local MinimapGeometry = require("./geometry")
+```
+
+### `core.map.viewport.NormalizedPoint`
+
+```luau
+export type NormalizedPoint = {
+	u: number,
+	v: number,
+}
+```
+
+### `core.map.viewport.MarkerRow`
+
+```luau
+export type MarkerRow = {
+	zoneId: string,
+	poiId: string,
+	position: NormalizedPoint,
+}
+```
+
+### `core.map.viewport.TrackedWaypoint`
+
+```luau
+export type TrackedWaypoint = {
+	zoneId: string,
+	position: NormalizedPoint,
+}
+```
+
+### `core.map.viewport.Input`
+
+```luau
+export type Input = {
+	zoneId: string,
+	exploredMap: MapRevealCore.ExploredState,
+	markerRows: { MarkerRow },
+	player: NormalizedPoint,
+	imageScale: number,
+	trackedWaypoint: TrackedWaypoint?,
+}
+```
+
+### `core.map.viewport.PoiMarker`
+
+```luau
+export type PoiMarker = {
+	zoneId: string,
+	poiId: string,
+	projection: MinimapGeometry.MarkerProjection,
+}
+```
+
+### `core.map.viewport.Viewport`
+
+```luau
+export type Viewport = {
+	imagePan: MinimapGeometry.PanOffset,
+	player: MinimapGeometry.MarkerProjection,
+	poiMarkers: { PoiMarker },
+	trackedWaypoint: MinimapGeometry.MarkerProjection?,
+}
+```
+
+### `core.map.viewport.build`
+
+```luau
+function MapViewportModel.build(value: unknown): Viewport?
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+imagePan = imagePan
+player = player
+poiMarkers = markers
+trackedWaypoint = tracked
+```
+
+## `core.map`
+
+[Source](../src/core/map.luau)
+
+```luau
+local Coordinates = require("./map/coordinates")
+```
+
+```luau
+local Exploration = require("./map/exploration")
+```
+
+```luau
+local Geometry = require("./map/geometry")
+```
+
+```luau
+local Polyline = require("./map/polyline")
+```
+
+```luau
+local Renderer = require("./map/renderer")
+```
+
+```luau
+local Updates = require("./map/updates")
+```
+
+```luau
+local Viewport = require("./map/viewport")
+```
+
+### `core.map.CoordinatesBounds`
+
+```luau
+export type CoordinatesBounds = Coordinates.Bounds
+```
+
+### `core.map.CoordinatesWorldPoint`
+
+```luau
+export type CoordinatesWorldPoint = Coordinates.WorldPoint
+```
+
+### `core.map.CoordinatesNormalizedPoint`
+
+```luau
+export type CoordinatesNormalizedPoint = Coordinates.NormalizedPoint
+```
+
+### `core.map.ExplorationRecord`
+
+```luau
+export type ExplorationRecord<K> = Exploration.Record<K>
+```
+
+### `core.map.ExplorationCatalogValue`
+
+```luau
+export type ExplorationCatalogValue<K> = Exploration.CatalogValue<K>
+```
+
+### `core.map.ExplorationExploredState`
+
+```luau
+export type ExplorationExploredState = Exploration.ExploredState
+```
+
+### `core.map.ExplorationIdentity`
+
+```luau
+export type ExplorationIdentity = Exploration.Identity
+```
+
+### `core.map.ExplorationWorldPoint`
+
+```luau
+export type ExplorationWorldPoint = Exploration.WorldPoint
+```
+
+### `core.map.ExplorationPoi`
+
+```luau
+export type ExplorationPoi = Exploration.Poi
+```
+
+### `core.map.ExplorationObservation`
+
+```luau
+export type ExplorationObservation = Exploration.Observation
+```
+
+### `core.map.ExplorationRevealResult`
+
+```luau
+export type ExplorationRevealResult = Exploration.RevealResult
+```
+
+### `core.map.ExplorationPresentation`
+
+```luau
+export type ExplorationPresentation<K> = Exploration.Presentation<K>
+```
+
+### `core.map.ExplorationTransition`
+
+```luau
+export type ExplorationTransition<K> = Exploration.Transition<K>
+```
+
+### `core.map.ExplorationSystem`
+
+```luau
+export type ExplorationSystem<K> = Exploration.System<K>
+```
+
+### `core.map.GeometryPanOffset`
+
+```luau
+export type GeometryPanOffset = Geometry.PanOffset
+```
+
+### `core.map.GeometryMarkerProjection`
+
+```luau
+export type GeometryMarkerProjection = Geometry.MarkerProjection
+```
+
+### `core.map.PolylinePixelPoint`
+
+```luau
+export type PolylinePixelPoint = Polyline.PixelPoint
+```
+
+### `core.map.RendererPreferredInput`
+
+```luau
+export type RendererPreferredInput = Renderer.PreferredInput
+```
+
+### `core.map.RendererSurface`
+
+```luau
+export type RendererSurface = Renderer.Surface
+```
+
+### `core.map.RendererInput`
+
+```luau
+export type RendererInput<K> = Renderer.Input<K>
+```
+
+### `core.map.RendererResult`
+
+```luau
+export type RendererResult = Renderer.Result
+```
+
+### `core.map.UpdatesNormalizedPoint`
+
+```luau
+export type UpdatesNormalizedPoint = Updates.NormalizedPoint
+```
+
+### `core.map.UpdatesSample`
+
+```luau
+export type UpdatesSample = Updates.Sample
+```
+
+### `core.map.UpdatesState`
+
+```luau
+export type UpdatesState = Updates.State
+```
+
+### `core.map.UpdatesPanUpdate`
+
+```luau
+export type UpdatesPanUpdate = Updates.PanUpdate
+```
+
+### `core.map.UpdatesMarkerUpdate`
+
+```luau
+export type UpdatesMarkerUpdate = Updates.MarkerUpdate
+```
+
+### `core.map.UpdatesOutput`
+
+```luau
+export type UpdatesOutput = Updates.Output
+```
+
+### `core.map.UpdatesResult`
+
+```luau
+export type UpdatesResult = Updates.Result
+```
+
+### `core.map.ViewportNormalizedPoint`
+
+```luau
+export type ViewportNormalizedPoint = Viewport.NormalizedPoint
+```
+
+### `core.map.ViewportMarkerRow`
+
+```luau
+export type ViewportMarkerRow = Viewport.MarkerRow
+```
+
+### `core.map.ViewportTrackedWaypoint`
+
+```luau
+export type ViewportTrackedWaypoint = Viewport.TrackedWaypoint
+```
+
+### `core.map.ViewportInput`
+
+```luau
+export type ViewportInput = Viewport.Input
+```
+
+### `core.map.ViewportPoiMarker`
+
+```luau
+export type ViewportPoiMarker = Viewport.PoiMarker
+```
+
+### `core.map.ViewportViewport`
+
+```luau
+export type ViewportViewport = Viewport.Viewport
+```
+
+### `core.map.API`
+
+```luau
+export type API = {
+	read coordinates: typeof(Coordinates),
+	read exploration: typeof(Exploration),
+	read geometry: typeof(Geometry),
+	read polyline: typeof(Polyline),
+	read renderer: typeof(Renderer),
+	read updates: typeof(Updates),
+	read viewport: typeof(Viewport),
+}
+```
+
+### `core.map.coordinates`
+
+Exported value; see its declaration in [source](../src/core/map.luau).
+
+### `core.map.exploration`
+
+Exported value; see its declaration in [source](../src/core/map.luau).
+
+### `core.map.geometry`
+
+Exported value; see its declaration in [source](../src/core/map.luau).
+
+### `core.map.polyline`
+
+Exported value; see its declaration in [source](../src/core/map.luau).
+
+### `core.map.renderer`
+
+Exported value; see its declaration in [source](../src/core/map.luau).
+
+### `core.map.updates`
+
+Exported value; see its declaration in [source](../src/core/map.luau).
+
+### `core.map.viewport`
+
+Exported value; see its declaration in [source](../src/core/map.luau).
+
+## `core.market.book`
+
+[Source](../src/core/market/book.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.market.book.Listing`
+
+```luau
+export type Listing = {
+	listingId: string,
+	itemId: string?,
+	sellerId: number,
+	count: number,
+	unitPrice: number,
+	listedAtSec: number,
+	expiresAtSec: number,
+}
+```
+
+### `core.market.book.ReceiptKind`
+
+```luau
+export type ReceiptKind = "proceeds" | "purchase" | "return"
+```
+
+### `core.market.book.Receipt`
+
+```luau
+export type Receipt = {
+	receiptId: string,
+	itemId: string?,
+	ownerId: number,
+	kind: ReceiptKind,
+	opId: string,
+	coin: number,
+	goods: number,
+	issuedAtSec: number,
+}
+```
+
+### `core.market.book.Operation`
+
+```luau
+export type Operation = { fingerprint: string, atSec: number, actorId: number }
+```
+
+### `core.market.book.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	realmId: string,
+	materialId: string,
+	feeBps: number,
+	lastClockSec: number,
+	listings: { Listing },
+	receipts: { Receipt },
+	operations: { [string]: Operation },
+	operationOrder: { string },
+	burnedCoin: number,
+}
+```
+
+### `core.market.book.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	state: State?,
+	replayed: boolean,
+	reason: string?,
+	receipts: { Receipt }?,
+	fence: string?,
+}
+```
+
+### `core.market.book.Command`
+
+```luau
+export type Command =
+	{
+		kind: "list",
+		opId: string,
+		itemId: string?,
+		actorId: number,
+		actorRealmId: string,
+		count: number,
+		unitPrice: number,
+	}
+	| { kind: "cancel", opId: string, itemId: string?, actorId: number, listingId: string }
+	| {
+		kind: "fill",
+		opId: string,
+		itemId: string?,
+		actorId: number,
+		actorRealmId: string,
+		quantity: number,
+		ceilingUnitPrice: number,
+		holdCoin: number,
+	}
+	| { kind: "ack", opId: string, itemId: string?, actorId: number, receiptIds: { string } }
+	| { kind: "sweep", opId: string, itemId: string?, actorId: number? }
+	| { kind: "void", opId: string, itemId: string?, actorId: number? }
+```
+
+### `core.market.book.Search`
+
+```luau
+export type Search = { limit: number?, sellerId: number?, itemId: string?, ceilingUnitPrice: number? }
+```
+
+### `core.market.book.Config`
+
+```luau
+export type Config = {
+	listingTtlSec: number,
+	legacyListingTtlSec: number,
+	minFeeBps: number,
+	maxFeeBps: number,
+	defaultFeeBps: number,
+	legacyFeeBps: number,
+	maxListings: number,
+	maxReceipts: number,
+	operationRetentionSec: number,
+	actorWindowSec: number,
+	maxReceiptsPerOwner: number,
+	maxOperations: number,
+	maxOperationsPerActor: number,
+	maxListingsPerSeller: number,
+	maxCount: number,
+	maxPrice: number,
+	maxId: number,
+	maxTime: number,
+	maxCoin: number,
+	categoryPrefix: string,
+	maxSearch: number,
+	realms: { [string]: boolean },
+}
+```
+
+### `core.market.book.book`
+
+```luau
+function Market.book(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function Book.emptyState(realmId: unknown, materialId: unknown, feeBps: unknown): State?
+projectState = function Book.projectState(value: unknown): State?
+knowsOperation = function Book.knowsOperation(value: unknown, opId: unknown): boolean
+apply = function Book.apply(previous: unknown, commandValue: unknown, nowSecValue: unknown): Result
+search = function Book.search(value: unknown, query: unknown, nowSecValue: unknown): { Listing }?
+receiptsFor = function Book.receiptsFor(value: unknown, ownerId: unknown): { Receipt }?
+```
+
+## `core.market.conservation`
+
+[Source](../src/core/market/conservation.luau)
+
+```luau
+local Book = require("./book")
+```
+
+```luau
+local Value = require("../value")
+```
+
+```luau
+local Wallet = require("./wallet")
+```
+
+### `core.market.conservation.Totals`
+
+```luau
+export type Totals = { coin: number, goods: { [string]: number } }
+```
+
+### `core.market.conservation.Audit`
+
+```luau
+export type Audit = { ok: boolean, coin: number, goods: { [string]: number }, reason: string? }
+```
+
+### `core.market.conservation.Config`
+
+```luau
+export type Config = {
+	projectBook: (unknown) -> Book.State?,
+	projectWallet: (unknown) -> Wallet.State?,
+}
+```
+
+### `core.market.conservation.conservation`
+
+```luau
+function Conservation.conservation(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+measure = function Audit.measure(walletValues: unknown, bookValues: unknown): (Totals?, string?)
+audit = function Audit.audit(walletValues: unknown, bookValues: unknown, expected: Totals): Audit
+```
+
+## `core.market.goods`
+
+[Source](../src/core/market/goods.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.market.goods.ItemFacts`
+
+```luau
+export type ItemFacts = {
+	id: string,
+	slot: string?,
+	levelReq: number?,
+	rarity: string?,
+	weaponFamily: string?,
+	armorFamily: string?,
+	classReq: { string }?,
+}
+```
+
+### `core.market.goods.Class`
+
+```luau
+export type Class = { id: string, displayName: string, weaponFamilies: { string }, armorCeiling: string }
+```
+
+### `core.market.goods.Config`
+
+```luau
+export type Config<T> = {
+	books: { [string]: string },
+	order: { string },
+	slots: { [string]: string },
+	bindRules: { [string]: boolean },
+	boundSlots: { [string]: boolean },
+	recipePrefixes: { string },
+	consumablePrefix: string,
+	recipeCategory: string,
+	consumableCategory: string,
+	defaultCategory: string,
+	armorRanks: { [string]: number },
+	classOf: (string) -> Class?,
+	unboundCount: (T, string) -> number,
+}
+```
+
+### `core.market.goods.Filters`
+
+```luau
+export type Filters = {
+	slot: string?,
+	minLevel: number?,
+	maxLevel: number?,
+	rarity: string?,
+	family: string?,
+	classId: string?,
+}
+```
+
+### `core.market.goods.catalog`
+
+```luau
+function Goods.catalog<T>(config: Config<T>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+bookIds = function catalog.bookIds(): { string }
+isCategoryBook = function catalog.isCategoryBook(bookId: unknown): boolean
+bookFor = function catalog.bookFor(value: unknown): (string?, string?)
+tradeableCount = function catalog.tradeableCount(def: unknown, profile: T): number
+matches = function catalog.matches(def: ItemFacts, value: unknown): boolean
+```
+
+## `core.market.wallet`
+
+[Source](../src/core/market/wallet.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.market.wallet.Pending`
+
+```luau
+export type Pending = {
+	kind: "consign" | "buy",
+	realmId: string,
+	materialId: string,
+	bookId: string?,
+	count: number,
+	hold: number,
+	startedAtSec: number,
+}
+```
+
+### `core.market.wallet.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	userId: number,
+	coin: number,
+	goods: { [string]: number },
+	pending: { [string]: Pending },
+	claimedOrder: { string },
+}
+```
+
+### `core.market.wallet.Ledger`
+
+```luau
+export type Ledger = {
+	schemaVersion: number,
+	pending: { [string]: Pending },
+	claimedOrder: { string },
+}
+```
+
+### `core.market.wallet.Result`
+
+```luau
+export type Result =
+	{ ok: true, state: State, replayed: boolean, reason: nil }
+	| { ok: false, state: nil, replayed: false, reason: string }
+```
+
+### `core.market.wallet.Config`
+
+```luau
+export type Config = {
+	claimedWindow: number,
+	healRetentionSec: number,
+	maxPending: number,
+	maxId: number,
+	maxCount: number,
+	maxCoin: number,
+	maxTime: number,
+	realms: { [string]: boolean },
+}
+```
+
+### `core.market.wallet.wallet`
+
+```luau
+function Wallets.wallet(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function Wallet.emptyState(userId: unknown, coin: unknown, goods: unknown): State?
+projectState = function Wallet.projectState(value: unknown): State?
+beginConsign = function Wallet.beginConsign(
+		previous: unknown,
+		opId: unknown,
+		realmId: unknown,
+		materialId: unknown,
+		count: unknown,
+		nowSec: unknown,
+		bookId: unknown?
+	): Result
+beginBuy = function Wallet.beginBuy(
+		previous: unknown,
+		opId: unknown,
+		realmId: unknown,
+		materialId: unknown,
+		hold: unknown,
+		nowSec: unknown,
+		bookId: unknown?
+	): Result
+refund = function Wallet.refund(previous: unknown, opId: unknown): Result
+settleConsign = function Wallet.settleConsign(previous: unknown, opId: unknown): Result
+claim = function Wallet.claim(previous: unknown, receiptValue: unknown, materialId: unknown): Result
+heal = function Wallet.heal(previous: unknown, opId: unknown, bookKnowsOperation: unknown, nowSec: unknown): Result
+npcTrade = function Wallet.npcTrade(
+		previous: unknown,
+		side: unknown,
+		materialId: unknown,
+		count: unknown,
+		unitPrice: unknown
+	): Result
+emptyLedger = function Wallet.emptyLedger(): Ledger
+compose = function Wallet.compose(userId: unknown, coin: unknown, goods: unknown, ledgerValue: unknown): State?
+projectLedger = function Wallet.projectLedger(userId: unknown, value: unknown): Ledger?
+ledgerOf = function Wallet.ledgerOf(stateValue: unknown): Ledger?
+```
+
+## `core.market`
+
+[Source](../src/core/market.luau)
+
+```luau
+local Book = require("./market/book")
+```
+
+```luau
+local Conservation = require("./market/conservation")
+```
+
+```luau
+local Goods = require("./market/goods")
+```
+
+```luau
+local Wallet = require("./market/wallet")
+```
+
+### `core.market.BookListing`
+
+```luau
+export type BookListing = Book.Listing
+```
+
+### `core.market.BookReceiptKind`
+
+```luau
+export type BookReceiptKind = Book.ReceiptKind
+```
+
+### `core.market.BookReceipt`
+
+```luau
+export type BookReceipt = Book.Receipt
+```
+
+### `core.market.BookOperation`
+
+```luau
+export type BookOperation = Book.Operation
+```
+
+### `core.market.BookState`
+
+```luau
+export type BookState = Book.State
+```
+
+### `core.market.BookResult`
+
+```luau
+export type BookResult = Book.Result
+```
+
+### `core.market.BookCommand`
+
+```luau
+export type BookCommand = Book.Command
+```
+
+### `core.market.BookSearch`
+
+```luau
+export type BookSearch = Book.Search
+```
+
+### `core.market.BookConfig`
+
+```luau
+export type BookConfig = Book.Config
+```
+
+### `core.market.ConservationTotals`
+
+```luau
+export type ConservationTotals = Conservation.Totals
+```
+
+### `core.market.ConservationAudit`
+
+```luau
+export type ConservationAudit = Conservation.Audit
+```
+
+### `core.market.ConservationConfig`
+
+```luau
+export type ConservationConfig = Conservation.Config
+```
+
+### `core.market.GoodsItemFacts`
+
+```luau
+export type GoodsItemFacts = Goods.ItemFacts
+```
+
+### `core.market.GoodsClass`
+
+```luau
+export type GoodsClass = Goods.Class
+```
+
+### `core.market.GoodsConfig`
+
+```luau
+export type GoodsConfig<T> = Goods.Config<T>
+```
+
+### `core.market.GoodsFilters`
+
+```luau
+export type GoodsFilters = Goods.Filters
+```
+
+### `core.market.WalletPending`
+
+```luau
+export type WalletPending = Wallet.Pending
+```
+
+### `core.market.WalletState`
+
+```luau
+export type WalletState = Wallet.State
+```
+
+### `core.market.WalletLedger`
+
+```luau
+export type WalletLedger = Wallet.Ledger
+```
+
+### `core.market.WalletResult`
+
+```luau
+export type WalletResult = Wallet.Result
+```
+
+### `core.market.WalletConfig`
+
+```luau
+export type WalletConfig = Wallet.Config
+```
+
+### `core.market.API`
+
+```luau
+export type API = {
+	read book: typeof(Book),
+	read conservation: typeof(Conservation),
+	read goods: typeof(Goods),
+	read wallet: typeof(Wallet),
+}
+```
+
+### `core.market.book`
+
+Exported value; see its declaration in [source](../src/core/market.luau).
+
+### `core.market.conservation`
+
+Exported value; see its declaration in [source](../src/core/market.luau).
+
+### `core.market.goods`
+
+Exported value; see its declaration in [source](../src/core/market.luau).
+
+### `core.market.wallet`
+
+Exported value; see its declaration in [source](../src/core/market.luau).
+
+## `core.net.rate-limit`
+
+[Source](../src/core/net/rate-limit.luau)
+
+### `core.net.rate-limit.Config`
+
+```luau
+export type Config = {
+	capacity: number,
+	refillPerSec: number,
+}
+```
+
+### `core.net.rate-limit.Bucket`
+
+```luau
+export type Bucket = {
+	tokens: number,
+	lastRefill: number,
+}
+```
+
+### `core.net.rate-limit.KeyedState`
+
+```luau
+export type KeyedState = { [string]: Bucket }
+```
+
+### `core.net.rate-limit.consume`
+
+Exported value; see its declaration in [source](../src/core/net/rate-limit.luau).
+
+### `core.net.rate-limit.newBucket`
+
+Exported value; see its declaration in [source](../src/core/net/rate-limit.luau).
+
+### `core.net.rate-limit.tryConsume`
+
+Exported value; see its declaration in [source](../src/core/net/rate-limit.luau).
+
+## `core.net`
+
+[Source](../src/core/net.luau)
+
+```luau
+local RateLimit = require("./net/rate-limit")
+```
+
+### `core.net.RateLimitConfig`
+
+```luau
+export type RateLimitConfig = RateLimit.Config
+```
+
+### `core.net.RateLimitBucket`
+
+```luau
+export type RateLimitBucket = RateLimit.Bucket
+```
+
+### `core.net.RateLimitKeyedState`
+
+```luau
+export type RateLimitKeyedState = RateLimit.KeyedState
+```
+
+### `core.net.API`
+
+```luau
+export type API = {
+	read rate_limit: typeof(RateLimit),
+}
+```
+
+### `core.net.rate_limit`
+
+Exported value; see its declaration in [source](../src/core/net.luau).
+
+## `core.orders.patron`
+
+[Source](../src/core/orders/patron.luau)
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.orders.patron.Order`
+
+```luau
+export type Order = {
+	orderId: string,
+	realmId: string,
+	itemId: string,
+	count: number,
+	payout: number,
+	label: string,
+}
+```
+
+### `core.orders.patron.Catalog`
+
+```luau
+export type Catalog = {
+	weeklyCoinCap: number,
+	orders: { [string]: Order },
+	ordered: { Order },
+}
+```
+
+### `core.orders.patron.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	weekIndex: number,
+	paidThisWeek: number,
+	carry: number,
+	receiptOrder: { { turnInId: string, payout: number } },
+}
+```
+
+### `core.orders.patron.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	state: State?,
+	replayed: boolean,
+	reason: string?,
+	payout: number,
+	consume: number,
+	itemId: string?,
+}
+```
+
+### `core.orders.patron.Config`
+
+```luau
+export type Config = {
+	weekSec: number,
+	weekAnchorSec: number,
+	receiptWindow: number,
+	maxId: number,
+	maxOrders: number,
+	maxCount: number,
+	maxCoin: number,
+	maxTime: number,
+	realms: { [string]: boolean },
+}
+```
+
+### `core.orders.patron.patron`
+
+```luau
+function System.patron(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+catalog = function PatronOrderCore.catalog(value: unknown): (Catalog?, string?)
+emptyState = function PatronOrderCore.emptyState(): State
+projectState = function PatronOrderCore.projectState(value: unknown): State?
+weekOf = function PatronOrderCore.weekOf(atSec: number): number
+allowance = function PatronOrderCore.allowance(value: unknown, catalogValue: Catalog, atSec: number): number?
+turnIn = function PatronOrderCore.turnIn(previous: unknown, catalog: Catalog, turnInValue: unknown): Result
+```
+
+## `core.orders.work`
+
+[Source](../src/core/orders/work.luau)
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.orders.work.Phase`
+
+```luau
+export type Phase = "unaccepted" | "accepted" | "completed"
+```
+
+### `core.orders.work.WorkOrderStep`
+
+```luau
+export type WorkOrderStep = {
+	id: string,
+	tag: string,
+	targetCount: number,
+}
+```
+
+### `core.orders.work.WorkOrder`
+
+```luau
+export type WorkOrder = {
+	id: string,
+	rewardId: string,
+	repeatable: boolean,
+	steps: { WorkOrderStep },
+}
+```
+
+### `core.orders.work.State`
+
+```luau
+export type State = {
+	lastClockSec: number,
+	phase: Phase,
+	stepProgress: { [string]: number },
+	claimed: boolean,
+	claims: { [string]: string },
+}
+```
+
+### `core.orders.work.CommandKind`
+
+```luau
+export type CommandKind = "accept" | "progress" | "complete" | "claim"
+```
+
+### `core.orders.work.Command`
+
+```luau
+export type Command = {
+	kind: CommandKind,
+	stepTag: string?,
+	amount: number?,
+	eventId: string?,
+}
+```
+
+### `core.orders.work.Result`
+
+```luau
+export type Result = {
+	state: State,
+	phase: Phase,
+	accepted: boolean,
+	progressed: boolean,
+	completed: boolean,
+	claimed: boolean,
+	replayed: boolean,
+	rewardId: string?,
+	eventId: string?,
+}
+```
+
+### `core.orders.work.emptyState`
+
+```luau
+function WorkOrderCore.emptyState(): State
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+lastClockSec = 0
+phase = "unaccepted"
+stepProgress = {}
+claimed = false
+claims = {}
+```
+
+### `core.orders.work.projectOrder`
+
+```luau
+function WorkOrderCore.projectOrder(value: unknown): WorkOrder?
+```
+
+### `core.orders.work.projectState`
+
+```luau
+function WorkOrderCore.projectState(value: unknown, orderValue: unknown): State?
+```
+
+### `core.orders.work.step`
+
+```luau
+function WorkOrderCore.step(
+	previousStateValue: unknown,
+	orderValue: unknown,
+	commandValue: unknown,
+	nowSecValue: unknown
+): Result?
+```
+
+## `core.orders`
+
+[Source](../src/core/orders.luau)
+
+```luau
+local Patron = require("./orders/patron")
+```
+
+```luau
+local Work = require("./orders/work")
+```
+
+### `core.orders.PatronOrder`
+
+```luau
+export type PatronOrder = Patron.Order
+```
+
+### `core.orders.PatronCatalog`
+
+```luau
+export type PatronCatalog = Patron.Catalog
+```
+
+### `core.orders.PatronState`
+
+```luau
+export type PatronState = Patron.State
+```
+
+### `core.orders.PatronResult`
+
+```luau
+export type PatronResult = Patron.Result
+```
+
+### `core.orders.PatronConfig`
+
+```luau
+export type PatronConfig = Patron.Config
+```
+
+### `core.orders.WorkPhase`
+
+```luau
+export type WorkPhase = Work.Phase
+```
+
+### `core.orders.WorkWorkOrderStep`
+
+```luau
+export type WorkWorkOrderStep = Work.WorkOrderStep
+```
+
+### `core.orders.WorkWorkOrder`
+
+```luau
+export type WorkWorkOrder = Work.WorkOrder
+```
+
+### `core.orders.WorkState`
+
+```luau
+export type WorkState = Work.State
+```
+
+### `core.orders.WorkCommandKind`
+
+```luau
+export type WorkCommandKind = Work.CommandKind
+```
+
+### `core.orders.WorkCommand`
+
+```luau
+export type WorkCommand = Work.Command
+```
+
+### `core.orders.WorkResult`
+
+```luau
+export type WorkResult = Work.Result
+```
+
+### `core.orders.API`
+
+```luau
+export type API = {
+	read patron: typeof(Patron),
+	read work: typeof(Work),
+}
+```
+
+### `core.orders.patron`
+
+Exported value; see its declaration in [source](../src/core/orders.luau).
+
+### `core.orders.work`
+
+Exported value; see its declaration in [source](../src/core/orders.luau).
+
+## `core.persistence.profile-session`
+
+[Source](../src/core/persistence/profile-session.luau)
+
+### `core.persistence.profile-session.FlightKind`
+
+```luau
+export type FlightKind = "save" | "close" | "renewal"
+```
+
+### `core.persistence.profile-session.State`
+
+```luau
+export type State = {
+	leaseExpiresAt: number,
+	dirty: boolean,
+	dirtyDueAt: number?,
+	generation: number,
+	inFlightGeneration: number?,
+	inFlightKind: FlightKind?,
+	closed: boolean,
+	shutdownDueAt: number?,
+	failed: boolean,
+	leaseLost: boolean,
+	released: boolean,
+}
+```
+
+### `core.persistence.profile-session.Outcome`
+
+```luau
+export type Outcome = { ok: boolean, reason: string?, generation: number?, kind: FlightKind? }
+```
+
+### `core.persistence.profile-session.Config`
+
+```luau
+export type Config = {
+	leaseSeconds: number,
+	renewBeforeSeconds: number,
+	coalesceSeconds: number,
+	shutdownSeconds: number,
+	ordinaryReason: string,
+	immediateReasons: { [string]: boolean },
+}
+```
+
+### `core.persistence.profile-session.create`
+
+```luau
+function Session.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+open = function M.open(now: number)
+openAcquired = function M.openAcquired(now: number, persistedExpiry: number): (State?, string?)
+dirty = function M.dirty(s: State, now: number, reason: string): Outcome
+due = function M.due(s: State, now: number): boolean
+begin = function M.begin(s: State, now: number): Outcome
+finish = function M.finish(s: State, now: number, ok: boolean): Outcome
+close = function M.close(s: State, now: number): Outcome
+```
+
+## `core.persistence.session-lock`
+
+[Source](../src/core/persistence/session-lock.luau)
+
+### `core.persistence.session-lock.LockState`
+
+```luau
+export type LockState = {
+	sessionId: string?,
+
+	lockExpiry: number,
+}
+```
+
+### `core.persistence.session-lock.AcquireResult`
+
+```luau
+export type AcquireResult = {
+	granted: boolean,
+	newState: LockState?,
+	reason: string,
+}
+```
+
+### `core.persistence.session-lock.isLocked`
+
+Exported value; see its declaration in [source](../src/core/persistence/session-lock.luau).
+
+### `core.persistence.session-lock.release`
+
+Exported value; see its declaration in [source](../src/core/persistence/session-lock.luau).
+
+### `core.persistence.session-lock.tryAcquire`
+
+Exported value; see its declaration in [source](../src/core/persistence/session-lock.luau).
+
+## `core.persistence.store-host`
+
+[Source](../src/core/persistence/store-host.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.persistence.store-host.Outcome`
+
+```luau
+export type Outcome = { ok: boolean, value: unknown, reason: string? }
+```
+
+### `core.persistence.store-host.DrainOutcome`
+
+```luau
+export type DrainOutcome = { ok: boolean, flushed: number, remaining: number, reason: string? }
+```
+
+### `core.persistence.store-host.Operation`
+
+```luau
+export type Operation = "Get" | "Set" | "Update"
+```
+
+### `core.persistence.store-host.Observation`
+
+```luau
+export type Observation = {
+	store: string,
+	operation: Operation,
+	durationMs: number,
+	budgetWaitMs: number,
+	budgetSleeps: number,
+	retries: number,
+}
+```
+
+### `core.persistence.store-host.Observer`
+
+```luau
+export type Observer = (Observation) -> ()
+```
+
+### `core.persistence.store-host.BudgetKind`
+
+```luau
+export type BudgetKind = "get" | "set" | "update"
+```
+
+### `core.persistence.store-host.QueuedWrite`
+
+```luau
+export type QueuedWrite = { id: string, storeName: string, key: string, nextAttemptAt: number }
+```
+
+### `core.persistence.store-host.Circuit`
+
+```luau
+export type Circuit = {
+	success: () -> (),
+	failure: (number, unknown) -> (),
+	canAttempt: (number) -> boolean,
+	begin: (number) -> (),
+	enqueue: (
+		{ storeName: string, key: string, kind: "set" | "update", payload: unknown },
+		number
+	) -> (boolean, string?, QueuedWrite?),
+	markFailure: (string, number, unknown) -> (),
+	markSuccess: (string) -> (),
+	hasQueued: (string, string) -> boolean,
+	isReadOnly: () -> boolean,
+	list: () -> { QueuedWrite },
+}
+```
+
+### `core.persistence.store-host.RawStore`
+
+```luau
+export type RawStore = {
+	GetAsync: (RawStore, string, unknown?) -> unknown,
+	SetAsync: (RawStore, string, unknown) -> (),
+	UpdateAsync: (RawStore, string, (unknown) -> unknown) -> unknown,
+}
+```
+
+### `core.persistence.store-host.RealDependencies`
+
+```luau
+export type RealDependencies = {
+	raw: RawStore,
+	sleep: (number) -> (),
+	jitter: () -> number,
+	now: () -> number,
+	clock: () -> number,
+	requestBudget: ((BudgetKind) -> number)?,
+	waitForBudget: ((BudgetKind) -> (boolean, number?))?,
+	observer: (() -> Observer?)?,
+	uncachedOptions: () -> unknown,
+	validUncachedOptions: (unknown) -> boolean,
+}
+```
+
+### `core.persistence.store-host.MemoryStore`
+
+```luau
+export type MemoryStore = {
+	name: string,
+	get: (string) -> unknown,
+	set: (string, unknown) -> (),
+	update: (string, (unknown) -> unknown) -> unknown,
+}
+```
+
+### `core.persistence.store-host.TestOptions`
+
+```luau
+export type TestOptions = { rerun: boolean?, fault: (() -> string?)? }
+```
+
+### `core.persistence.store-host.Store`
+
+```luau
+export type Store = {
+	name: string,
+	backend: "real" | "memory",
+	get: (string) -> unknown,
+	getOutcome: (string) -> Outcome,
+	getUncachedOutcome: (string) -> Outcome,
+	set: (string, unknown) -> Outcome,
+	update: (string, (unknown) -> unknown) -> unknown,
+	updateOutcome: (string, (unknown) -> unknown) -> Outcome,
+	flushQueuedWrites: () -> number,
+	hasPendingWrite: (string) -> boolean,
+	isReadOnly: () -> boolean,
+	writeBudget: (() -> number)?,
+}
+```
+
+### `core.persistence.store-host.Config`
+
+```luau
+export type Config = {
+	clock: () -> number,
+	maxKeyBytes: number,
+	maxAttempts: number,
+	backoff: (number, number) -> number,
+	retry: <T>(() -> (boolean, T), (number) -> (), () -> number) -> (boolean, T),
+	warning: (string) -> (),
+}
+```
+
+### `core.persistence.store-host.create`
+
+```luau
+function StoreHost.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+memory = function makeMemoryStore(store: MemoryStore, options: TestOptions?, observerOf: () -> Observer?): Store
+real = function makeRealStore(name: string, state: unknown, circuit: Circuit, dependencies: RealDependencies): Store
+drain = function drainQueuedWrites(
+		flush: () -> number,
+		remaining: () -> number,
+		deadline: number,
+		clock: () -> number,
+		sleep: (number) -> ()
+	): DrainOutcome
+```
+
+## `core.persistence`
+
+[Source](../src/core/persistence.luau)
+
+```luau
+local ProfileSession = require("./persistence/profile-session")
+```
+
+```luau
+local SessionLock = require("./persistence/session-lock")
+```
+
+```luau
+local StoreHost = require("./persistence/store-host")
+```
+
+### `core.persistence.ProfileSessionFlightKind`
+
+```luau
+export type ProfileSessionFlightKind = ProfileSession.FlightKind
+```
+
+### `core.persistence.ProfileSessionState`
+
+```luau
+export type ProfileSessionState = ProfileSession.State
+```
+
+### `core.persistence.ProfileSessionOutcome`
+
+```luau
+export type ProfileSessionOutcome = ProfileSession.Outcome
+```
+
+### `core.persistence.ProfileSessionConfig`
+
+```luau
+export type ProfileSessionConfig = ProfileSession.Config
+```
+
+### `core.persistence.SessionLockLockState`
+
+```luau
+export type SessionLockLockState = SessionLock.LockState
+```
+
+### `core.persistence.SessionLockAcquireResult`
+
+```luau
+export type SessionLockAcquireResult = SessionLock.AcquireResult
+```
+
+### `core.persistence.StoreHostOutcome`
+
+```luau
+export type StoreHostOutcome = StoreHost.Outcome
+```
+
+### `core.persistence.StoreHostDrainOutcome`
+
+```luau
+export type StoreHostDrainOutcome = StoreHost.DrainOutcome
+```
+
+### `core.persistence.StoreHostOperation`
+
+```luau
+export type StoreHostOperation = StoreHost.Operation
+```
+
+### `core.persistence.StoreHostObservation`
+
+```luau
+export type StoreHostObservation = StoreHost.Observation
+```
+
+### `core.persistence.StoreHostObserver`
+
+```luau
+export type StoreHostObserver = StoreHost.Observer
+```
+
+### `core.persistence.StoreHostBudgetKind`
+
+```luau
+export type StoreHostBudgetKind = StoreHost.BudgetKind
+```
+
+### `core.persistence.StoreHostQueuedWrite`
+
+```luau
+export type StoreHostQueuedWrite = StoreHost.QueuedWrite
+```
+
+### `core.persistence.StoreHostCircuit`
+
+```luau
+export type StoreHostCircuit = StoreHost.Circuit
+```
+
+### `core.persistence.StoreHostRawStore`
+
+```luau
+export type StoreHostRawStore = StoreHost.RawStore
+```
+
+### `core.persistence.StoreHostRealDependencies`
+
+```luau
+export type StoreHostRealDependencies = StoreHost.RealDependencies
+```
+
+### `core.persistence.StoreHostMemoryStore`
+
+```luau
+export type StoreHostMemoryStore = StoreHost.MemoryStore
+```
+
+### `core.persistence.StoreHostTestOptions`
+
+```luau
+export type StoreHostTestOptions = StoreHost.TestOptions
+```
+
+### `core.persistence.StoreHostStore`
+
+```luau
+export type StoreHostStore = StoreHost.Store
+```
+
+### `core.persistence.StoreHostConfig`
+
+```luau
+export type StoreHostConfig = StoreHost.Config
+```
+
+### `core.persistence.API`
+
+```luau
+export type API = {
+	read profile_session: typeof(ProfileSession),
+	read session_lock: typeof(SessionLock),
+	read store_host: typeof(StoreHost),
+}
+```
+
+### `core.persistence.profile_session`
+
+Exported value; see its declaration in [source](../src/core/persistence.luau).
+
+### `core.persistence.session_lock`
+
+Exported value; see its declaration in [source](../src/core/persistence.luau).
+
+### `core.persistence.store_host`
+
+Exported value; see its declaration in [source](../src/core/persistence.luau).
+
+## `core.professions.crafting`
+
+[Source](../src/core/professions/crafting.luau)
+
+```luau
+local Value = require("../value")
+```
+
+```luau
+local Skills = require("./skills")
+```
+
+```luau
+local Stacks = require("../inventory/stacks")
+```
+
+```luau
+local Types = require("./types")
+```
+
+### `core.professions.crafting.Plan`
+
+```luau
+export type Plan = {
+	ok: boolean,
+	reason: string?,
+	recipe: Recipe?,
+	color: string?,
+}
+```
+
+### `core.professions.crafting.Outcome`
+
+```luau
+export type Outcome = {
+	ok: boolean,
+	reason: string?,
+	state: State,
+	inventory: Inventory,
+	skillUp: boolean,
+	color: string?,
+	skill: number,
+	quality: string?,
+	produced: { itemId: string, quantity: number }?,
+}
+```
+
+### `core.professions.crafting.Config`
+
+```luau
+export type Config = {
+	core: {
+		read knows: (State, string) -> boolean,
+		read skillOf: (State, string) -> number,
+		read colorFor: (number, Types.Thresholds) -> string?,
+		read rollSkillUp: (State, string, Types.Thresholds, number) -> (State, boolean, string?),
+	},
+	maxStack: number,
+	recipes: {
+		get: (unknown) -> Recipe?,
+		isGear: (Recipe) -> boolean,
+		rollQuality: (string?, number?) -> string,
+		qualityItemId: (string, string) -> string,
+	},
+}
+```
+
+### `core.professions.crafting.create`
+
+```luau
+function System.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+plan = function Crafting.plan(state: State, recipeId: unknown, inventory: Inventory, stations: { [string]: boolean }): Plan
+craft = function Crafting.craft(
+		state: State,
+		recipeId: unknown,
+		inventory: Inventory,
+		stations: { [string]: boolean },
+		roll: number,
+		qualityRoll: number?,
+		maxInventoryEntries: number?
+	): Outcome
+```
+
+## `core.professions.fishing`
+
+[Source](../src/core/professions/fishing.luau)
+
+```luau
+local Value = require("../value")
+```
+
+```luau
+local Skills = require("./skills")
+```
+
+```luau
+local Types = require("./types")
+```
+
+### `core.professions.fishing.Phase`
+
+```luau
+export type Phase = "idle" | "waiting" | "bite"
+```
+
+### `core.professions.fishing.Line`
+
+```luau
+export type Line = {
+	phase: Phase,
+	castAt: number,
+	biteAt: number,
+	missAt: number,
+}
+```
+
+### `core.professions.fishing.Catch`
+
+```luau
+export type Catch = {
+	ok: boolean,
+	reason: string?,
+	state: State,
+	itemId: string?,
+	isFish: boolean,
+	skillUp: boolean,
+	color: string?,
+	skill: number,
+}
+```
+
+### `core.professions.fishing.Config`
+
+```luau
+export type Config = {
+	core: {
+		read knows: (State, string) -> boolean,
+		read skillOf: (State, string) -> number,
+		read colorFor: (number, Types.Thresholds) -> string?,
+		read rollSkillUp: (State, string, Types.Thresholds, number) -> (State, boolean, string?),
+	},
+	professionId: string,
+	waitMin: number,
+	waitMax: number,
+	biteWindow: number,
+	fishTable: (string) -> { FishRow },
+	junk: { FishRow },
+}
+```
+
+### `core.professions.fishing.create`
+
+```luau
+function System.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+idle = function Fishing.idle(): Line
+cast = function Fishing.cast(line: Line, state: State, now: number, waitRoll: number): (Line?, string?)
+observe = function Fishing.observe(line: Line, now: number): Line
+hook = function Fishing.hook(line: Line, now: number): (boolean, string)
+pick = function Fishing.pick(zoneId: string, skill: number, roll: number): FishRow?
+isJunk = function Fishing.isJunk(itemId: string): boolean
+reel = function Fishing.reel(state: State, zoneId: string, rng: () -> number): Catch
+```
+
+## `core.professions.gathering`
+
+[Source](../src/core/professions/gathering.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.professions.gathering.RealmId`
+
+```luau
+export type RealmId = string
+```
+
+### `core.professions.gathering.SpaceKind`
+
+```luau
+export type SpaceKind = "pve" | "contested"
+```
+
+### `core.professions.gathering.Phase`
+
+```luau
+export type Phase = "ready" | "gathering"
+```
+
+### `core.professions.gathering.Node`
+
+```luau
+export type Node = {
+	id: string,
+	materialId: string,
+	spaceKind: SpaceKind,
+	gatherDurationSec: number,
+	respawnPeriodSec: number,
+	baseYield: number,
+}
+```
+
+### `core.professions.gathering.State`
+
+```luau
+export type State = {
+	lastClockSec: number,
+	phase: Phase,
+	startedAtSec: number?,
+	completesAtSec: number?,
+	harvestedSlot: number?,
+	claims: { [string]: number },
+}
+```
+
+### `core.professions.gathering.CommandKind`
+
+```luau
+export type CommandKind = "start" | "interrupt" | "complete"
+```
+
+### `core.professions.gathering.Command`
+
+```luau
+export type Command = {
+	kind: CommandKind,
+	eventId: string?,
+	gatheringRealmId: RealmId?,
+	populationMultiplier: number?,
+}
+```
+
+### `core.professions.gathering.Result`
+
+```luau
+export type Result = {
+	state: State,
+	phase: Phase,
+	available: boolean,
+	completed: boolean,
+	interrupted: boolean,
+	replayed: boolean,
+	yieldAmount: number,
+	materialId: string?,
+	eventId: string?,
+}
+```
+
+### `core.professions.gathering.create`
+
+```luau
+function System.create(config: {
+	realms: { [string]: boolean },
+	minYieldMultiplier: number,
+	maxYieldMultiplier: number,
+	resolveYield: (Node, unknown, unknown) -> number?,
+})
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function GatheringCore.emptyState(): State
+projectNode = function GatheringCore.projectNode(value: unknown): Node?
+computeYield = function GatheringCore.computeYield(
+		nodeValue: unknown,
+		gatheringRealmIdValue: unknown,
+		populationMultiplierValue: unknown
+	): number?
+step = function GatheringCore.step(
+		previousStateValue: unknown,
+		nodeValue: unknown,
+		commandValue: unknown,
+		nowSecValue: unknown
+	): Result?
+```
+
+## `core.professions.harvest`
+
+[Source](../src/core/professions/harvest.luau)
+
+```luau
+local Value = require("../value")
+```
+
+```luau
+local Skills = require("./skills")
+```
+
+```luau
+local Types = require("./types")
+```
+
+### `core.professions.harvest.Yield`
+
+```luau
+export type Yield = { itemId: string, quantity: number }
+```
+
+### `core.professions.harvest.Outcome`
+
+```luau
+export type Outcome = {
+	ok: boolean,
+	reason: string?,
+	state: State,
+	yields: { Yield },
+	skillUp: boolean,
+	color: string?,
+	skill: number,
+}
+```
+
+### `core.professions.harvest.Config`
+
+```luau
+export type Config = {
+	core: {
+		read profession: (unknown) -> Skills.Profession?,
+		read knows: (State, string) -> boolean,
+		read skillOf: (State, string) -> number,
+		read colorFor: (number, Types.Thresholds) -> string?,
+		read rollSkillUp: (State, string, Types.Thresholds, number) -> (State, boolean, string?),
+	},
+	skinningId: string,
+}
+```
+
+### `core.professions.harvest.create`
+
+```luau
+function System.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+canAttempt = function Gather.canAttempt(state: State, professionId: string, row: NodeKind | SkinRow): (boolean, string?)
+harvestNode = function Gather.harvestNode(state: State, nodeKind: NodeKind, rng: () -> number): Outcome
+skinCorpse = function Gather.skinCorpse(state: State, skinRow: SkinRow, rng: () -> number): Outcome
+```
+
+## `core.professions.session`
+
+[Source](../src/core/professions/session.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.professions.session.Kind`
+
+```luau
+export type Kind = "gather" | "skin" | "craft" | "fish"
+```
+
+### `core.professions.session.Session`
+
+```luau
+export type Session = {
+	kind: Kind,
+	key: string,
+	startedAt: number,
+	endsAt: number,
+	startX: number,
+	startZ: number,
+	startHealth: number,
+}
+```
+
+### `core.professions.session.Sample`
+
+```luau
+export type Sample = {
+	now: number,
+	x: number,
+	z: number,
+	health: number,
+	alive: boolean,
+	inCombat: boolean,
+	arrivalProtected: boolean?,
+}
+```
+
+### `core.professions.session.create`
+
+```luau
+function System.create(config: { moveTolerance: number, blocked: (Kind, Sample) -> string? })
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+begin = function Session.begin(kind: Kind, key: string, durationSec: number, sample: Sample): (Session?, string?)
+check = function Session.check(session: Session, sample: Sample): (string, string?)
+```
+
+## `core.professions.skills`
+
+[Source](../src/core/professions/skills.luau)
+
+```luau
+local Value = require("../value")
+```
+
+```luau
+local RecipesTypes = require("./types")
+```
+
+### `core.professions.skills.Kind`
+
+```luau
+export type Kind = "gathering" | "primary_craft" | "secondary"
+```
+
+### `core.professions.skills.Profession`
+
+```luau
+export type Profession = {
+	id: string,
+	name: string,
+	kind: Kind,
+	primary: boolean,
+	order: number,
+}
+```
+
+### `core.professions.skills.State`
+
+```luau
+export type State = {
+	skills: { [string]: number },
+	recipes: { [string]: boolean },
+	questInputs: { [string]: boolean }?,
+}
+```
+
+### `core.professions.skills.Color`
+
+```luau
+export type Color = "orange" | "yellow" | "green" | "grey"
+```
+
+### `core.professions.skills.Config`
+
+```luau
+export type Config = {
+	catalogue: { Profession },
+	skillCap: number,
+	primarySlots: number,
+	startSkill: number,
+	skillUpChance: { [string]: number },
+	questInputs: (unknown) -> { [string]: boolean }?,
+	recipes: {
+		read get: (unknown) -> Recipe?,
+		read forProfession: (string) -> { read [number]: Recipe },
+		read forRecipeItem: (unknown) -> Recipe?,
+	},
+}
+```
+
+### `core.professions.skills.create`
+
+```luau
+function Skills.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+profession = function Core.profession(id: unknown): Profession?
+default = function Core.default(): State
+normalize = function Core.normalize(raw: unknown): State
+copy = function Core.copy(state: State): State
+knows = function Core.knows(state: State, professionId: string): boolean
+skillOf = function Core.skillOf(state: State, professionId: string): number
+primaryCount = function Core.primaryCount(state: State): number
+primarySlotsFree = function Core.primarySlotsFree(state: State): number
+canLearn = function Core.canLearn(state: State, professionId: unknown): (boolean, string?)
+learn = function Core.learn(state: State, professionId: unknown): (State?, string?)
+unlearn = function Core.unlearn(state: State, professionId: unknown): (State?, string?)
+skillUpChance = function Core.skillUpChance(color: Color?): number
+rollSkillUp = function Core.rollSkillUp(
+		state: State,
+		professionId: string,
+		thresholds: Thresholds,
+		roll: number
+	): (State, boolean, Color?)
+knownRecipes = function Core.knownRecipes(state: State, professionId: string): { Recipe }
+canLearnRecipe = function Core.canLearnRecipe(state: State, recipeId: unknown, via: "trainer" | "item"): (boolean, string?)
+learnRecipe = function Core.learnRecipe(state: State, recipeId: unknown, via: "trainer" | "item"): (State?, string?)
+learnFromItem = function Core.learnFromItem(state: State, itemId: unknown): (State?, string?, Recipe?)
+trainerRoster = function Core.trainerRoster(
+		state: State,
+		professionId: string
+	): { { recipe: Recipe, status: string, cost: number } }
+sameState = function Core.sameState(left: State, right: State): boolean
+freezeState = function Core.freezeState(state: State): State
+```
+
+## `core.professions.types`
+
+[Source](../src/core/professions/types.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.professions.types.Sustain`
+
+```luau
+export type Sustain = {
+	read resource: "hp" | "mana" | "none",
+	read verb: string,
+	read durationSec: number,
+	read fractionPerSec: number,
+	read combat: boolean?,
+	read buff: { slot: "food" | "elixir", durationSec: number, stats: { [string]: number } }?,
+}
+```
+
+### `core.professions.types.Reagent`
+
+```luau
+export type Reagent = { read itemId: string, read quantity: number }
+```
+
+### `core.professions.types.QuestInput`
+
+```luau
+export type QuestInput = { read questId: string, read objectiveId: string, read itemId: string, read quantity: number }
+```
+
+### `core.professions.types.Thresholds`
+
+```luau
+export type Thresholds = { read orange: number, read yellow: number, read green: number, read grey: number }
+```
+
+### `core.professions.types.Source`
+
+```luau
+export type Source = "trainer" | "vendor" | "world_drop" | "boss_drop" | "frontier"
+```
+
+### `core.professions.types.Descriptor`
+
+```luau
+export type Descriptor = {
+	read kind: "gear" | "consumable" | "material",
+	read name: string,
+	read lore: string,
+	read rarity: string,
+	read slot: string?,
+	read armorFamily: string?,
+	read weaponFamily: string?,
+	read handTopology: string?,
+	read levelReq: number,
+	read ladderSource: string?,
+	read stack: number?,
+	read sustain: Sustain?,
+}
+```
+
+### `core.professions.types.Recipe`
+
+```luau
+export type Recipe = {
+	read id: string,
+	read realmId: string?,
+	read profession: string,
+	read slug: string,
+	read name: string,
+	read requiredSkill: number,
+	read thresholds: Thresholds,
+	read reagents: { Reagent },
+	read output: Reagent,
+	read source: Source,
+	read rung: "pve" | "rvr",
+	read station: string?,
+	read recipeItemId: string?,
+	read trainerCost: number?,
+	read vendor: { price: number, stock: number }?,
+	read dropBosses: { string }?,
+	read dropChance: number?,
+	read item: Descriptor,
+	read questInputs: { QuestInput }?,
+}
+```
+
+### `core.professions.types.Extra`
+
+```luau
+export type Extra = { itemId: string, chance: number, quantity: number }
+```
+
+### `core.professions.types.NodeKind`
+
+```luau
+export type NodeKind = {
+	id: string,
+	profession: string,
+	name: string,
+	itemId: string,
+	requiredSkill: number,
+	thresholds: Thresholds,
+	minYield: number,
+	maxYield: number,
+	gatherSec: number,
+	respawnSec: number,
+	extras: { Extra },
+}
+```
+
+### `core.professions.types.SkinRow`
+
+```luau
+export type SkinRow = {
+	mobId: string,
+	itemId: string,
+	requiredSkill: number,
+	thresholds: Thresholds,
+	minYield: number,
+	maxYield: number,
+	skinSec: number,
+	extras: { Extra },
+}
+```
+
+### `core.professions.types.FishRow`
+
+```luau
+export type FishRow = {
+	itemId: string,
+	weight: number,
+	requiredSkill: number,
+	thresholds: Thresholds,
+}
+```
+
+## `core.professions`
+
+[Source](../src/core/professions.luau)
+
+```luau
+local Crafting = require("./professions/crafting")
+```
+
+```luau
+local Fishing = require("./professions/fishing")
+```
+
+```luau
+local Gathering = require("./professions/gathering")
+```
+
+```luau
+local Harvest = require("./professions/harvest")
+```
+
+```luau
+local Session = require("./professions/session")
+```
+
+```luau
+local Skills = require("./professions/skills")
+```
+
+```luau
+local Types = require("./professions/types")
+```
+
+### `core.professions.CraftingPlan`
+
+```luau
+export type CraftingPlan = Crafting.Plan
+```
+
+### `core.professions.CraftingOutcome`
+
+```luau
+export type CraftingOutcome = Crafting.Outcome
+```
+
+### `core.professions.CraftingConfig`
+
+```luau
+export type CraftingConfig = Crafting.Config
+```
+
+### `core.professions.FishingPhase`
+
+```luau
+export type FishingPhase = Fishing.Phase
+```
+
+### `core.professions.FishingLine`
+
+```luau
+export type FishingLine = Fishing.Line
+```
+
+### `core.professions.FishingCatch`
+
+```luau
+export type FishingCatch = Fishing.Catch
+```
+
+### `core.professions.FishingConfig`
+
+```luau
+export type FishingConfig = Fishing.Config
+```
+
+### `core.professions.GatheringRealmId`
+
+```luau
+export type GatheringRealmId = Gathering.RealmId
+```
+
+### `core.professions.GatheringSpaceKind`
+
+```luau
+export type GatheringSpaceKind = Gathering.SpaceKind
+```
+
+### `core.professions.GatheringPhase`
+
+```luau
+export type GatheringPhase = Gathering.Phase
+```
+
+### `core.professions.GatheringNode`
+
+```luau
+export type GatheringNode = Gathering.Node
+```
+
+### `core.professions.GatheringState`
+
+```luau
+export type GatheringState = Gathering.State
+```
+
+### `core.professions.GatheringCommandKind`
+
+```luau
+export type GatheringCommandKind = Gathering.CommandKind
+```
+
+### `core.professions.GatheringCommand`
+
+```luau
+export type GatheringCommand = Gathering.Command
+```
+
+### `core.professions.GatheringResult`
+
+```luau
+export type GatheringResult = Gathering.Result
+```
+
+### `core.professions.HarvestYield`
+
+```luau
+export type HarvestYield = Harvest.Yield
+```
+
+### `core.professions.HarvestOutcome`
+
+```luau
+export type HarvestOutcome = Harvest.Outcome
+```
+
+### `core.professions.HarvestConfig`
+
+```luau
+export type HarvestConfig = Harvest.Config
+```
+
+### `core.professions.SessionKind`
+
+```luau
+export type SessionKind = Session.Kind
+```
+
+### `core.professions.SessionSession`
+
+```luau
+export type SessionSession = Session.Session
+```
+
+### `core.professions.SessionSample`
+
+```luau
+export type SessionSample = Session.Sample
+```
+
+### `core.professions.SkillsKind`
+
+```luau
+export type SkillsKind = Skills.Kind
+```
+
+### `core.professions.SkillsProfession`
+
+```luau
+export type SkillsProfession = Skills.Profession
+```
+
+### `core.professions.SkillsState`
+
+```luau
+export type SkillsState = Skills.State
+```
+
+### `core.professions.SkillsColor`
+
+```luau
+export type SkillsColor = Skills.Color
+```
+
+### `core.professions.SkillsConfig`
+
+```luau
+export type SkillsConfig = Skills.Config
+```
+
+### `core.professions.TypesSustain`
+
+```luau
+export type TypesSustain = Types.Sustain
+```
+
+### `core.professions.TypesReagent`
+
+```luau
+export type TypesReagent = Types.Reagent
+```
+
+### `core.professions.TypesQuestInput`
+
+```luau
+export type TypesQuestInput = Types.QuestInput
+```
+
+### `core.professions.TypesThresholds`
+
+```luau
+export type TypesThresholds = Types.Thresholds
+```
+
+### `core.professions.TypesSource`
+
+```luau
+export type TypesSource = Types.Source
+```
+
+### `core.professions.TypesDescriptor`
+
+```luau
+export type TypesDescriptor = Types.Descriptor
+```
+
+### `core.professions.TypesRecipe`
+
+```luau
+export type TypesRecipe = Types.Recipe
+```
+
+### `core.professions.TypesExtra`
+
+```luau
+export type TypesExtra = Types.Extra
+```
+
+### `core.professions.TypesNodeKind`
+
+```luau
+export type TypesNodeKind = Types.NodeKind
+```
+
+### `core.professions.TypesSkinRow`
+
+```luau
+export type TypesSkinRow = Types.SkinRow
+```
+
+### `core.professions.TypesFishRow`
+
+```luau
+export type TypesFishRow = Types.FishRow
+```
+
+### `core.professions.API`
+
+```luau
+export type API = {
+	read crafting: typeof(Crafting),
+	read fishing: typeof(Fishing),
+	read gathering: typeof(Gathering),
+	read harvest: typeof(Harvest),
+	read session: typeof(Session),
+	read skills: typeof(Skills),
+	read types: typeof(Types),
+}
+```
+
+### `core.professions.crafting`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.fishing`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.gathering`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.harvest`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.session`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.skills`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.types`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+## `core.progression.actionbar`
+
+[Source](../src/core/progression/actionbar.luau)
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.progression.actionbar.State`
+
+```luau
+export type State = { custom: boolean, level: number, slots: { [string]: string } }
+```
+
+### `core.progression.actionbar.Context`
+
+```luau
+export type Context = {
+	authored: { [number]: string },
+	owned: { [string]: boolean },
+	required: { [string]: number },
+	level: number,
+	carried: { [string]: boolean }?,
+}
+```
+
+### `core.progression.actionbar.Layout`
+
+```luau
+export type Layout = { [number]: string }
+```
+
+### `core.progression.actionbar.Intent`
+
+```luau
+export type Intent = {
+	op: string?,
+	slot: number?,
+	from: number?,
+	actionId: string?,
+}
+```
+
+### `core.progression.actionbar.Config`
+
+```luau
+export type Config = { barSize: number, barCount: number, maxActionId: number, maxLevel: number, itemPrefix: string }
+```
+
+### `core.progression.actionbar.actionbar`
+
+```luau
+function System.actionbar(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+BAR_SIZE = BAR_SIZE
+BAR_COUNT = BAR_COUNT
+SLOT_COUNT = SLOT_COUNT
+MAX_WIRE_BYTES = MAX_WIRE_BYTES
+itemId = function itemId(actionId: string): string?
+itemAction = function itemAction(id: string): string
+default = function default(): State
+copy = function copy(state: State): State
+contextFor = function contextFor(loadout: unknown, level: unknown, items: { [string]: boolean }?): Context
+effective = function effective(state: unknown, ctx: Context): Layout
+normalize = function normalize(raw: unknown, ctx: Context): State
+project = function project(raw: unknown): State?
+assign = function assign(state: unknown, ctx: Context, slot: unknown, abilityId: unknown): (State?, string?)
+swap = function swap(state: unknown, ctx: Context, first: unknown, second: unknown): (State?, string?)
+clear = function clear(state: unknown, ctx: Context, slot: unknown): (State?, string?)
+apply = function apply(state: unknown, ctx: Context, intent: unknown): (State?, string?)
+placed = function placed(layout: Layout, abilityId: string): number?
+encodeWire = function encodeWire(layout: Layout): string
+decodeWire = function decodeWire(wire: unknown, ctx: Context): Layout?
+slotFor = function slotFor(position: unknown, layer: unknown): number?
+resolvePress = function resolvePress(layout: Layout, position: unknown, layer: unknown): string?
+layerEntries = function layerEntries(
+		layout: Layout,
+		layer: unknown
+	): { { position: number, slot: number, actionId: string } }
+```
+
+## `core.progression.consumables`
+
+[Source](../src/core/progression/consumables.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.progression.consumables.Buff`
+
+```luau
+export type Buff = { read slot: "food" | "elixir", read durationSec: number, read stats: { [string]: number } }
+```
+
+### `core.progression.consumables.Item`
+
+```luau
+export type Item = {
+	read resource: "hp" | "mana" | "none",
+	read verb: string,
+	read durationSec: number,
+	read fractionPerSec: number,
+	read combat: boolean?,
+	read buff: Buff?,
+}
+```
+
+### `core.progression.consumables.Channel`
+
+```luau
+export type Channel = { itemId: string, startedAt: number, tickedAt: number, endsAt: number, x: number, z: number }
+```
+
+### `core.progression.consumables.ActiveBuff`
+
+```luau
+export type ActiveBuff = { itemId: string, endsAt: number, stats: { [string]: number } }
+```
+
+### `core.progression.consumables.State`
+
+```luau
+export type State = {
+	serial: number,
+	cue: string,
+	hp: Channel?,
+	mana: Channel?,
+	hpGained: number?,
+	manaGained: number?,
+	food: ActiveBuff?,
+	elixir: ActiveBuff?,
+}
+```
+
+### `core.progression.consumables.Actor`
+
+```luau
+export type Actor = {
+	id: string,
+	classId: string?,
+	hp: number,
+	maxHp: number?,
+	mana: number?,
+	maxMana: number?,
+	pos: { x: number, y: number?, z: number },
+	sustenance: State?,
+	sustenanceGeneration: number?,
+	fights: { [string]: number }?,
+	pendingControl: unknown?,
+	gcdRemainingSec: number?,
+	crowdControls: { [string]: { remainingSec: number, totalSec: number? } }?,
+}
+```
+
+### `core.progression.consumables.ActorView`
+
+```luau
+export type ActorView = {
+	read id: string,
+	read classId: string?,
+	read hp: number,
+	read maxHp: number?,
+	read mana: number?,
+	read maxMana: number?,
+	read pos: { read x: number, read y: number?, read z: number },
+	read sustenance: State?,
+	read sustenanceGeneration: number?,
+	read fights: { read [string]: number }?,
+	read pendingControl: unknown?,
+	read gcdRemainingSec: number?,
+	read crowdControls: { read [string]: { read remainingSec: number, read totalSec: number? } }?,
+}
+```
+
+### `core.progression.consumables.Mob`
+
+```luau
+export type Mob = { read hp: number, read targetActorId: string?, read threat: { read [string]: number }? }
+```
+
+### `core.progression.consumables.Config`
+
+```luau
+export type Config = {
+	maxBuffStat: number,
+	maxBuffSeconds: number,
+	movementToleranceSquared: number,
+	drinksMana: (ActorView) -> boolean,
+	consumedCue: string,
+	channelCue: string,
+	finishedCue: string,
+	interruptedCue: (string) -> string,
+}
+```
+
+### `core.progression.consumables.create`
+
+```luau
+function Consumables.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+register = function Core.register(itemId: unknown, raw: unknown): boolean
+registerAll = function Core.registerAll(map: unknown): number
+item = function Core.item(itemId: unknown): Item?
+copy = function Core.copy(state: State?): State
+eligibility = function Core.eligibility(actor: ActorView?, mobs: { read [string]: Mob }?, item: Item?): string?
+begin = function Core.begin(
+		state: State?,
+		actor: ActorView,
+		mobs: { read [string]: Mob }?,
+		itemId: unknown,
+		rawSerial: unknown,
+		rawNow: unknown
+	): (State?, string?)
+interrupt = function Core.interrupt(state: State?, reason: string): State?
+interruptActor = function Core.interruptActor(actor: { sustenanceGeneration: number?, sustenance: State? }, reason: string)
+activeStats = function Core.activeStats(state: State?, now: number): { [string]: number }
+advance = function Core.advance(
+		state: State?,
+		actor: ActorView,
+		mobs: { read [string]: Mob }?,
+		now: number
+	): (State?, number, number)
+```
+
+## `core.progression.grants`
+
+[Source](../src/core/progression/grants.luau)
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.progression.grants.Grant`
+
+```luau
+export type Grant = {
+	abilityId: string,
+	level: number,
+}
+```
+
+### `core.progression.grants.GrantIndex`
+
+```luau
+export type GrantIndex = { [string]: number }
+```
+
+### `core.progression.grants.ProductionRegistry`
+
+```luau
+export type ProductionRegistry = { [string]: { Grant } }
+```
+
+### `core.progression.grants.ProductionRegistryResult`
+
+```luau
+export type ProductionRegistryResult = {
+	ok: boolean,
+	registry: ProductionRegistry?,
+	problems: { string },
+}
+```
+
+### `core.progression.grants.Config`
+
+```luau
+export type Config = { slotCount: number, maxLevel: number, kits: ProductionRegistry }
+```
+
+### `core.progression.grants.grants`
+
+```luau
+function System.grants(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+SLOT_COUNT = SLOT_COUNT
+MAX_LEVEL = MAX_LEVEL
+CLASS_KITS = CLASS_KITS
+forClass = function forClass(classId: string): { Grant }?
+indexOf = function indexOf(grants: { Grant }): GrantIndex
+gateFor = function gateFor(index: GrantIndex, abilityId: string): number?
+isGranted = function isGranted(index: GrantIndex, abilityId: string, level: number): boolean
+grantedIds = function grantedIds(grants: { Grant }, level: number): { string }
+problemsFor = function problemsFor(grants: { Grant }, curve: string): { string }
+problemsForClassSchema = function problemsForClassSchema(grants: { Grant }): { string }
+compileProductionRegistry = function compileProductionRegistry(
+		authoritiesValue: unknown,
+		expectedClassIds: { string }
+	): ProductionRegistryResult
+```
+
+## `core.progression.hearth`
+
+[Source](../src/core/progression/hearth.luau)
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.progression.hearth.Destination`
+
+```luau
+export type Destination = { npcId: string, name: string }
+```
+
+### `core.progression.hearth.Bind`
+
+```luau
+export type Bind = { zoneId: string, npcId: string }
+```
+
+### `core.progression.hearth.State`
+
+```luau
+export type State = { bind: Bind?, hearthReadyAt: number, returningTo: Bind? }
+```
+
+### `core.progression.hearth.BoundState`
+
+```luau
+export type BoundState = { bind: Bind, hearthReadyAt: number, returningTo: Bind? }
+```
+
+### `core.progression.hearth.Config`
+
+```luau
+export type Config = {
+	destinations: { [string]: { Destination } },
+	homeZones: { [string]: string },
+	cooldownSec: number,
+	bindRange: number,
+}
+```
+
+### `core.progression.hearth.hearth`
+
+```luau
+function System.hearth(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+destination = function Core.destination(zoneId: unknown, npcId: unknown): Destination?
+homeZone = function Core.homeZone(faction: unknown): string?
+normalize = function Core.normalize(raw: unknown): State
+bind = function Core.bind(
+		state: unknown,
+		zoneId: unknown,
+		npcId: unknown,
+		distance: unknown,
+		alive: boolean
+	): (BoundState?, string?)
+hearth = function Core.hearth(state: unknown, now: unknown, alive: boolean, inCombat: boolean): (BoundState?, string?)
+arrived = function Core.arrived(state: unknown): State
+```
+
+## `core.progression.levels`
+
+[Source](../src/core/progression/levels.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.progression.levels.CurveRow`
+
+```luau
+export type CurveRow = { level: number, totalXp: number }
+```
+
+### `core.progression.levels.Curve`
+
+```luau
+export type Curve = { id: string, maxLevel: number, rows: { CurveRow } }
+```
+
+### `core.progression.levels.Config`
+
+```luau
+export type Config = { curve: unknown, curveId: string, maxLevel: number }
+```
+
+### `core.progression.levels.Progression`
+
+```luau
+export type Progression = {
+	read xp: number?,
+	read level: number?,
+}
+```
+
+### `core.progression.levels.Snapshot`
+
+```luau
+export type Snapshot = {
+	level: number,
+	experience: number,
+}
+```
+
+### `core.progression.levels.RewardProjection`
+
+```luau
+export type RewardProjection = {
+	previousLevel: number,
+	currentLevel: number,
+	leveledUp: boolean,
+}
+```
+
+### `core.progression.levels.levels`
+
+```luau
+function System.levels(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+levelForXp = function levelForXp(xp: number): number
+xpForLevel = function thresholdForLevel(level: number): number
+resolveLevel = function resolveLevel(rows: { CurveRow }, maxLevel: number, xp: number): number
+validateCurve = function validateCurve(candidate: unknown): Curve
+awardXp = function awardXp<T>(progression: T & Progression, amount: number): T & Progression
+xpBracket = function xpBracket(xp: number): (number, number)
+rewardProjection = function rewardProjection(xpAfter: number, rewardXp: number): RewardProjection
+snapshotFromValues = function snapshotFromValues(_level: unknown, experience: unknown): Snapshot
+MAX_LEVEL = MAX_LEVEL
+```
+
+## `core.progression.recovery`
+
+[Source](../src/core/progression/recovery.luau)
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.progression.recovery.Point`
+
+```luau
+export type Point = { x: number, y: number, z: number }
+```
+
+### `core.progression.recovery.Cost`
+
+```luau
+export type Cost = { items: number, currency: number, experience: number, durability: number, delaySec: number }
+```
+
+### `core.progression.recovery.Death`
+
+```luau
+export type Death = {
+	generation: number,
+	phase: "dead" | "released" | "resolved",
+	cause: string,
+	zoneId: string,
+	corpse: Point,
+	anchor: Point,
+	cost: Cost,
+}
+```
+
+### `core.progression.recovery.Position`
+
+```luau
+export type Position<Travel> = {
+	x: number,
+	y: number,
+	z: number,
+	yaw: number,
+	saved: boolean,
+	recoveryZoneId: string?,
+	travel: Travel?,
+}
+```
+
+### `core.progression.recovery.AnchoredPosition`
+
+```luau
+export type AnchoredPosition = Raw & {
+	x: number,
+	y: number,
+	z: number,
+	yaw: number,
+	saved: boolean,
+	recoveryZoneId: string,
+	travel: unknown,
+}
+```
+
+### `core.progression.recovery.Config`
+
+```luau
+export type Config = { coordinateLimit: number, lowHealthRatio: number, defaultCause: string }
+```
+
+### `core.progression.recovery.recovery`
+
+```luau
+function System.recovery(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+encodeEcho = function encodeEcho(point: Point): string
+decodeEcho = function decodeEcho(value: unknown): Point?
+lowHealth = function lowHealth(hp: number, maxHp: number): boolean
+echoDistance = function echoDistance(position: Point, echo: Point): number
+die = function die(
+		previous: Death?,
+		cause: string,
+		zoneId: string,
+		corpse: Point,
+		anchor: Point,
+		delaySec: number
+	): Death?
+release = function release(death: Death, generation: number): Death?
+recover = function recover(death: Death, generation: number): (Death?, Point?)
+anchoredLastPosition = function anchoredLastPosition(current: unknown, death: Death): Raw
+anchorPosition = function anchorPosition<Travel>(current: Position<Travel>, death: Death): Position<Travel>
+```
+
+## `core.progression.reputation`
+
+[Source](../src/core/progression/reputation.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.progression.reputation.EventKind`
+
+```luau
+export type EventKind = string
+```
+
+### `core.progression.reputation.Event`
+
+```luau
+export type Event = {
+	eventId: string,
+	kind: EventKind,
+	accountId: string,
+	realmId: string,
+	seasonId: string,
+	units: number,
+	at: number,
+}
+```
+
+### `core.progression.reputation.State`
+
+```luau
+export type State = {
+	events: { Event },
+}
+```
+
+### `core.progression.reputation.ApplyResult`
+
+```luau
+export type ApplyResult = {
+	state: State,
+	replayed: boolean,
+	points: number,
+}
+```
+
+### `core.progression.reputation.Ladder`
+
+```luau
+export type Ladder = {
+	seasonId: string,
+	thresholds: { number },
+	pointsPerUnit: { [string]: number },
+	rankNames: { [string]: { string } },
+}
+```
+
+### `core.progression.reputation.Standing`
+
+```luau
+export type Standing = {
+	accountId: string,
+	realmId: string,
+	seasonId: string,
+	points: number,
+	rank: number,
+	rankName: string?,
+	nextRankAt: number?,
+	pointsToNextRank: number?,
+	lifetimePoints: number,
+}
+```
+
+### `core.progression.reputation.Config`
+
+```luau
+export type Config = {
+	maxText: number,
+	maxAt: number,
+	maxUnits: number,
+	maxPointsPerUnit: number,
+	maxThreshold: number,
+	kinds: { [string]: boolean },
+	realms: { [string]: boolean },
+	increasingIncrements: boolean,
+	firstGrantReachesRank: boolean,
+}
+```
+
+### `core.progression.reputation.create`
+
+```luau
+function Reputation.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function Ledger.emptyState(): State
+projectEvent = function Ledger.projectEvent(value: unknown): (Event?, string?)
+projectState = function Ledger.projectState(value: unknown): (State?, string?)
+projectLadder = function Ledger.projectLadder(value: unknown): (Ladder?, string?)
+pointsFor = function Ledger.pointsFor(ladder: Ladder, kind: EventKind, units: number): number
+rankFor = function Ledger.rankFor(ladderValue: unknown, pointsValue: unknown): (number?, string?)
+apply = function Ledger.apply(stateValue: unknown, eventValue: unknown, ladderValue: unknown): (ApplyResult?, string?)
+standings = function Ledger.standings(stateValue: unknown, ladderValue: unknown): ({ Standing }?, string?)
+```
+
+## `core.progression.season`
+
+[Source](../src/core/progression/season.luau)
+
+```luau
+local Read = require("../internal/season-read")
+```
+
+```luau
+local SocialShape = require("../social/shape")
+```
+
+### `core.progression.season.Event`
+
+```luau
+export type Event = Read.Event
+```
+
+### `core.progression.season.State`
+
+```luau
+export type State = Read.State
+```
+
+### `core.progression.season.Result`
+
+```luau
+export type Result = Read.Result
+```
+
+### `core.progression.season.PlaySource`
+
+```luau
+export type PlaySource = Read.PlaySource
+```
+
+### `core.progression.season.Objective`
+
+```luau
+export type Objective = Read.Objective
+```
+
+### `core.progression.season.Reward`
+
+```luau
+export type Reward = Read.Reward
+```
+
+### `core.progression.season.AuthoredDefinition`
+
+```luau
+export type AuthoredDefinition = Read.AuthoredDefinition
+```
+
+### `core.progression.season.Definition`
+
+```luau
+export type Definition = Read.Definition
+```
+
+### `core.progression.season.ProjectionObjective`
+
+```luau
+export type ProjectionObjective = Read.ProjectionObjective
+```
+
+### `core.progression.season.Projection`
+
+```luau
+export type Projection = Read.Projection
+```
+
+### `core.progression.season.Config`
+
+```luau
+export type Config = Read.Config
+```
+
+### `core.progression.season.season`
+
+```luau
+function System.season(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+definition = function SeasonTrackCore.definition(value: unknown): (Definition?, string?)
+emptyState = function SeasonTrackCore.emptyState(track: { seasonId: string, endsAtSec: number }): State?
+projectState = function SeasonTrackCore.projectState(value: unknown): State?
+apply = function SeasonTrackCore.apply(previous: unknown, track: Definition, eventValue: unknown): Result
+claim = function SeasonTrackCore.claim(previous: unknown, track: Definition, tierValue: unknown): Result
+projection = function SeasonTrackCore.projection(value: unknown, track: Definition, nowSec: number): Projection?
+projectTracks = function SeasonTrackCore.projectTracks(value: unknown): { [string]: State }?
+recordIn = function SeasonTrackCore.recordIn(
+		tracksValue: unknown,
+		track: Definition,
+		event: unknown
+	): ({ [string]: State }?, Result)
+claimIn = function SeasonTrackCore.claimIn(
+		tracksValue: unknown,
+		track: Definition,
+		tier: unknown
+	): ({ [string]: State }?, Result)
+projectionIn = function SeasonTrackCore.projectionIn(tracksValue: unknown, track: Definition, nowSec: number): Projection?
+```
+
+## `core.progression.settlement`
+
+[Source](../src/core/progression/settlement.luau)
+
+```luau
+local Run = require("../quest/run")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.progression.settlement.RewardReceipt`
+
+```luau
+export type RewardReceipt<Q> = {
+	requestFingerprint: string,
+	runId: string,
+	roleId: string,
+	itemId: string,
+	quality: Q,
+	clearNumber: number,
+}
+```
+
+### `core.progression.settlement.RewardHistory`
+
+```luau
+export type RewardHistory<Q> = {
+	schemaVersion: number,
+	expeditionId: string,
+	characterId: string,
+	revision: number,
+	eligibleClears: number,
+	receipts: { [string]: RewardReceipt<Q> },
+	rewardedRuns: { [string]: string },
+}
+```
+
+### `core.progression.settlement.RewardRequest`
+
+```luau
+export type RewardRequest = {
+	transactionId: string,
+	expectedRevision: number,
+	characterId: string,
+	roleId: string,
+}
+```
+
+### `core.progression.settlement.RewardGrant`
+
+```luau
+export type RewardGrant<Q> = {
+	transactionId: string,
+	itemId: string,
+	quality: Q,
+	clearNumber: number,
+	roleUpgrade: boolean,
+}
+```
+
+### `core.progression.settlement.RewardApplied`
+
+```luau
+export type RewardApplied<S, Q> = {
+	ok: true,
+	history: RewardHistory<Q>,
+	personalState: S,
+	reward: RewardGrant<Q>,
+	replayed: boolean,
+}
+```
+
+### `core.progression.settlement.RewardRejected`
+
+```luau
+export type RewardRejected<S, Q> = {
+	ok: false,
+	history: RewardHistory<Q>?,
+	personalState: S?,
+	reason: string,
+}
+```
+
+### `core.progression.settlement.RewardResult`
+
+```luau
+export type RewardResult<S, Q> = RewardApplied<S, Q> | RewardRejected<S, Q>
+```
+
+### `core.progression.settlement.GrantResult`
+
+```luau
+export type GrantResult<S> = { ok: true, state: S, replayed: boolean } | { ok: false, reason: string }
+```
+
+### `core.progression.settlement.Config`
+
+```luau
+export type Config<P, S, C, Q> = {
+	readPackage: (unknown) -> P?,
+	packageId: (P) -> string,
+	readRunState: (unknown, P) -> RunState?,
+	copyPersonalState: (unknown) -> S?,
+	readQuality: (unknown) -> Q?,
+	roleUpgrade: (Q) -> boolean,
+	knownRole: (P, string) -> boolean,
+	rewardForClear: (P, string, number) -> RewardGrant<Q>?,
+	hasReceipt: (S, string) -> boolean,
+	grant: (S, string, string, C) -> GrantResult<S>,
+}
+```
+
+### `core.progression.settlement.settlement`
+
+```luau
+function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyRewardHistory = function emptyRewardHistory(expeditionId: unknown, characterId: unknown): RewardHistory<Q>?
+applyPersonalReward = function applyPersonalReward(
+		packageValue: unknown,
+		runStateValue: unknown,
+		historyValue: unknown,
+		personalStateValue: unknown,
+		catalogs: C,
+		requestValue: unknown
+	): RewardResult<S, Q>
+```
+
+## `core.progression.standing-credit`
+
+[Source](../src/core/progression/standing-credit.luau)
+
+### `core.progression.standing-credit.Outcome`
+
+```luau
+export type Outcome = {
+	read ok: boolean,
+	read reason: string?,
+	read deferred: boolean?,
+	read idle: boolean?,
+	read characterId: string?,
+	read standing: number?,
+	read retryable: boolean?,
+}
+```
+
+### `core.progression.standing-credit.Config`
+
+```luau
+export type Config = {
+	clock: () -> number,
+	intervalSec: number,
+	maxPoints: number,
+	capacity: number,
+	authority: () -> boolean,
+	writeReady: () -> boolean,
+	read: () -> { [string]: number },
+	validId: (string) -> boolean,
+}
+```
+
+### `core.progression.standing-credit.create`
+
+```luau
+function Credit.create(config: Config)
+```
+
+## `core.progression.talent-ranks`
+
+[Source](../src/core/progression/talent-ranks.luau)
+
+```luau
+local Talents = require("./talents")
+```
+
+### `core.progression.talent-ranks.Loadout`
+
+```luau
+export type Loadout = Talents.Loadout
+```
+
+### `core.progression.talent-ranks.Result`
+
+```luau
+export type Result = Talents.Result
+```
+
+### `core.progression.talent-ranks.Node`
+
+```luau
+export type Node = { read id: string, read lineId: string, read tier: number, read ranks: number }
+```
+
+### `core.progression.talent-ranks.Tier`
+
+```luau
+export type Tier = { read tier: number, read gate: number, read costPerRank: number }
+```
+
+### `core.progression.talent-ranks.Line`
+
+```luau
+export type Line = { read id: string }
+```
+
+### `core.progression.talent-ranks.Spec`
+
+```luau
+export type Spec = { read class: string, read lines: List<Line>, read tiers: List<Tier>, read nodes: List<Node> }
+```
+
+### `core.progression.talent-ranks.Bucket`
+
+```luau
+export type Bucket = { ranks: { [string]: number }, respecCount: number }
+```
+
+### `core.progression.talent-ranks.FULL_RANK`
+
+Exported value; see its declaration in [source](../src/core/progression/talent-ranks.luau).
+
+### `core.progression.talent-ranks.INVALID_STATE`
+
+Exported value; see its declaration in [source](../src/core/progression/talent-ranks.luau).
+
+### `core.progression.talent-ranks.NO_POINTS`
+
+Exported value; see its declaration in [source](../src/core/progression/talent-ranks.luau).
+
+### `core.progression.talent-ranks.TIER_LOCKED`
+
+Exported value; see its declaration in [source](../src/core/progression/talent-ranks.luau).
+
+### `core.progression.talent-ranks.UNKNOWN_TALENT`
+
+Exported value; see its declaration in [source](../src/core/progression/talent-ranks.luau).
+
+### `core.progression.talent-ranks.addRank`
+
+```luau
+function addRank(
+	loadout: Talents.Loadout?,
+	specs: List<Spec>,
+	role: string,
+	points: number,
+	talentId: string
+): Talents.Result
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+ok = true
+state = nextLoadout
+reason = nil
+```
+
+### `core.progression.talent-ranks.availablePoints`
+
+```luau
+function availablePoints(loadout: Talents.Loadout?, specs: List<Spec>, role: string, points: number): number
+```
+
+### `core.progression.talent-ranks.bucketOf`
+
+```luau
+function bucketOf(loadout: Talents.Loadout?, role: string): Bucket
+```
+
+### `core.progression.talent-ranks.rankRefusal`
+
+```luau
+function rankRefusal(
+	loadout: Talents.Loadout?,
+	specs: List<Spec>,
+	role: string,
+	points: number,
+	talentId: string
+): string?
+```
+
+### `core.progression.talent-ranks.respecRole`
+
+```luau
+function respecRole(loadout: Talents.Loadout?, specs: List<Spec>, role: string): Talents.Result
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+ok = true
+state = nextLoadout
+reason = nil
+```
+
+### `core.progression.talent-ranks.spendByLine`
+
+```luau
+function spendByLine(spec: Spec, ranks: { [string]: number }, belowTier: number?): { [string]: number }
+```
+
+### `core.progression.talent-ranks.spentPoints`
+
+```luau
+function spentPoints(loadout: Talents.Loadout?, specs: List<Spec>, role: string): number
+```
+
+### `core.progression.talent-ranks.stateProblem`
+
+```luau
+function stateProblem(spec: Spec, bucket: Bucket, points: number): string?
+```
+
+## `core.progression.talents`
+
+[Source](../src/core/progression/talents.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.progression.talents.State`
+
+```luau
+export type State = {
+	classId: string,
+	revision: number,
+	ranks: { [string]: number },
+	respecCount: number,
+}
+```
+
+### `core.progression.talents.Loadout`
+
+```luau
+export type Loadout = { roles: { [string]: { ranks: { [string]: number }, respecCount: number } } }
+```
+
+### `core.progression.talents.Intent`
+
+```luau
+export type Intent =
+	{ kind: "view" }
+	| { kind: "select", revision: number, talentId: string }
+	| { kind: "respec", revision: number }
+```
+
+### `core.progression.talents.Result`
+
+```luau
+export type Result = { ok: boolean, state: Loadout, reason: string? }
+```
+
+### `core.progression.talents.change`
+
+```luau
+function System.change(
+	state: State,
+	intent: Intent,
+	admission: (true | string)?,
+	advance: (Loadout, Intent) -> Result
+): (State?, string?)
+```
+
+### `core.progression.talents.decodeIntent`
+
+```luau
+function System.decodeIntent(value: unknown): (Intent?, string?)
+```
+
+### `core.progression.talents.default`
+
+```luau
+function System.default(classId: string): State
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+classId = classId
+revision = 0
+ranks = {}
+respecCount = 0
+```
+
+### `core.progression.talents.fromLoadout`
+
+```luau
+function System.fromLoadout(classId: string, revision: number, loadout: Loadout): State
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+classId = classId
+revision = revision
+ranks = table.clone(bucket.ranks)
+respecCount = bucket.respecCount
+```
+
+### `core.progression.talents.rules`
+
+```luau
+function System.rules<R, C>(runtimeClass: (R) -> string, compile: (Loadout, string, number, R) -> (C?, string?))
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+normalize = function Core.normalize(raw: unknown, classId: string, level: number, runtime: R?): (State?, string?, C?)
+load = function Core.load(raw: unknown, classId: string, level: number, runtime: R?): (State?, string?)
+```
+
+### `core.progression.talents.toLoadout`
+
+```luau
+function System.toLoadout(state: State): Loadout
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+roles = { [state.classId] = { ranks = table.clone(state.ranks), respecCount = state.respecCount } }
+```
+
+## `core.progression.tracking`
+
+[Source](../src/core/progression/tracking.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.progression.tracking.Config`
+
+```luau
+export type Config = { statuses: { [string]: boolean } }
+```
+
+### `core.progression.tracking.tracking`
+
+```luau
+function System.tracking(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+canTrack = function canTrack(progress: unknown): boolean
+```
+
+## `core.progression.transactions`
+
+[Source](../src/core/progression/transactions.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.progression.transactions.CollectionSet`
+
+```luau
+export type CollectionSet = { [string]: boolean }
+```
+
+### `core.progression.transactions.Outcome`
+
+```luau
+export type Outcome = "committed" | "replayed" | "rejected"
+```
+
+### `core.progression.transactions.Result`
+
+```luau
+export type Result<T> = {
+	state: T,
+	outcome: Outcome,
+	reason: string?,
+}
+```
+
+### `core.progression.transactions.Config`
+
+```luau
+export type Config<T> = {
+	ledgerPrefix: string,
+	orderPrefix: string,
+	maxTransactionId: number,
+	maxRecords: number,
+	copy: (T) -> T,
+	collections: (T) -> CollectionSet?,
+	withCollections: (T, CollectionSet) -> T,
+	pinned: (T, string) -> boolean,
+}
+```
+
+### `core.progression.transactions.transactions`
+
+```luau
+function System.transactions<T>(config: Config<T>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+LEDGER_PREFIX = LEDGER_PREFIX
+MAX_TRANSACTION_ID = MAX_TRANSACTION_ID
+MAX_RECORDS = MAX_RECORDS
+Reason = Reason
+ledgerKey = function ledgerKey(transactionId: unknown): string?
+isRecorded = function isRecorded(collections: unknown, transactionId: unknown): boolean
+recordedKeys = function recordedKeys(collections: CollectionSet): { string }
+commit = function commit(profile: T, transactionId: unknown, effect: (T) -> (T?, string?)): Result<T>
+```
+
+## `core.progression`
+
+[Source](../src/core/progression.luau)
+
+```luau
+local Actionbar = require("./progression/actionbar")
+```
+
+```luau
+local Consumables = require("./progression/consumables")
+```
+
+```luau
+local Grants = require("./progression/grants")
+```
+
+```luau
+local Hearth = require("./progression/hearth")
+```
+
+```luau
+local Levels = require("./progression/levels")
+```
+
+```luau
+local Recovery = require("./progression/recovery")
+```
+
+```luau
+local Reputation = require("./progression/reputation")
+```
+
+```luau
+local Season = require("./progression/season")
+```
+
+```luau
+local Settlement = require("./progression/settlement")
+```
+
+```luau
+local StandingCredit = require("./progression/standing-credit")
+```
+
+```luau
+local TalentRanks = require("./progression/talent-ranks")
+```
+
+```luau
+local Talents = require("./progression/talents")
+```
+
+```luau
+local Tracking = require("./progression/tracking")
+```
+
+```luau
+local Transactions = require("./progression/transactions")
+```
+
+### `core.progression.ActionbarState`
+
+```luau
+export type ActionbarState = Actionbar.State
+```
+
+### `core.progression.ActionbarContext`
+
+```luau
+export type ActionbarContext = Actionbar.Context
+```
+
+### `core.progression.ActionbarLayout`
+
+```luau
+export type ActionbarLayout = Actionbar.Layout
+```
+
+### `core.progression.ActionbarIntent`
+
+```luau
+export type ActionbarIntent = Actionbar.Intent
+```
+
+### `core.progression.ActionbarConfig`
+
+```luau
+export type ActionbarConfig = Actionbar.Config
+```
+
+### `core.progression.ConsumablesBuff`
+
+```luau
+export type ConsumablesBuff = Consumables.Buff
+```
+
+### `core.progression.ConsumablesItem`
+
+```luau
+export type ConsumablesItem = Consumables.Item
+```
+
+### `core.progression.ConsumablesChannel`
+
+```luau
+export type ConsumablesChannel = Consumables.Channel
+```
+
+### `core.progression.ConsumablesActiveBuff`
+
+```luau
+export type ConsumablesActiveBuff = Consumables.ActiveBuff
+```
+
+### `core.progression.ConsumablesState`
+
+```luau
+export type ConsumablesState = Consumables.State
+```
+
+### `core.progression.ConsumablesActor`
+
+```luau
+export type ConsumablesActor = Consumables.Actor
+```
+
+### `core.progression.ConsumablesActorView`
+
+```luau
+export type ConsumablesActorView = Consumables.ActorView
+```
+
+### `core.progression.ConsumablesMob`
+
+```luau
+export type ConsumablesMob = Consumables.Mob
+```
+
+### `core.progression.ConsumablesConfig`
+
+```luau
+export type ConsumablesConfig = Consumables.Config
+```
+
+### `core.progression.GrantsGrant`
+
+```luau
+export type GrantsGrant = Grants.Grant
+```
+
+### `core.progression.GrantsGrantIndex`
+
+```luau
+export type GrantsGrantIndex = Grants.GrantIndex
+```
+
+### `core.progression.GrantsProductionRegistry`
+
+```luau
+export type GrantsProductionRegistry = Grants.ProductionRegistry
+```
+
+### `core.progression.GrantsProductionRegistryResult`
+
+```luau
+export type GrantsProductionRegistryResult = Grants.ProductionRegistryResult
+```
+
+### `core.progression.GrantsConfig`
+
+```luau
+export type GrantsConfig = Grants.Config
+```
+
+### `core.progression.HearthDestination`
+
+```luau
+export type HearthDestination = Hearth.Destination
+```
+
+### `core.progression.HearthBind`
+
+```luau
+export type HearthBind = Hearth.Bind
+```
+
+### `core.progression.HearthState`
+
+```luau
+export type HearthState = Hearth.State
+```
+
+### `core.progression.HearthBoundState`
+
+```luau
+export type HearthBoundState = Hearth.BoundState
+```
+
+### `core.progression.HearthConfig`
+
+```luau
+export type HearthConfig = Hearth.Config
+```
+
+### `core.progression.LevelsCurveRow`
+
+```luau
+export type LevelsCurveRow = Levels.CurveRow
+```
+
+### `core.progression.LevelsCurve`
+
+```luau
+export type LevelsCurve = Levels.Curve
+```
+
+### `core.progression.LevelsConfig`
+
+```luau
+export type LevelsConfig = Levels.Config
+```
+
+### `core.progression.LevelsProgression`
+
+```luau
+export type LevelsProgression = Levels.Progression
+```
+
+### `core.progression.LevelsSnapshot`
+
+```luau
+export type LevelsSnapshot = Levels.Snapshot
+```
+
+### `core.progression.LevelsRewardProjection`
+
+```luau
+export type LevelsRewardProjection = Levels.RewardProjection
+```
+
+### `core.progression.RecoveryPoint`
+
+```luau
+export type RecoveryPoint = Recovery.Point
+```
+
+### `core.progression.RecoveryCost`
+
+```luau
+export type RecoveryCost = Recovery.Cost
+```
+
+### `core.progression.RecoveryDeath`
+
+```luau
+export type RecoveryDeath = Recovery.Death
+```
+
+### `core.progression.RecoveryPosition`
+
+```luau
+export type RecoveryPosition<Travel> = Recovery.Position<Travel>
+```
+
+### `core.progression.RecoveryAnchoredPosition`
+
+```luau
+export type RecoveryAnchoredPosition = Recovery.AnchoredPosition
+```
+
+### `core.progression.RecoveryConfig`
+
+```luau
+export type RecoveryConfig = Recovery.Config
+```
+
+### `core.progression.ReputationEventKind`
+
+```luau
+export type ReputationEventKind = Reputation.EventKind
+```
+
+### `core.progression.ReputationEvent`
+
+```luau
+export type ReputationEvent = Reputation.Event
+```
+
+### `core.progression.ReputationState`
+
+```luau
+export type ReputationState = Reputation.State
+```
+
+### `core.progression.ReputationApplyResult`
+
+```luau
+export type ReputationApplyResult = Reputation.ApplyResult
+```
+
+### `core.progression.ReputationLadder`
+
+```luau
+export type ReputationLadder = Reputation.Ladder
+```
+
+### `core.progression.ReputationStanding`
+
+```luau
+export type ReputationStanding = Reputation.Standing
+```
+
+### `core.progression.ReputationConfig`
+
+```luau
+export type ReputationConfig = Reputation.Config
+```
+
+### `core.progression.SeasonEvent`
+
+```luau
+export type SeasonEvent = Season.Event
+```
+
+### `core.progression.SeasonState`
+
+```luau
+export type SeasonState = Season.State
+```
+
+### `core.progression.SeasonResult`
+
+```luau
+export type SeasonResult = Season.Result
+```
+
+### `core.progression.SeasonPlaySource`
+
+```luau
+export type SeasonPlaySource = Season.PlaySource
+```
+
+### `core.progression.SeasonObjective`
+
+```luau
+export type SeasonObjective = Season.Objective
+```
+
+### `core.progression.SeasonReward`
+
+```luau
+export type SeasonReward = Season.Reward
+```
+
+### `core.progression.SeasonAuthoredDefinition`
+
+```luau
+export type SeasonAuthoredDefinition = Season.AuthoredDefinition
+```
+
+### `core.progression.SeasonDefinition`
+
+```luau
+export type SeasonDefinition = Season.Definition
+```
+
+### `core.progression.SeasonProjectionObjective`
+
+```luau
+export type SeasonProjectionObjective = Season.ProjectionObjective
+```
+
+### `core.progression.SeasonProjection`
+
+```luau
+export type SeasonProjection = Season.Projection
+```
+
+### `core.progression.SeasonConfig`
+
+```luau
+export type SeasonConfig = Season.Config
+```
+
+### `core.progression.SettlementRewardReceipt`
+
+```luau
+export type SettlementRewardReceipt<Q> = Settlement.RewardReceipt<Q>
+```
+
+### `core.progression.SettlementRewardHistory`
+
+```luau
+export type SettlementRewardHistory<Q> = Settlement.RewardHistory<Q>
+```
+
+### `core.progression.SettlementRewardRequest`
+
+```luau
+export type SettlementRewardRequest = Settlement.RewardRequest
+```
+
+### `core.progression.SettlementRewardGrant`
+
+```luau
+export type SettlementRewardGrant<Q> = Settlement.RewardGrant<Q>
+```
+
+### `core.progression.SettlementRewardApplied`
+
+```luau
+export type SettlementRewardApplied<S, Q> = Settlement.RewardApplied<S, Q>
+```
+
+### `core.progression.SettlementRewardRejected`
+
+```luau
+export type SettlementRewardRejected<S, Q> = Settlement.RewardRejected<S, Q>
+```
+
+### `core.progression.SettlementRewardResult`
+
+```luau
+export type SettlementRewardResult<S, Q> = Settlement.RewardResult<S, Q>
+```
+
+### `core.progression.SettlementGrantResult`
+
+```luau
+export type SettlementGrantResult<S> = Settlement.GrantResult<S>
+```
+
+### `core.progression.SettlementConfig`
+
+```luau
+export type SettlementConfig<P, S, C, Q> = Settlement.Config<P, S, C, Q>
+```
+
+### `core.progression.StandingCreditOutcome`
+
+```luau
+export type StandingCreditOutcome = StandingCredit.Outcome
+```
+
+### `core.progression.StandingCreditConfig`
+
+```luau
+export type StandingCreditConfig = StandingCredit.Config
+```
+
+### `core.progression.TalentRanksLoadout`
+
+```luau
+export type TalentRanksLoadout = TalentRanks.Loadout
+```
+
+### `core.progression.TalentRanksResult`
+
+```luau
+export type TalentRanksResult = TalentRanks.Result
+```
+
+### `core.progression.TalentRanksNode`
+
+```luau
+export type TalentRanksNode = TalentRanks.Node
+```
+
+### `core.progression.TalentRanksTier`
+
+```luau
+export type TalentRanksTier = TalentRanks.Tier
+```
+
+### `core.progression.TalentRanksLine`
+
+```luau
+export type TalentRanksLine = TalentRanks.Line
+```
+
+### `core.progression.TalentRanksSpec`
+
+```luau
+export type TalentRanksSpec = TalentRanks.Spec
+```
+
+### `core.progression.TalentRanksBucket`
+
+```luau
+export type TalentRanksBucket = TalentRanks.Bucket
+```
+
+### `core.progression.TalentsState`
+
+```luau
+export type TalentsState = Talents.State
+```
+
+### `core.progression.TalentsLoadout`
+
+```luau
+export type TalentsLoadout = Talents.Loadout
+```
+
+### `core.progression.TalentsIntent`
+
+```luau
+export type TalentsIntent = Talents.Intent
+```
+
+### `core.progression.TalentsResult`
+
+```luau
+export type TalentsResult = Talents.Result
+```
+
+### `core.progression.TrackingConfig`
+
+```luau
+export type TrackingConfig = Tracking.Config
+```
+
+### `core.progression.TransactionsCollectionSet`
+
+```luau
+export type TransactionsCollectionSet = Transactions.CollectionSet
+```
+
+### `core.progression.TransactionsOutcome`
+
+```luau
+export type TransactionsOutcome = Transactions.Outcome
+```
+
+### `core.progression.TransactionsResult`
+
+```luau
+export type TransactionsResult<T> = Transactions.Result<T>
+```
+
+### `core.progression.TransactionsConfig`
+
+```luau
+export type TransactionsConfig<T> = Transactions.Config<T>
+```
+
+### `core.progression.API`
+
+```luau
+export type API = {
+	read actionbar: typeof(Actionbar),
+	read consumables: typeof(Consumables),
+	read grants: typeof(Grants),
+	read hearth: typeof(Hearth),
+	read levels: typeof(Levels),
+	read recovery: typeof(Recovery),
+	read reputation: typeof(Reputation),
+	read season: typeof(Season),
+	read settlement: typeof(Settlement),
+	read standing_credit: typeof(StandingCredit),
+	read talent_ranks: typeof(TalentRanks),
+	read talents: typeof(Talents),
+	read tracking: typeof(Tracking),
+	read transactions: typeof(Transactions),
+}
+```
+
+### `core.progression.actionbar`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.consumables`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.grants`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.hearth`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.levels`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.recovery`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.reputation`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.season`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.settlement`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.standing_credit`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.talent_ranks`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.talents`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.tracking`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.transactions`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+## `core.quest.claims`
+
+[Source](../src/core/quest/claims.luau)
+
+```luau
+local Run = require("./run")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.quest.claims.Invitation`
+
+```luau
+export type Invitation = {
+	userId: number,
+	priorId: string,
+	leaderUserId: number?,
+	expectedRevision: number,
+	recoveryWindowSec: number,
+	realmId: string?,
+	entryLevel: number?,
+	roleId: string?,
+}
+```
+
+### `core.quest.claims.ReplacementIdentity`
+
+```luau
+export type ReplacementIdentity = { userId: number, priorId: string, leaderUserId: number }
+```
+
+### `core.quest.claims.Member`
+
+```luau
+export type Member = {
+	userId: number,
+	characterId: string,
+}
+```
+
+### `core.quest.claims.Record`
+
+```luau
+export type Record = {
+	schemaVersion: number,
+	runId: string,
+	packageId: string,
+	placeId: number,
+	accessCode: string,
+	privateServerId: string,
+	partyId: string,
+	leaderUserId: number,
+	request: Raw,
+	rows: Raw,
+	members: { Member },
+	createdAtSec: number,
+	expiresAtSec: number,
+	stateRevision: number,
+	runState: Raw?,
+	replacementInvitation: Raw?,
+	status: "reserved" | "active" | "closed",
+	claimedByJobId: string?,
+	claimedAtSec: number?,
+}
+```
+
+### `core.quest.claims.Target`
+
+```luau
+export type Target = {
+	placeId: number,
+	accessCode: string,
+	privateServerId: string,
+	runId: string,
+}
+```
+
+### `core.quest.claims.Transform`
+
+```luau
+export type Transform = (unknown) -> Record?
+```
+
+### `core.quest.claims.Config`
+
+```luau
+export type Config = {
+	recordTtlSec: number,
+	claimLeaseSec: number,
+	carrierContract: string,
+	memberCount: number,
+	maxText: number,
+	retryDelaysSec: { number },
+}
+```
+
+### `core.quest.claims.claims`
+
+```luau
+function System.claims(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+runKey = function Core.runKey(runId: string): string
+userKey = function Core.userKey(userId: number): string
+serverKey = function Core.serverKey(privateServerId: string): string
+isReservedServer = function Core.isReservedServer(privateServerId: unknown, privateServerOwnerId: unknown): boolean
+retryDelaysSec = function Core.retryDelaysSec(): { number }
+readRecord = function Core.readRecord(value: unknown): Record?
+validRecord = function Core.validRecord(value: unknown): boolean
+newRecord = function Core.newRecord(input: unknown, nowSec: number): (Record?, string?)
+readReplacementIdentity = function Core.readReplacementIdentity(value: unknown): ReplacementIdentity?
+createTransform = function Core.createTransform(record: Record): Transform
+claimTransform = function Core.claimTransform(privateServerId: string, jobId: string, nowSec: number): Transform
+renewTransform = function Core.renewTransform(runId: string, jobId: string, nowSec: number): Transform
+closeTransform = function Core.closeTransform(runId: string): Transform
+writeThroughTransform = function Core.writeThroughTransform(runId: string, runStateValue: unknown, jobId: string, nowSec: number): Transform
+inviteReplacementTransform = function Core.inviteReplacementTransform(invitationValue: unknown, jobId: string, nowSec: number): Transform
+replaceRosterTransform = function Core.replaceRosterTransform(
+		runId: string,
+		rawPlan: unknown,
+		rawRows: unknown,
+		jobId: string,
+		nowSec: number
+	): Transform
+rejoinTarget = function Core.rejoinTarget(record: unknown, userId: number, nowSec: number): (Target?, string?)
+teleportData = function Core.teleportData<T>(carriers: { [number]: T }): { contract: string, carriers: { [string]: T } }
+carrierFor = function Core.carrierFor(teleportData: unknown, userId: number): unknown
+```
+
+## `core.quest.counter`
+
+[Source](../src/core/quest/counter.luau)
+
+### `core.quest.counter.Band`
+
+```luau
+export type Band = {
+	questId: string,
+	minLevel: number,
+}
+```
+
+### `core.quest.counter.Counts`
+
+```luau
+export type Counts = {
+	eligible: number,
+	completed: number,
+}
+```
+
+### `core.quest.counter.Config`
+
+```luau
+export type Config = { markerPrefix: string, completedStatus: string, labelFormat: string }
+```
+
+### `core.quest.counter.counter`
+
+```luau
+function System.counter(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+questIdFromMarkerName = function QuestCompletionCounter.questIdFromMarkerName(markerName: string): string?
+count = function QuestCompletionCounter.count(
+		bands: { Band }?,
+		statusByQuestId: { [string]: string },
+		level: number
+	): Counts?
+label = function QuestCompletionCounter.label(counts: Counts?): string
+```
+
+## `core.quest.index`
+
+[Source](../src/core/quest/index.luau)
+
+```luau
+local Objectives = require("./objectives")
+```
+
+### `core.quest.index.Config`
+
+```luau
+export type Config = { catalog: Objectives.Catalog, quests: { Objectives.Quest } }
+```
+
+### `core.quest.index.TargetBinding`
+
+```luau
+export type TargetBinding = { questId: string, objectiveId: string, targetId: string }
+```
+
+### `core.quest.index.index`
+
+```luau
+function System.index(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+objectiveBindings = function objectiveBindings(): { Objectives.Binding }
+bindingsForEvent = function bindingsForEvent(event: Objectives.Event): { Objectives.Binding }
+byTarget = function byTarget(event: string, field: string): { [string]: { TargetBinding } }
+```
+
+## `core.quest.lifecycle`
+
+[Source](../src/core/quest/lifecycle.luau)
+
+```luau
+local Objectives = require("./objectives")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.quest.lifecycle.Objective`
+
+```luau
+export type Objective = Objectives.Objective
+```
+
+### `core.quest.lifecycle.Binding`
+
+```luau
+export type Binding = Objectives.Binding
+```
+
+### `core.quest.lifecycle.Event`
+
+```luau
+export type Event = Objectives.Event
+```
+
+### `core.quest.lifecycle.Quest`
+
+```luau
+export type Quest = Objectives.Quest
+```
+
+### `core.quest.lifecycle.Problem`
+
+```luau
+export type Problem = Objectives.Problem
+```
+
+### `core.quest.lifecycle.Config`
+
+```luau
+export type Config = {
+	catalog: Objectives.Catalog,
+	targetFields: { string },
+	eventField: string,
+	targetsField: string,
+	bespokeFields: { string },
+	stillnessKinds: { [string]: boolean },
+}
+```
+
+### `core.quest.lifecycle.lifecycle`
+
+```luau
+function System.lifecycle(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+projectObjective = function projectObjective(value: unknown): Objective?
+validateObjective = function validateObjective(value: unknown): { Problem }
+bindingForObjective = function bindingForObjective(questId: string, value: unknown): Binding?
+catalog = catalog
+```
+
+## `core.quest.markers`
+
+[Source](../src/core/quest/markers.luau)
+
+### `core.quest.markers.QuestStatus`
+
+```luau
+export type QuestStatus = string
+```
+
+### `core.quest.markers.MarkerState`
+
+```luau
+export type MarkerState = "turnIn" | "available" | "inProgress" | "notCurrentlyAcceptable"
+```
+
+### `core.quest.markers.QuestEntry`
+
+```luau
+export type QuestEntry = {
+	status: QuestStatus,
+	available: boolean,
+}
+```
+
+### `core.quest.markers.Config`
+
+```luau
+export type Config = {
+	aliases: { [string]: string },
+	completedStatus: string,
+	inProgressStatus: string,
+	unstartedStatus: string,
+}
+```
+
+### `core.quest.markers.markers`
+
+```luau
+function System.markers(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+stateForEntry = function stateForEntry(entry: QuestEntry): MarkerState?
+stateForGiver = function stateForGiver(entries: { QuestEntry }): MarkerState?
+isActionable = function isActionable(state: MarkerState?): boolean
+shownState = function shownState(state: MarkerState?, occluded: boolean, visibleAtDistance: boolean): MarkerState?
+colorForState = function colorForState<T>(
+		palette: {
+			questTurnIn: T,
+			questAvailable: T,
+			questInProgress: T,
+			questLocked: T,
+		},
+		state: MarkerState?
+	): T
+```
+
+## `core.quest.objectives`
+
+[Source](../src/core/quest/objectives.luau)
+
+### `core.quest.objectives.Targets`
+
+```luau
+export type Targets = { [string]: string }
+```
+
+### `core.quest.objectives.KindSpec`
+
+```luau
+export type KindSpec = {
+	event: string,
+	required: { string },
+	optional: { string }?,
+	targetIdField: string?,
+}
+```
+
+### `core.quest.objectives.Objective`
+
+```luau
+export type Objective = {
+	id: string,
+	kind: string,
+	event: string?,
+	targetId: string?,
+	targets: Targets,
+}
+```
+
+### `core.quest.objectives.Quest`
+
+```luau
+export type Quest = { id: string, objectives: { Objective } }
+```
+
+### `core.quest.objectives.Event`
+
+```luau
+export type Event = {
+	kind: string,
+	questId: string?,
+	objectiveId: string?,
+	targets: Targets,
+}
+```
+
+### `core.quest.objectives.Binding`
+
+```luau
+export type Binding = {
+	questId: string,
+	objectiveId: string,
+	objectiveKind: string,
+	event: string,
+	targets: Targets,
+}
+```
+
+### `core.quest.objectives.Problem`
+
+```luau
+export type Problem = { kind: string, field: string, detail: string }
+```
+
+### `core.quest.objectives.EventContract`
+
+```luau
+export type EventContract = { kind: string, required: { string }, allowed: { [string]: boolean } }
+```
+
+### `core.quest.objectives.Aliases`
+
+```luau
+export type Aliases = { [string]: { [string]: { [string]: { [string]: boolean } } } }
+```
+
+### `core.quest.objectives.Config`
+
+```luau
+export type Config = {
+	order: { string },
+	kinds: { [string]: KindSpec },
+	aliases: Aliases?,
+}
+```
+
+### `core.quest.objectives.Catalog`
+
+```luau
+export type Catalog = {
+	kinds: () -> { string },
+	events: () -> { string },
+	known: (kind: string) -> boolean,
+	contract: (event: string) -> EventContract?,
+	eventOf: (objective: Objective) -> string?,
+	targetsOf: (objective: Objective) -> Targets,
+	validate: (objective: Objective) -> { Problem },
+	binding: (questId: string, objective: Objective) -> Binding?,
+	bindings: (quest: Quest) -> { Binding },
+	matches: (event: Event, binding: Binding) -> boolean,
+	bindingsFor: (quests: { Quest }, event: Event) -> { Binding },
+}
+```
+
+### `core.quest.objectives.catalog`
+
+```luau
+function Objectives.catalog(config: Config): Catalog
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+kinds = function(): { string }
+events = function(): { string }
+known = function(kind: string): boolean
+contract = function(event: string): EventContract?
+eventOf = function eventOf(objective: Objective): string?
+targetsOf = function targetsOf(objective: Objective): Targets
+validate = function(objective: Objective): { Problem }
+binding = function binding(questId: string, objective: Objective): Binding?
+bindings = function bindings(quest: Quest): { Binding }
+matches = function matches(event: Event, candidate: Binding): boolean
+bindingsFor = function(quests: { Quest }, event: Event): { Binding }
+```
+
+## `core.quest.run`
+
+[Source](../src/core/quest/run.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.quest.run.Package`
+
+```luau
+export type Package = {
+	id: string,
+	entryId: string,
+	returnId: string,
+	recoveryWindowSec: number,
+	group: { minPlayers: number, maxPlayers: number },
+	phases: { { id: string, kind: string, contentId: string } },
+}
+```
+
+### `core.quest.run.RunStatus`
+
+```luau
+export type RunStatus = "active" | "completed"
+```
+
+### `core.quest.run.Member`
+
+```luau
+export type Member = {
+	id: string,
+	connected: boolean,
+	disconnectedAtSec: number?,
+	departed: boolean,
+}
+```
+
+### `core.quest.run.RunState`
+
+```luau
+export type RunState = {
+	schemaVersion: number,
+	expeditionId: string,
+	runId: string,
+	revision: number,
+	startedAtSec: number,
+	lastClockSec: number,
+	status: RunStatus,
+	phaseIndex: number,
+	checkpointId: string?,
+	attempt: number,
+	leaderId: string,
+	members: { Member },
+	receipts: { [string]: string },
+}
+```
+
+### `core.quest.run.StartEvent`
+
+```luau
+export type StartEvent = {
+	kind: "start",
+	eventId: string,
+	runId: string,
+	leaderId: string,
+	memberIds: { string },
+}
+```
+
+### `core.quest.run.CompletePhaseEvent`
+
+```luau
+export type CompletePhaseEvent = {
+	kind: "complete_phase",
+	eventId: string,
+	expectedRevision: number,
+	phaseId: string,
+}
+```
+
+### `core.quest.run.MemberEvent`
+
+```luau
+export type MemberEvent = {
+	kind: "disconnect" | "reconnect" | "leader_departure" | "depart" | "replace",
+	replacementId: string?,
+	eventId: string,
+	expectedRevision: number,
+	memberId: string,
+}
+```
+
+### `core.quest.run.WipeEvent`
+
+```luau
+export type WipeEvent = {
+	kind: "wipe",
+	eventId: string,
+	expectedRevision: number,
+	memberIds: { string },
+}
+```
+
+### `core.quest.run.Event`
+
+```luau
+export type Event = StartEvent | CompletePhaseEvent | MemberEvent | WipeEvent
+```
+
+### `core.quest.run.Recovery`
+
+```luau
+export type Recovery = {
+	kind: "wipe" | "reconnect" | "leader_departure",
+	returnAnchorId: string,
+	memberIds: { string },
+}
+```
+
+### `core.quest.run.TransitionApplied`
+
+```luau
+export type TransitionApplied = {
+	ok: true,
+	state: RunState,
+	replayed: boolean,
+	recovery: Recovery?,
+}
+```
+
+### `core.quest.run.TransitionRejected`
+
+```luau
+export type TransitionRejected = {
+	ok: false,
+	state: RunState?,
+	reason: string,
+}
+```
+
+### `core.quest.run.TransitionResult`
+
+```luau
+export type TransitionResult = TransitionApplied | TransitionRejected
+```
+
+### `core.quest.run.Core`
+
+```luau
+export type Core = {
+	transition: (unknown, unknown, unknown, unknown) -> TransitionResult,
+	projectRunState: (unknown, unknown) -> RunState?,
+	Reason: { [string]: string },
+}
+```
+
+### `core.quest.run.Config`
+
+```luau
+export type Config<P> = {
+	readPackage: (unknown) -> P?,
+	describe: (P) -> Package,
+	validCheckpoint: (P, RunState) -> boolean,
+	wipePhase: (P, RunState) -> number,
+	replacementAllowed: (P, RunState) -> boolean,
+	maxMembers: number,
+}
+```
+
+### `core.quest.run.run`
+
+```luau
+function System.run<P>(config: Config<P>): Core
+```
+
+## `core.quest`
+
+[Source](../src/core/quest.luau)
+
+```luau
+local Claims = require("./quest/claims")
+```
+
+```luau
+local Counter = require("./quest/counter")
+```
+
+```luau
+local Index = require("./quest/index")
+```
+
+```luau
+local Lifecycle = require("./quest/lifecycle")
+```
+
+```luau
+local Markers = require("./quest/markers")
+```
+
+```luau
+local Objectives = require("./quest/objectives")
+```
+
+```luau
+local Run = require("./quest/run")
+```
+
+### `core.quest.ClaimsInvitation`
+
+```luau
+export type ClaimsInvitation = Claims.Invitation
+```
+
+### `core.quest.ClaimsReplacementIdentity`
+
+```luau
+export type ClaimsReplacementIdentity = Claims.ReplacementIdentity
+```
+
+### `core.quest.ClaimsMember`
+
+```luau
+export type ClaimsMember = Claims.Member
+```
+
+### `core.quest.ClaimsRecord`
+
+```luau
+export type ClaimsRecord = Claims.Record
+```
+
+### `core.quest.ClaimsTarget`
+
+```luau
+export type ClaimsTarget = Claims.Target
+```
+
+### `core.quest.ClaimsTransform`
+
+```luau
+export type ClaimsTransform = Claims.Transform
+```
+
+### `core.quest.ClaimsConfig`
+
+```luau
+export type ClaimsConfig = Claims.Config
+```
+
+### `core.quest.CounterBand`
+
+```luau
+export type CounterBand = Counter.Band
+```
+
+### `core.quest.CounterCounts`
+
+```luau
+export type CounterCounts = Counter.Counts
+```
+
+### `core.quest.CounterConfig`
+
+```luau
+export type CounterConfig = Counter.Config
+```
+
+### `core.quest.IndexConfig`
+
+```luau
+export type IndexConfig = Index.Config
+```
+
+### `core.quest.IndexTargetBinding`
+
+```luau
+export type IndexTargetBinding = Index.TargetBinding
+```
+
+### `core.quest.LifecycleObjective`
+
+```luau
+export type LifecycleObjective = Lifecycle.Objective
+```
+
+### `core.quest.LifecycleBinding`
+
+```luau
+export type LifecycleBinding = Lifecycle.Binding
+```
+
+### `core.quest.LifecycleEvent`
+
+```luau
+export type LifecycleEvent = Lifecycle.Event
+```
+
+### `core.quest.LifecycleQuest`
+
+```luau
+export type LifecycleQuest = Lifecycle.Quest
+```
+
+### `core.quest.LifecycleProblem`
+
+```luau
+export type LifecycleProblem = Lifecycle.Problem
+```
+
+### `core.quest.LifecycleConfig`
+
+```luau
+export type LifecycleConfig = Lifecycle.Config
+```
+
+### `core.quest.MarkersQuestStatus`
+
+```luau
+export type MarkersQuestStatus = Markers.QuestStatus
+```
+
+### `core.quest.MarkersMarkerState`
+
+```luau
+export type MarkersMarkerState = Markers.MarkerState
+```
+
+### `core.quest.MarkersQuestEntry`
+
+```luau
+export type MarkersQuestEntry = Markers.QuestEntry
+```
+
+### `core.quest.MarkersConfig`
+
+```luau
+export type MarkersConfig = Markers.Config
+```
+
+### `core.quest.ObjectivesTargets`
+
+```luau
+export type ObjectivesTargets = Objectives.Targets
+```
+
+### `core.quest.ObjectivesKindSpec`
+
+```luau
+export type ObjectivesKindSpec = Objectives.KindSpec
+```
+
+### `core.quest.ObjectivesObjective`
+
+```luau
+export type ObjectivesObjective = Objectives.Objective
+```
+
+### `core.quest.ObjectivesQuest`
+
+```luau
+export type ObjectivesQuest = Objectives.Quest
+```
+
+### `core.quest.ObjectivesEvent`
+
+```luau
+export type ObjectivesEvent = Objectives.Event
+```
+
+### `core.quest.ObjectivesBinding`
+
+```luau
+export type ObjectivesBinding = Objectives.Binding
+```
+
+### `core.quest.ObjectivesProblem`
+
+```luau
+export type ObjectivesProblem = Objectives.Problem
+```
+
+### `core.quest.ObjectivesEventContract`
+
+```luau
+export type ObjectivesEventContract = Objectives.EventContract
+```
+
+### `core.quest.ObjectivesAliases`
+
+```luau
+export type ObjectivesAliases = Objectives.Aliases
+```
+
+### `core.quest.ObjectivesConfig`
+
+```luau
+export type ObjectivesConfig = Objectives.Config
+```
+
+### `core.quest.ObjectivesCatalog`
+
+```luau
+export type ObjectivesCatalog = Objectives.Catalog
+```
+
+### `core.quest.RunPackage`
+
+```luau
+export type RunPackage = Run.Package
+```
+
+### `core.quest.RunRunStatus`
+
+```luau
+export type RunRunStatus = Run.RunStatus
+```
+
+### `core.quest.RunMember`
+
+```luau
+export type RunMember = Run.Member
+```
+
+### `core.quest.RunRunState`
+
+```luau
+export type RunRunState = Run.RunState
+```
+
+### `core.quest.RunStartEvent`
+
+```luau
+export type RunStartEvent = Run.StartEvent
+```
+
+### `core.quest.RunCompletePhaseEvent`
+
+```luau
+export type RunCompletePhaseEvent = Run.CompletePhaseEvent
+```
+
+### `core.quest.RunMemberEvent`
+
+```luau
+export type RunMemberEvent = Run.MemberEvent
+```
+
+### `core.quest.RunWipeEvent`
+
+```luau
+export type RunWipeEvent = Run.WipeEvent
+```
+
+### `core.quest.RunEvent`
+
+```luau
+export type RunEvent = Run.Event
+```
+
+### `core.quest.RunRecovery`
+
+```luau
+export type RunRecovery = Run.Recovery
+```
+
+### `core.quest.RunTransitionApplied`
+
+```luau
+export type RunTransitionApplied = Run.TransitionApplied
+```
+
+### `core.quest.RunTransitionRejected`
+
+```luau
+export type RunTransitionRejected = Run.TransitionRejected
+```
+
+### `core.quest.RunTransitionResult`
+
+```luau
+export type RunTransitionResult = Run.TransitionResult
+```
+
+### `core.quest.RunCore`
+
+```luau
+export type RunCore = Run.Core
+```
+
+### `core.quest.RunConfig`
+
+```luau
+export type RunConfig<P> = Run.Config<P>
+```
+
+### `core.quest.API`
+
+```luau
+export type API = {
+	read claims: typeof(Claims),
+	read counter: typeof(Counter),
+	read index: typeof(Index),
+	read lifecycle: typeof(Lifecycle),
+	read markers: typeof(Markers),
+	read objectives: typeof(Objectives),
+	read run: typeof(Run),
+}
+```
+
+### `core.quest.claims`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.counter`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.index`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.lifecycle`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.markers`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.objectives`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.run`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+## `core.social.allies`
+
+[Source](../src/core/social/allies.luau)
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.allies.QualificationKind`
+
+```luau
+export type QualificationKind = string
+```
+
+### `core.social.allies.Entry`
+
+```luau
+export type Entry = {
+	allyUserId: number,
+	qualificationKind: QualificationKind,
+	qualificationReceiptId: string,
+	lastQualifiedAtSec: number,
+	expiresAtSec: number,
+}
+```
+
+### `core.social.allies.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	userId: number,
+	revision: number,
+	lastClockSec: number,
+	policyRevision: number,
+	entries: { Entry },
+	receipts: { [string]: string },
+}
+```
+
+### `core.social.allies.Policy`
+
+```luau
+export type Policy = PolicyFlags & {
+	blockedUserIds: { number },
+	optedOutUserIds: { number },
+	moderationDeniedUserIds: { number },
+}
+```
+
+### `core.social.allies.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	state: State?,
+	replayed: boolean,
+	reason: string?,
+}
+```
+
+### `core.social.allies.QualifyEvent`
+
+```luau
+export type QualifyEvent = {
+	kind: "qualify",
+	eventId: string,
+	expectedRevision: number,
+	allyUserId: number,
+	qualificationKind: QualificationKind,
+	qualificationReceiptId: string,
+}
+```
+
+### `core.social.allies.ReconcileEvent`
+
+```luau
+export type ReconcileEvent = {
+	kind: "reconcile",
+	eventId: string,
+	expectedRevision: number,
+	allyUserId: nil,
+	qualificationKind: nil,
+	qualificationReceiptId: nil,
+}
+```
+
+### `core.social.allies.Event`
+
+```luau
+export type Event = QualifyEvent | ReconcileEvent
+```
+
+### `core.social.allies.Authority`
+
+```luau
+export type Authority = { validate: (string, QualificationKind, number, number, number) -> unknown }
+```
+
+### `core.social.allies.Config`
+
+```luau
+export type Config = {
+	retentionSec: number,
+	maxAllies: number,
+	maxRevision: number,
+	maxTime: number,
+	maxId: number,
+	maxFingerprint: number,
+	qualificationKinds: { [string]: boolean },
+}
+```
+
+### `core.social.allies.allies`
+
+```luau
+function System.allies(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function RecentAlliesCore.emptyState(userId: unknown): State?
+projectState = function RecentAlliesCore.projectState(value: unknown): State?
+projectPrivate = function RecentAlliesCore.projectPrivate(
+		value: unknown,
+		policyValue: unknown,
+		requesterUserId: unknown,
+		nowSecValue: unknown
+	): { Entry }?
+transition = function RecentAlliesCore.transition(
+		previousStateValue: unknown,
+		eventValue: unknown,
+		nowSecValue: unknown,
+		policyValue: unknown,
+		qualificationAuthority: Authority?
+	): Result
+```
+
+## `core.social.chronicle`
+
+[Source](../src/core/social/chronicle.luau)
+
+```luau
+local Read = require("../internal/chronicle-read")
+```
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.chronicle.ActiveStatus`
+
+```luau
+export type ActiveStatus = Read.ActiveStatus
+```
+
+### `core.social.chronicle.TerminalStatus`
+
+```luau
+export type TerminalStatus = Read.TerminalStatus
+```
+
+### `core.social.chronicle.Definition`
+
+```luau
+export type Definition = Read.Definition
+```
+
+### `core.social.chronicle.ActiveVow`
+
+```luau
+export type ActiveVow = Read.ActiveVow
+```
+
+### `core.social.chronicle.Deed`
+
+```luau
+export type Deed = Read.Deed
+```
+
+### `core.social.chronicle.State`
+
+```luau
+export type State = Read.State
+```
+
+### `core.social.chronicle.Applied`
+
+```luau
+export type Applied = Read.Applied
+```
+
+### `core.social.chronicle.Rejected`
+
+```luau
+export type Rejected = Read.Rejected
+```
+
+### `core.social.chronicle.Result`
+
+```luau
+export type Result = Read.Result
+```
+
+### `core.social.chronicle.AccessPolicy`
+
+```luau
+export type AccessPolicy = Read.AccessPolicy
+```
+
+### `core.social.chronicle.ContributionAuthority`
+
+```luau
+export type ContributionAuthority = Read.ContributionAuthority
+```
+
+### `core.social.chronicle.Event`
+
+```luau
+export type Event = Read.Event
+```
+
+### `core.social.chronicle.Config`
+
+```luau
+export type Config = Read.Config
+```
+
+### `core.social.chronicle.chronicle`
+
+```luau
+function System.chronicle(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function VowChronicleCore.emptyState(characterId: unknown): State?
+projectState = function VowChronicleCore.projectState(value: unknown, definitionsValue: unknown): State?
+projectChronicle = function VowChronicleCore.projectChronicle(
+		value: unknown,
+		definitionsValue: unknown,
+		requesterCharacterId: unknown
+	): { Deed }?
+transition = function VowChronicleCore.transition(
+		previousStateValue: unknown,
+		definitionsValue: unknown,
+		eventValue: unknown,
+		nowSecValue: unknown,
+		accessPolicy: AccessPolicy?,
+		contributionAuthority: ContributionAuthority?
+	): Result
+```
+
+## `core.social.fellowship`
+
+[Source](../src/core/social/fellowship.luau)
+
+```luau
+local Read = require("../internal/fellowship-read")
+```
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.fellowship.Member`
+
+```luau
+export type Member = Read.Member
+```
+
+### `core.social.fellowship.Invite`
+
+```luau
+export type Invite = Read.Invite
+```
+
+### `core.social.fellowship.Creed`
+
+```luau
+export type Creed = Read.Creed
+```
+
+### `core.social.fellowship.CreedDraft`
+
+```luau
+export type CreedDraft = Read.CreedDraft
+```
+
+### `core.social.fellowship.FormationRequest`
+
+```luau
+export type FormationRequest = Read.FormationRequest
+```
+
+### `core.social.fellowship.Event`
+
+```luau
+export type Event = Read.Event
+```
+
+### `core.social.fellowship.EventDraft`
+
+```luau
+export type EventDraft = Read.EventDraft
+```
+
+### `core.social.fellowship.Audit`
+
+```luau
+export type Audit = Read.Audit
+```
+
+### `core.social.fellowship.State`
+
+```luau
+export type State = Read.State
+```
+
+### `core.social.fellowship.FoundRequest`
+
+```luau
+export type FoundRequest = Read.FoundRequest
+```
+
+### `core.social.fellowship.Result`
+
+```luau
+export type Result = Read.Result
+```
+
+### `core.social.fellowship.Config`
+
+```luau
+export type Config = Read.Config
+```
+
+### `core.social.fellowship.fellowship`
+
+```luau
+function System.fellowship(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+validCreed = function FellowshipCore.validCreed(pursuits: unknown, pace: unknown, welcome: unknown): Creed?
+create = function FellowshipCore.create(request: unknown, nowSec: unknown): Result
+createFromFormation = function FellowshipCore.createFromFormation(request: unknown, nowSec: unknown): Result
+projectState = function FellowshipCore.projectState(value: unknown): State?
+transition = function FellowshipCore.transition(previous: unknown, eventValue: unknown, nowSecValue: unknown): Result
+```
+
+## `core.social.formation`
+
+[Source](../src/core/social/formation.luau)
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.formation.Founder`
+
+```luau
+export type Founder = { userId: number, name: string }
+```
+
+### `core.social.formation.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	formationId: string,
+	fellowshipId: string,
+	nameId: string,
+	realmId: string,
+	homeSlotId: string,
+	initiatorId: number,
+	expiresAtSec: number,
+	founders: { Founder },
+	invited: { number },
+	feeCopper: number,
+	feeState: string,
+	phase: string,
+	revision: number,
+	lastClockSec: number,
+	receipts: { [string]: string },
+	receiptOrder: { string },
+}
+```
+
+### `core.social.formation.EventDraft`
+
+```luau
+export type EventDraft = {
+	kind: string,
+	eventId: string?,
+	expectedRevision: number?,
+	actorUserId: number?,
+	targetUserId: number?,
+	targetRealmId: string?,
+	actorRealmId: string?,
+	actorName: string?,
+}
+```
+
+### `core.social.formation.Event`
+
+```luau
+export type Event = EventDraft & { eventId: string, expectedRevision: number }
+```
+
+### `core.social.formation.StartRequest`
+
+```luau
+export type StartRequest = {
+	formationId: string,
+	nameId: string,
+	realmId: string,
+	homeSlotId: string,
+	initiatorId: number,
+	initiatorName: string,
+}
+```
+
+### `core.social.formation.Result`
+
+```luau
+export type Result = { ok: boolean, state: State?, replayed: boolean, reason: string? }
+```
+
+### `core.social.formation.Config`
+
+```luau
+export type Config = {
+	requiredFounders: number,
+	fee: number,
+	formationTtlSec: number,
+	maxReceipts: number,
+	maxTime: number,
+	maxNameLength: number,
+	realms: { [string]: boolean },
+	nameIds: { [string]: boolean },
+	fellowshipPrefix: string,
+	maxFormationId: number,
+	maxId: number,
+	maxRevision: number,
+	maxFingerprint: number,
+}
+```
+
+### `core.social.formation.formation`
+
+```luau
+function System.formation(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+start = function FellowshipFormationCore.start(request: unknown, nowSec: unknown): Result
+projectState = function FellowshipFormationCore.projectState(value: unknown): State?
+transition = function FellowshipFormationCore.transition(previous: unknown, eventValue: unknown, nowSecValue: unknown): Result
+```
+
+## `core.social.group`
+
+[Source](../src/core/social/group.luau)
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.group.Relations`
+
+```luau
+export type Relations = {
+	readAtSec: number,
+	memberUserId: number,
+	moderationEligible: boolean,
+	blockedUserIds: { number },
+	moderationDeniedUserIds: { number },
+	optedOutUserIds: { number },
+}
+```
+
+### `core.social.group.Admission`
+
+```luau
+export type Admission = {
+	members: { Relations },
+	subject: Relations?,
+}
+```
+
+### `core.social.group.Ticket`
+
+```luau
+export type Ticket = {
+	userId: number,
+	departedAtSec: number,
+	expiresAtSec: number,
+}
+```
+
+### `core.social.group.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	groupId: string,
+	revision: number,
+	lastClockSec: number,
+	relationsReadAtSec: number,
+	tickets: { Ticket },
+	receipts: { [string]: string },
+}
+```
+
+### `core.social.group.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	state: State?,
+	replayed: boolean,
+	reason: string?,
+	recoveredUserId: number?,
+}
+```
+
+### `core.social.group.Decision`
+
+```luau
+export type Decision = {
+	ok: boolean,
+	reason: string?,
+}
+```
+
+### `core.social.group.Request`
+
+```luau
+export type Request = { groupId: string, inviterUserId: number, candidateUserId: number }
+```
+
+### `core.social.group.Authority`
+
+```luau
+export type Authority = { validate: (string, string, number, number, number) -> unknown }
+```
+
+### `core.social.group.MemberEvent`
+
+```luau
+export type MemberEvent = { kind: "depart" | "recover", eventId: string, expectedRevision: number, userId: number }
+```
+
+### `core.social.group.ReconcileEvent`
+
+```luau
+export type ReconcileEvent = { kind: "reconcile", eventId: string, expectedRevision: number, userId: nil }
+```
+
+### `core.social.group.Event`
+
+```luau
+export type Event = MemberEvent | ReconcileEvent
+```
+
+### `core.social.group.Config`
+
+```luau
+export type Config = {
+	recoveryTtlSec: number,
+	relationsMaxAgeSec: number,
+	maxTickets: number,
+	maxRoster: number,
+	maxRevision: number,
+	maxTime: number,
+	maxId: number,
+	maxFingerprint: number,
+}
+```
+
+### `core.social.group.group`
+
+```luau
+function System.group(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function GroupCore.emptyState(groupId: unknown): State?
+projectState = function GroupCore.projectState(value: unknown): State?
+projectRelations = function GroupCore.projectRelations(value: unknown, nowSecValue: unknown): Relations?
+admit = function GroupCore.admit(
+		admissionValue: unknown,
+		requestValue: unknown,
+		nowSecValue: unknown,
+		groupAuthority: Authority?
+	): Decision
+visibleRoster = function GroupCore.visibleRoster(relationsValue: unknown, rosterValue: unknown, nowSecValue: unknown): { number }?
+transition = function GroupCore.transition(
+		previousStateValue: unknown,
+		eventValue: unknown,
+		nowSecValue: unknown,
+		admissionValue: unknown,
+		groupAuthority: Authority?
+	): Result
+```
+
+## `core.social.guildbank`
+
+[Source](../src/core/social/guildbank.luau)
+
+```luau
+local SocialShape = require("./shape")
+```
+
+```luau
+local Vault = require("../bank/vault")
+```
+
+### `core.social.guildbank.Receipt`
+
+```luau
+export type Receipt = { receiptId: string, ownerId: number, materialId: string, count: number, issuedAtSec: number }
+```
+
+### `core.social.guildbank.Operation`
+
+```luau
+export type Operation = { fingerprint: string, atSec: number, actorId: number, keepUntilSec: number }
+```
+
+### `core.social.guildbank.Entry`
+
+```luau
+export type Entry = { atSec: number, actorId: number, kind: string, materialId: string, count: number }
+```
+
+### `core.social.guildbank.Withdrawal`
+
+```luau
+export type Withdrawal = { actorId: number, atSec: number, count: number }
+```
+
+### `core.social.guildbank.Command`
+
+```luau
+export type Command = {
+	kind: string,
+	opId: string,
+	actorId: number,
+	role: string,
+	materialId: string,
+	count: number,
+	receiptIds: { string },
+	memberIds: { number },
+}
+```
+
+### `core.social.guildbank.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	fellowshipId: string,
+	stock: { [string]: number },
+	receipts: { Receipt },
+	withdrawals: { Withdrawal },
+	log: { Entry },
+	operations: { [string]: Operation },
+	operationOrder: { string },
+	lastClockSec: number,
+}
+```
+
+### `core.social.guildbank.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	state: State?,
+	replayed: boolean,
+	reason: string?,
+	receipts: { Receipt }?,
+	fence: string?,
+}
+```
+
+### `core.social.guildbank.Config`
+
+```luau
+export type Config = {
+	maxKinds: number,
+	maxStack: number,
+	maxReceipts: number,
+	maxReceiptsPerOwner: number,
+	maxLog: number,
+	maxWithdrawals: number,
+	daySec: number,
+	memberDailyWithdrawal: number,
+	healRetentionSec: number,
+	receiptTtlSec: number,
+	maxOperations: number,
+	maxOperationsPerActor: number,
+	maxId: number,
+	maxTime: number,
+	maxMembers: number,
+	roles: { [string]: boolean },
+	privilegedRoles: { [string]: boolean },
+}
+```
+
+### `core.social.guildbank.guildbank`
+
+```luau
+function System.guildbank(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function GuildBankCore.emptyState(fellowshipId: unknown): State?
+projectState = function GuildBankCore.projectState(value: unknown): State?
+knowsOperation = function GuildBankCore.knowsOperation(value: unknown, opId: unknown): boolean
+receiptsFor = function GuildBankCore.receiptsFor(value: unknown, ownerId: unknown): { Receipt }?
+apply = function GuildBankCore.apply(previous: unknown, commandValue: unknown, nowSecValue: unknown): Result
+```
+
+## `core.social.guildhome`
+
+[Source](../src/core/social/guildhome.luau)
+
+```luau
+local Shape = require("./shape")
+```
+
+### `core.social.guildhome.Slot`
+
+```luau
+export type Slot = { id: string, hubId: string, realmId: string, label: string }
+```
+
+### `core.social.guildhome.Config`
+
+```luau
+export type Config = { maxIdLength: number, maxLabelLength: number, maxSlots: number, realms: { [string]: boolean } }
+```
+
+### `core.social.guildhome.guildhome`
+
+```luau
+function Homes.guildhome(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+slots = function Core.slots(catalog: unknown): { Slot }?
+slotFor = function Core.slotFor(catalog: unknown, realmId: unknown): Slot?
+```
+
+## `core.social.guildledger`
+
+[Source](../src/core/social/guildledger.luau)
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.guildledger.Pending`
+
+```luau
+export type Pending = { fellowshipId: string, materialId: string, count: number, startedAtSec: number }
+```
+
+### `core.social.guildledger.Ledger`
+
+```luau
+export type Ledger = {
+	schemaVersion: number,
+	pending: { [string]: Pending },
+	unacked: { [string]: string },
+}
+```
+
+### `core.social.guildledger.Limits`
+
+```luau
+export type Limits = { maxItemCount: number, maxInventoryEntries: number }
+```
+
+```luau
+local Vault = require("../bank/vault")
+```
+
+### `core.social.guildledger.Receipt`
+
+```luau
+export type Receipt = { receiptId: string, ownerId: number, materialId: string, count: number, issuedAtSec: number? }
+```
+
+### `core.social.guildledger.ProfileInput`
+
+```luau
+export type ProfileInput = { inventory: unknown, guildBank: unknown }
+```
+
+### `core.social.guildledger.Config`
+
+```luau
+export type Config<T> = {
+	readProfile: (T) -> ProfileInput,
+	writeProfile: (T, Vault.Inventory?, Ledger) -> T,
+	maxUnacked: number,
+	withdrawRoom: number,
+	maxPending: number,
+	maxId: number,
+	maxCount: number,
+	maxTime: number,
+	healRetentionSec: number,
+}
+```
+
+### `core.social.guildledger.guildledger`
+
+```luau
+function System.guildledger<T>(config: Config<T>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyLedger = function GuildBankLedgerCore.emptyLedger(): Ledger
+projectLedger = function GuildBankLedgerCore.projectLedger(value: unknown): Ledger?
+beginDeposit = function GuildBankLedgerCore.beginDeposit(
+		profile: T,
+		opId: string,
+		fellowshipId: string,
+		materialId: string,
+		count: number,
+		nowSec: number,
+		limits: Limits
+	): (T?, string?)
+settle = function GuildBankLedgerCore.settle(profile: T, opId: string): (T?, string?)
+refund = function GuildBankLedgerCore.refund(profile: T, opId: string, limits: Limits): (T?, string?)
+claim = function GuildBankLedgerCore.claim(
+		profile: T,
+		receipt: unknown,
+		ownerId: number,
+		fellowshipId: string,
+		limits: Limits
+	): (T?, string?)
+acked = function GuildBankLedgerCore.acked(profile: T, receiptIds: { string }): (T?, string?)
+claimed = function GuildBankLedgerCore.claimed(profile: T, receiptId: string): boolean
+canWithdraw = function GuildBankLedgerCore.canWithdraw(profile: T): boolean
+```
+
+## `core.social.membership`
+
+[Source](../src/core/social/membership.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.social.membership.LootMode`
+
+```luau
+export type LootMode = "round_robin" | "need_greed"
+```
+
+### `core.social.membership.Member`
+
+```luau
+export type Member = {
+	accountId: string,
+	characterId: string?,
+	joinedAt: number,
+	absentSince: number?,
+}
+```
+
+### `core.social.membership.Invite`
+
+```luau
+export type Invite = {
+	accountId: string,
+	invitedBy: string,
+	at: number,
+}
+```
+
+### `core.social.membership.LeaderTransfer`
+
+```luau
+export type LeaderTransfer = { accountId: string, by: string, at: number }
+```
+
+### `core.social.membership.State`
+
+```luau
+export type State = {
+	partyId: string,
+	realmId: string,
+	leaderId: string,
+	leaderTransfer: LeaderTransfer?,
+	members: { Member },
+	invites: { Invite },
+	lootMode: LootMode,
+	lootCursor: string?,
+	createdAt: number,
+	lastAt: number,
+	disbandedAt: number?,
+}
+```
+
+### `core.social.membership.Result`
+
+```luau
+export type Result = {
+	state: State,
+	replayed: boolean,
+}
+```
+
+### `core.social.membership.Config`
+
+```luau
+export type Config = {
+	maxMembers: number,
+	minimumPartyMembers: number,
+	disconnectGraceSec: number,
+	leaderSuccessionSec: number,
+	leaderTransferTtlSec: number,
+	inviteTtlSec: number,
+	maxText: number,
+	maxAt: number,
+	realms: { [string]: boolean },
+	defaultLootMode: LootMode,
+}
+```
+
+### `core.social.membership.Core`
+
+```luau
+export type Core = {
+	projectState: (unknown) -> (State?, string?),
+	open: (unknown) -> (Result?, string?),
+	invite: (unknown, unknown) -> (Result?, string?),
+	accept: (unknown, unknown) -> (Result?, string?),
+	decline: (unknown, unknown) -> (Result?, string?),
+	leave: (unknown, unknown) -> (Result?, string?),
+	kick: (unknown, unknown) -> (Result?, string?),
+	transferLeader: (unknown, unknown) -> (Result?, string?),
+	acceptLeaderTransfer: (unknown, unknown) -> (Result?, string?),
+	disband: (unknown, unknown) -> (Result?, string?),
+	setLootMode: (unknown, unknown) -> (Result?, string?),
+	markAbsent: (unknown, unknown) -> (Result?, string?),
+	markPresent: (unknown, unknown) -> (Result?, string?),
+	sweep: (unknown, unknown) -> (Result?, string?),
+}
+```
+
+### `core.social.membership.membership`
+
+```luau
+function System.membership(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+projectState = function PartyCore.projectState(value: unknown): (State?, string?)
+open = function PartyCore.open(requestValue: unknown): (Result?, string?)
+invite = function PartyCore.invite(stateValue: unknown, requestValue: unknown): (Result?, string?)
+accept = function PartyCore.accept(stateValue: unknown, requestValue: unknown): (Result?, string?)
+decline = function PartyCore.decline(stateValue: unknown, requestValue: unknown): (Result?, string?)
+leave = function PartyCore.leave(stateValue: unknown, requestValue: unknown): (Result?, string?)
+kick = function PartyCore.kick(stateValue: unknown, requestValue: unknown): (Result?, string?)
+transferLeader = function PartyCore.transferLeader(stateValue: unknown, requestValue: unknown): (Result?, string?)
+acceptLeaderTransfer = function PartyCore.acceptLeaderTransfer(stateValue: unknown, requestValue: unknown): (Result?, string?)
+disband = function PartyCore.disband(stateValue: unknown, requestValue: unknown): (Result?, string?)
+setLootMode = function PartyCore.setLootMode(stateValue: unknown, requestValue: unknown): (Result?, string?)
+markAbsent = function PartyCore.markAbsent(stateValue: unknown, requestValue: unknown): (Result?, string?)
+markPresent = function PartyCore.markPresent(stateValue: unknown, requestValue: unknown): (Result?, string?)
+sweep = function PartyCore.sweep(stateValue: unknown, requestValue: unknown): (Result?, string?)
+```
+
+## `core.social.notes`
+
+[Source](../src/core/social/notes.luau)
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.notes.Note`
+
+```luau
+export type Note = {
+	id: string,
+	fromUserId: number,
+	fromName: string,
+	phraseId: string,
+	sentAtSec: number,
+	read: boolean,
+}
+```
+
+### `core.social.notes.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	ownerUserId: number,
+	notes: { Note },
+	receiptOrder: { string },
+}
+```
+
+### `core.social.notes.Result`
+
+```luau
+export type Result = { ok: boolean, state: State?, changed: boolean, reason: string? }
+```
+
+### `core.social.notes.Phrase`
+
+```luau
+export type Phrase = { id: string, text: string }
+```
+
+### `core.social.notes.Catalog`
+
+```luau
+export type Catalog = { label: string, phrases: { Phrase } }
+```
+
+### `core.social.notes.Delivery`
+
+```luau
+export type Delivery = { noteId: string, fromUserId: number, fromName: string, phraseId: string }
+```
+
+### `core.social.notes.Config`
+
+```luau
+export type Config = {
+	maxNotes: number,
+	maxNameLength: number,
+	maxIdLength: number,
+	maxPhraseIdLength: number,
+	maxPhraseTextLength: number,
+	maxReceipts: number,
+	maxPhrases: number,
+	noteTtlSec: number,
+	maxTime: number,
+	presetLabel: string,
+}
+```
+
+### `core.social.notes.notes`
+
+```luau
+function System.notes(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+emptyState = function PhraseNoteCore.emptyState(ownerUserId: unknown): State?
+projectState = function PhraseNoteCore.projectState(value: unknown): State?
+phrases = function PhraseNoteCore.phrases(catalog: unknown): { Phrase }?
+deliver = function PhraseNoteCore.deliver(previous: unknown, request: unknown, nowSecValue: unknown): Result
+markRead = function PhraseNoteCore.markRead(previous: unknown, noteId: unknown): Result
+live = function PhraseNoteCore.live(notes: { Note }, nowSec: number): { Note }
+```
+
+## `core.social.profile`
+
+[Source](../src/core/social/profile.luau)
+
+```luau
+local Allies = require("./allies")
+```
+
+```luau
+local Chronicle = require("./chronicle")
+```
+
+```luau
+local Shape = require("./shape")
+```
+
+### `core.social.profile.FellowshipIdentity`
+
+```luau
+export type FellowshipIdentity = {
+	fellowshipId: string,
+	nameId: string,
+	realmId: string,
+	memberUserId: number,
+	lastKnownStewardUserId: number,
+	observedRevision: number,
+}
+```
+
+### `core.social.profile.State`
+
+```luau
+export type State =
+	{ fellowship: FellowshipIdentity | false, recentAllies: Allies.State, vowChronicle: Chronicle.State }
+```
+
+### `core.social.profile.Config`
+
+```luau
+export type Config = {
+	maxId: number,
+	realms: { [string]: boolean },
+	nameIds: { [string]: boolean },
+	definitions: { Chronicle.Definition },
+	emptyAllies: (unknown) -> Allies.State?,
+	projectAllies: (unknown) -> Allies.State?,
+	emptyChronicle: (unknown) -> Chronicle.State?,
+	projectChronicle: (unknown, unknown) -> Chronicle.State?,
+}
+```
+
+### `core.social.profile.profile`
+
+```luau
+function Profiles.profile(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+default = function(userId: unknown, characterId: unknown): State?
+project = function(value: unknown, userId: unknown, characterId: unknown): State?
+```
+
+## `core.social.rally`
+
+[Source](../src/core/social/rally.luau)
+
+```luau
+local Shape = require("./shape")
+```
+
+### `core.social.rally.Row`
+
+```luau
+export type Row = {
+	objectiveId: string,
+	objectiveKind: string,
+	titleId: string,
+	landmarkId: string,
+	zoneId: string,
+	realmId: string,
+	expiresAtSec: number,
+}
+```
+
+### `core.social.rally.Config`
+
+```luau
+export type Config = {
+	maxRows: number,
+	maxTime: number,
+	maxId: number,
+	kinds: { [string]: boolean },
+	titles: { [string]: boolean },
+	landmarks: { [string]: boolean },
+	realms: { [string]: boolean },
+	sharedRealm: string,
+}
+```
+
+### `core.social.rally.rally`
+
+```luau
+function Boards.rally(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+project = function(source: unknown, zone: unknown, realm: unknown, now: unknown): { Row }?
+```
+
+## `core.social.roster`
+
+[Source](../src/core/social/roster.luau)
+
+### `core.social.roster.Member`
+
+```luau
+export type Member = { accountId: string, characterId: string? }
+```
+
+### `core.social.roster.Party`
+
+```luau
+export type Party = { partyId: string, realmId: string, disbandedAt: number?, members: { Member } }
+```
+
+### `core.social.roster.Actor`
+
+```luau
+export type Actor = { id: string, characterId: string?, realm: string?, partyId: string? }
+```
+
+### `core.social.roster.Runtime`
+
+```luau
+export type Runtime<S> = { state: S, tick: number }
+```
+
+### `core.social.roster.Result`
+
+```luau
+export type Result<S, A> = { parties: { [string]: Runtime<S> }, actors: { [string]: A } }
+```
+
+### `core.social.roster.Config`
+
+```luau
+export type Config<S, A> = {
+	project: (unknown) -> S?,
+	party: (S) -> Party,
+	lootCursor: (S) -> string?,
+	withLootCursor: (S, string?) -> S,
+	actor: (A) -> Actor,
+	withParty: (A, string?) -> A,
+	subject: (string) -> string,
+}
+```
+
+### `core.social.roster.roster`
+
+```luau
+function System.roster<S, A>(config: Config<S, A>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+reduce = function reduce(
+		parties: { [string]: Runtime<S> },
+		actors: { [string]: A },
+		raw: unknown,
+		tick: number
+	): Result<S, A>?
+subject = config.subject
+```
+
+## `core.social.shape`
+
+[Source](../src/core/social/shape.luau)
+
+```luau
+local Internal = require("../internal/shape")
+```
+
+### `core.social.shape.Raw`
+
+```luau
+export type Raw = Internal.Raw
+```
+
+### `core.social.shape.array`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.boolean`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.dense`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.denseLength`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.exact`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.freezeDeep`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.freezeDeepWithKeys`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.map`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.number`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.onlyFields`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.opaque`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.raw`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.string`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+### `core.social.shape.whole`
+
+Exported value; see its declaration in [source](../src/core/social/shape.luau).
+
+## `core.social.warband`
+
+[Source](../src/core/social/warband.luau)
+
+```luau
+local SocialShape = require("./shape")
+```
+
+### `core.social.warband.Party`
+
+```luau
+export type Party = {
+	realmId: string,
+	leaderId: string,
+	characterId: string,
+	connected: boolean,
+	absentSinceSec: number?,
+	closed: boolean?,
+}
+```
+
+### `core.social.warband.Unit`
+
+```luau
+export type Unit = { partyId: string, joinedAtSec: number, membershipRevision: number }
+```
+
+### `core.social.warband.Invite`
+
+```luau
+export type Invite = { byPartyId: string, expiresAtSec: number }
+```
+
+### `core.social.warband.Transfer`
+
+```luau
+export type Transfer = { partyId: string, expiresAtSec: number }
+```
+
+### `core.social.warband.Order`
+
+```luau
+export type Order = { kind: string, objectiveId: string, byPartyId: string, byActorId: string?, atSec: number }
+```
+
+### `core.social.warband.State`
+
+```luau
+export type State = {
+	schemaVersion: number,
+	warbandId: string,
+	realmId: string,
+	revision: number,
+	lastClockSec: number,
+	units: { Unit },
+	commanderPartyId: string?,
+	commanderAbsentSinceSec: number?,
+	assistants: { string },
+	invites: { [string]: Invite },
+	transfer: Transfer?,
+	order: Order?,
+	rallyObjectiveId: string?,
+	targetObjectiveId: string?,
+	rallyByActorId: string?,
+	targetByActorId: string?,
+}
+```
+
+### `core.social.warband.Event`
+
+```luau
+export type Event = {
+	kind: string,
+	actorPartyId: string,
+	actorId: string,
+	expectedRevision: number,
+	targetPartyId: string?,
+	membershipRevision: number?,
+	orderKind: string?,
+	objectiveId: string?,
+}
+```
+
+### `core.social.warband.Parties`
+
+```luau
+export type Parties = { [string]: Party }
+```
+
+### `core.social.warband.Result`
+
+```luau
+export type Result = { ok: boolean, state: State?, reason: string? }
+```
+
+### `core.social.warband.Config`
+
+```luau
+export type Config = {
+	maxParties: number,
+	inviteSeconds: number,
+	transferSeconds: number,
+	successionSeconds: number,
+	orders: { [string]: boolean },
+	realms: { [string]: boolean },
+	maxId: number,
+	maxInteger: number,
+	maxAssistants: number,
+}
+```
+
+### `core.social.warband.warband`
+
+```luau
+function System.warband(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+project = function Core.project<T>(value: T): T?
+found = function Core.found(
+		warbandId: string,
+		partyId: string,
+		party: Party,
+		membershipRevision: number,
+		now: number
+	): Result
+transition = function Core.transition(previous: State, event: Event, parties: Parties, now: number): Result
+read = function Core.read(value: unknown): State?
+```
+
+## `core.social`
+
+[Source](../src/core/social.luau)
+
+```luau
+local Allies = require("./social/allies")
+```
+
+```luau
+local Chronicle = require("./social/chronicle")
+```
+
+```luau
+local Fellowship = require("./social/fellowship")
+```
+
+```luau
+local Formation = require("./social/formation")
+```
+
+```luau
+local Group = require("./social/group")
+```
+
+```luau
+local Guildbank = require("./social/guildbank")
+```
+
+```luau
+local Guildhome = require("./social/guildhome")
+```
+
+```luau
+local Guildledger = require("./social/guildledger")
+```
+
+```luau
+local Membership = require("./social/membership")
+```
+
+```luau
+local Notes = require("./social/notes")
+```
+
+```luau
+local Profile = require("./social/profile")
+```
+
+```luau
+local Rally = require("./social/rally")
+```
+
+```luau
+local Roster = require("./social/roster")
+```
+
+```luau
+local Warband = require("./social/warband")
+```
+
+### `core.social.AlliesQualificationKind`
+
+```luau
+export type AlliesQualificationKind = Allies.QualificationKind
+```
+
+### `core.social.AlliesEntry`
+
+```luau
+export type AlliesEntry = Allies.Entry
+```
+
+### `core.social.AlliesState`
+
+```luau
+export type AlliesState = Allies.State
+```
+
+### `core.social.AlliesPolicy`
+
+```luau
+export type AlliesPolicy = Allies.Policy
+```
+
+### `core.social.AlliesResult`
+
+```luau
+export type AlliesResult = Allies.Result
+```
+
+### `core.social.AlliesQualifyEvent`
+
+```luau
+export type AlliesQualifyEvent = Allies.QualifyEvent
+```
+
+### `core.social.AlliesReconcileEvent`
+
+```luau
+export type AlliesReconcileEvent = Allies.ReconcileEvent
+```
+
+### `core.social.AlliesEvent`
+
+```luau
+export type AlliesEvent = Allies.Event
+```
+
+### `core.social.AlliesAuthority`
+
+```luau
+export type AlliesAuthority = Allies.Authority
+```
+
+### `core.social.AlliesConfig`
+
+```luau
+export type AlliesConfig = Allies.Config
+```
+
+### `core.social.ChronicleActiveStatus`
+
+```luau
+export type ChronicleActiveStatus = Chronicle.ActiveStatus
+```
+
+### `core.social.ChronicleTerminalStatus`
+
+```luau
+export type ChronicleTerminalStatus = Chronicle.TerminalStatus
+```
+
+### `core.social.ChronicleDefinition`
+
+```luau
+export type ChronicleDefinition = Chronicle.Definition
+```
+
+### `core.social.ChronicleActiveVow`
+
+```luau
+export type ChronicleActiveVow = Chronicle.ActiveVow
+```
+
+### `core.social.ChronicleDeed`
+
+```luau
+export type ChronicleDeed = Chronicle.Deed
+```
+
+### `core.social.ChronicleState`
+
+```luau
+export type ChronicleState = Chronicle.State
+```
+
+### `core.social.ChronicleApplied`
+
+```luau
+export type ChronicleApplied = Chronicle.Applied
+```
+
+### `core.social.ChronicleRejected`
+
+```luau
+export type ChronicleRejected = Chronicle.Rejected
+```
+
+### `core.social.ChronicleResult`
+
+```luau
+export type ChronicleResult = Chronicle.Result
+```
+
+### `core.social.ChronicleAccessPolicy`
+
+```luau
+export type ChronicleAccessPolicy = Chronicle.AccessPolicy
+```
+
+### `core.social.ChronicleContributionAuthority`
+
+```luau
+export type ChronicleContributionAuthority = Chronicle.ContributionAuthority
+```
+
+### `core.social.ChronicleEvent`
+
+```luau
+export type ChronicleEvent = Chronicle.Event
+```
+
+### `core.social.ChronicleConfig`
+
+```luau
+export type ChronicleConfig = Chronicle.Config
+```
+
+### `core.social.FellowshipMember`
+
+```luau
+export type FellowshipMember = Fellowship.Member
+```
+
+### `core.social.FellowshipInvite`
+
+```luau
+export type FellowshipInvite = Fellowship.Invite
+```
+
+### `core.social.FellowshipCreed`
+
+```luau
+export type FellowshipCreed = Fellowship.Creed
+```
+
+### `core.social.FellowshipCreedDraft`
+
+```luau
+export type FellowshipCreedDraft = Fellowship.CreedDraft
+```
+
+### `core.social.FellowshipFormationRequest`
+
+```luau
+export type FellowshipFormationRequest = Fellowship.FormationRequest
+```
+
+### `core.social.FellowshipEvent`
+
+```luau
+export type FellowshipEvent = Fellowship.Event
+```
+
+### `core.social.FellowshipEventDraft`
+
+```luau
+export type FellowshipEventDraft = Fellowship.EventDraft
+```
+
+### `core.social.FellowshipAudit`
+
+```luau
+export type FellowshipAudit = Fellowship.Audit
+```
+
+### `core.social.FellowshipState`
+
+```luau
+export type FellowshipState = Fellowship.State
+```
+
+### `core.social.FellowshipFoundRequest`
+
+```luau
+export type FellowshipFoundRequest = Fellowship.FoundRequest
+```
+
+### `core.social.FellowshipResult`
+
+```luau
+export type FellowshipResult = Fellowship.Result
+```
+
+### `core.social.FellowshipConfig`
+
+```luau
+export type FellowshipConfig = Fellowship.Config
+```
+
+### `core.social.FormationFounder`
+
+```luau
+export type FormationFounder = Formation.Founder
+```
+
+### `core.social.FormationState`
+
+```luau
+export type FormationState = Formation.State
+```
+
+### `core.social.FormationEventDraft`
+
+```luau
+export type FormationEventDraft = Formation.EventDraft
+```
+
+### `core.social.FormationEvent`
+
+```luau
+export type FormationEvent = Formation.Event
+```
+
+### `core.social.FormationStartRequest`
+
+```luau
+export type FormationStartRequest = Formation.StartRequest
+```
+
+### `core.social.FormationResult`
+
+```luau
+export type FormationResult = Formation.Result
+```
+
+### `core.social.FormationConfig`
+
+```luau
+export type FormationConfig = Formation.Config
+```
+
+### `core.social.GroupRelations`
+
+```luau
+export type GroupRelations = Group.Relations
+```
+
+### `core.social.GroupAdmission`
+
+```luau
+export type GroupAdmission = Group.Admission
+```
+
+### `core.social.GroupTicket`
+
+```luau
+export type GroupTicket = Group.Ticket
+```
+
+### `core.social.GroupState`
+
+```luau
+export type GroupState = Group.State
+```
+
+### `core.social.GroupResult`
+
+```luau
+export type GroupResult = Group.Result
+```
+
+### `core.social.GroupDecision`
+
+```luau
+export type GroupDecision = Group.Decision
+```
+
+### `core.social.GroupRequest`
+
+```luau
+export type GroupRequest = Group.Request
+```
+
+### `core.social.GroupAuthority`
+
+```luau
+export type GroupAuthority = Group.Authority
+```
+
+### `core.social.GroupMemberEvent`
+
+```luau
+export type GroupMemberEvent = Group.MemberEvent
+```
+
+### `core.social.GroupReconcileEvent`
+
+```luau
+export type GroupReconcileEvent = Group.ReconcileEvent
+```
+
+### `core.social.GroupEvent`
+
+```luau
+export type GroupEvent = Group.Event
+```
+
+### `core.social.GroupConfig`
+
+```luau
+export type GroupConfig = Group.Config
+```
+
+### `core.social.GuildbankReceipt`
+
+```luau
+export type GuildbankReceipt = Guildbank.Receipt
+```
+
+### `core.social.GuildbankOperation`
+
+```luau
+export type GuildbankOperation = Guildbank.Operation
+```
+
+### `core.social.GuildbankEntry`
+
+```luau
+export type GuildbankEntry = Guildbank.Entry
+```
+
+### `core.social.GuildbankWithdrawal`
+
+```luau
+export type GuildbankWithdrawal = Guildbank.Withdrawal
+```
+
+### `core.social.GuildbankCommand`
+
+```luau
+export type GuildbankCommand = Guildbank.Command
+```
+
+### `core.social.GuildbankState`
+
+```luau
+export type GuildbankState = Guildbank.State
+```
+
+### `core.social.GuildbankResult`
+
+```luau
+export type GuildbankResult = Guildbank.Result
+```
+
+### `core.social.GuildbankConfig`
+
+```luau
+export type GuildbankConfig = Guildbank.Config
+```
+
+### `core.social.GuildhomeSlot`
+
+```luau
+export type GuildhomeSlot = Guildhome.Slot
+```
+
+### `core.social.GuildhomeConfig`
+
+```luau
+export type GuildhomeConfig = Guildhome.Config
+```
+
+### `core.social.GuildledgerPending`
+
+```luau
+export type GuildledgerPending = Guildledger.Pending
+```
+
+### `core.social.GuildledgerLedger`
+
+```luau
+export type GuildledgerLedger = Guildledger.Ledger
+```
+
+### `core.social.GuildledgerLimits`
+
+```luau
+export type GuildledgerLimits = Guildledger.Limits
+```
+
+### `core.social.GuildledgerReceipt`
+
+```luau
+export type GuildledgerReceipt = Guildledger.Receipt
+```
+
+### `core.social.GuildledgerProfileInput`
+
+```luau
+export type GuildledgerProfileInput = Guildledger.ProfileInput
+```
+
+### `core.social.GuildledgerConfig`
+
+```luau
+export type GuildledgerConfig<T> = Guildledger.Config<T>
+```
+
+### `core.social.MembershipLootMode`
+
+```luau
+export type MembershipLootMode = Membership.LootMode
+```
+
+### `core.social.MembershipMember`
+
+```luau
+export type MembershipMember = Membership.Member
+```
+
+### `core.social.MembershipInvite`
+
+```luau
+export type MembershipInvite = Membership.Invite
+```
+
+### `core.social.MembershipLeaderTransfer`
+
+```luau
+export type MembershipLeaderTransfer = Membership.LeaderTransfer
+```
+
+### `core.social.MembershipState`
+
+```luau
+export type MembershipState = Membership.State
+```
+
+### `core.social.MembershipResult`
+
+```luau
+export type MembershipResult = Membership.Result
+```
+
+### `core.social.MembershipConfig`
+
+```luau
+export type MembershipConfig = Membership.Config
+```
+
+### `core.social.MembershipCore`
+
+```luau
+export type MembershipCore = Membership.Core
+```
+
+### `core.social.NotesNote`
+
+```luau
+export type NotesNote = Notes.Note
+```
+
+### `core.social.NotesState`
+
+```luau
+export type NotesState = Notes.State
+```
+
+### `core.social.NotesResult`
+
+```luau
+export type NotesResult = Notes.Result
+```
+
+### `core.social.NotesPhrase`
+
+```luau
+export type NotesPhrase = Notes.Phrase
+```
+
+### `core.social.NotesCatalog`
+
+```luau
+export type NotesCatalog = Notes.Catalog
+```
+
+### `core.social.NotesDelivery`
+
+```luau
+export type NotesDelivery = Notes.Delivery
+```
+
+### `core.social.NotesConfig`
+
+```luau
+export type NotesConfig = Notes.Config
+```
+
+### `core.social.ProfileFellowshipIdentity`
+
+```luau
+export type ProfileFellowshipIdentity = Profile.FellowshipIdentity
+```
+
+### `core.social.ProfileState`
+
+```luau
+export type ProfileState = Profile.State
+```
+
+### `core.social.ProfileConfig`
+
+```luau
+export type ProfileConfig = Profile.Config
+```
+
+### `core.social.RallyRow`
+
+```luau
+export type RallyRow = Rally.Row
+```
+
+### `core.social.RallyConfig`
+
+```luau
+export type RallyConfig = Rally.Config
+```
+
+### `core.social.RosterMember`
+
+```luau
+export type RosterMember = Roster.Member
+```
+
+### `core.social.RosterParty`
+
+```luau
+export type RosterParty = Roster.Party
+```
+
+### `core.social.RosterActor`
+
+```luau
+export type RosterActor = Roster.Actor
+```
+
+### `core.social.RosterRuntime`
+
+```luau
+export type RosterRuntime<S> = Roster.Runtime<S>
+```
+
+### `core.social.RosterResult`
+
+```luau
+export type RosterResult<S, A> = Roster.Result<S, A>
+```
+
+### `core.social.RosterConfig`
+
+```luau
+export type RosterConfig<S, A> = Roster.Config<S, A>
+```
+
+### `core.social.WarbandParty`
+
+```luau
+export type WarbandParty = Warband.Party
+```
+
+### `core.social.WarbandUnit`
+
+```luau
+export type WarbandUnit = Warband.Unit
+```
+
+### `core.social.WarbandInvite`
+
+```luau
+export type WarbandInvite = Warband.Invite
+```
+
+### `core.social.WarbandTransfer`
+
+```luau
+export type WarbandTransfer = Warband.Transfer
+```
+
+### `core.social.WarbandOrder`
+
+```luau
+export type WarbandOrder = Warband.Order
+```
+
+### `core.social.WarbandState`
+
+```luau
+export type WarbandState = Warband.State
+```
+
+### `core.social.WarbandEvent`
+
+```luau
+export type WarbandEvent = Warband.Event
+```
+
+### `core.social.WarbandParties`
+
+```luau
+export type WarbandParties = Warband.Parties
+```
+
+### `core.social.WarbandResult`
+
+```luau
+export type WarbandResult = Warband.Result
+```
+
+### `core.social.WarbandConfig`
+
+```luau
+export type WarbandConfig = Warband.Config
+```
+
+### `core.social.API`
+
+```luau
+export type API = {
+	read allies: typeof(Allies),
+	read chronicle: typeof(Chronicle),
+	read fellowship: typeof(Fellowship),
+	read formation: typeof(Formation),
+	read group: typeof(Group),
+	read guildbank: typeof(Guildbank),
+	read guildhome: typeof(Guildhome),
+	read guildledger: typeof(Guildledger),
+	read membership: typeof(Membership),
+	read notes: typeof(Notes),
+	read profile: typeof(Profile),
+	read rally: typeof(Rally),
+	read roster: typeof(Roster),
+	read warband: typeof(Warband),
+}
+```
+
+### `core.social.allies`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.chronicle`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.fellowship`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.formation`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.group`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.guildbank`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.guildhome`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.guildledger`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.membership`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.notes`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.profile`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.rally`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.roster`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+### `core.social.warband`
+
+Exported value; see its declaration in [source](../src/core/social.luau).
+
+## `core.threat.contribution`
+
+[Source](../src/core/threat/contribution.luau)
+
+### `core.threat.contribution.Point`
+
+```luau
+export type Point = { x: number, y: number?, z: number }
+```
+
+### `core.threat.contribution.DungeonAdmission`
+
+```luau
+export type DungeonAdmission = { dungeonId: string, cycleId: string, characterId: string }
+```
+
+### `core.threat.contribution.Relation`
+
+```luau
+export type Relation = "self" | "ally" | "enemy"
+```
+
+### `core.threat.contribution.Observation`
+
+```luau
+export type Observation = {
+	kind: string,
+	sourceActorId: string,
+	targetActorId: string,
+	targetRelation: Relation,
+	contested: boolean,
+	targetEligible: boolean,
+	attemptedAmount: number,
+	effectiveAmount: number,
+	eligibleAmountCap: number,
+}
+```
+
+### `core.threat.contribution.Credit`
+
+```luau
+export type Credit = {
+	category: string,
+	amount: number,
+	sourceActorId: string,
+	targetActorId: string,
+}
+```
+
+### `core.threat.contribution.ActorContribution`
+
+```luau
+export type ActorContribution = {
+	activeSec: number,
+	firstActionSec: number?,
+	lastActionSec: number?,
+	interruptSec: number?,
+	lastSeenSec: number?,
+}
+```
+
+### `core.threat.contribution.EndActor`
+
+```luau
+export type EndActor = {
+	characterId: string,
+	pos: { x: number, y: number?, z: number },
+	distance: number,
+	alive: boolean,
+	defeatedAtSec: number?,
+	dungeonAdmission: DungeonAdmission?,
+}
+```
+
+### `core.threat.contribution.Encounter`
+
+```luau
+export type Encounter = {
+	startedAtSec: number,
+	endedAtSec: number?,
+	actors: { [string]: ActorContribution },
+	endActors: { [string]: EndActor }?,
+}
+```
+
+### `core.threat.contribution.Participant`
+
+```luau
+export type Participant = {
+	hp: number,
+	pos: Point,
+	characterId: string?,
+	defeatedAtSec: number?,
+	dungeonAdmission: DungeonAdmission?,
+}
+```
+
+### `core.threat.contribution.Config`
+
+```luau
+export type Config = {
+	read categories: { read [string]: string },
+	read eligibleRelation: (Observation) -> boolean,
+	read participationRadius: number,
+	read inactiveSeconds: number,
+	read recentDefeatSeconds: number,
+	read rewardRadius: number,
+	read shortEncounterSeconds: number,
+	read actionSpanSeconds: number,
+	read interruptActiveSeconds: number,
+	read interruptKind: string,
+}
+```
+
+### `core.threat.contribution.create`
+
+```luau
+function System.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+asParticipant = function CombatContribution.asParticipant(actor: Participant): Participant
+record = function CombatContribution.record(encounter: Encounter?, actorId: string, kind: string, nowSec: number): Encounter
+observe = function CombatContribution.observe<Actor>(
+		encounter: Encounter?,
+		actors: { [string]: Actor },
+		participant: (Actor) -> Participant,
+		center: Point,
+		nowSec: number,
+		dt: number
+	): Encounter?
+finish = function CombatContribution.finish<Actor>(
+		encounter: Encounter?,
+		nowSec: number,
+		actors: { [string]: Actor },
+		participant: (Actor) -> Participant,
+		center: Point
+	): Encounter?
+eligibleAtEnd = function CombatContribution.eligibleAtEnd(encounter: Encounter?, actorId: string, characterId: string): boolean
+eligible = function CombatContribution.eligible(
+		encounter: Encounter?,
+		actorId: string,
+		distance: number,
+		aliveOrRecent: boolean
+	): boolean
+```
+
+## `core.threat.table`
+
+[Source](../src/core/threat/table.luau)
+
+### `core.threat.table.Config`
+
+```luau
+export type Config = { meleeTakeover: number, rangedTakeover: number, tauntLead: number }
+```
+
+### `core.threat.table.State`
+
+```luau
+export type State = { threat: { [string]: number }, targetActorId: string }
+```
+
+### `core.threat.table.Candidate`
+
+```luau
+export type Candidate = { alive: boolean, eligible: boolean, insideLeash: boolean }
+```
+
+### `core.threat.table.Pruned`
+
+```luau
+export type Pruned = { removed: { string }, outsideLeash: { string }, wasEngaged: boolean }
+```
+
+### `core.threat.table.empty`
+
+```luau
+function Threat.empty(): State
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+threat = {}
+targetActorId = ""
+```
+
+### `core.threat.table.prune`
+
+```luau
+function Threat.prune(state: State, candidates: { [string]: Candidate }): (State, Pruned)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+threat = threat
+targetActorId = Threat.targetFor(threat)
+```
+
+### `core.threat.table.remove`
+
+```luau
+function Threat.remove(state: State, actorId: string): State
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+threat = threat
+targetActorId = Threat.targetFor(threat)
+```
+
+### `core.threat.table.rules`
+
+```luau
+function Threat.rules(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+add = function add(state: State, actorId: string, amount: number, inMelee: boolean): (State, boolean)
+taunt = function taunt(state: State, actorId: string): State
+```
+
+### `core.threat.table.targetFor`
+
+```luau
+function Threat.targetFor(threat: { [string]: number }): string
+```
+
+## `core.threat`
+
+[Source](../src/core/threat.luau)
+
+```luau
+local Contribution = require("./threat/contribution")
+```
+
+```luau
+local Table = require("./threat/table")
+```
+
+### `core.threat.ContributionPoint`
+
+```luau
+export type ContributionPoint = Contribution.Point
+```
+
+### `core.threat.ContributionDungeonAdmission`
+
+```luau
+export type ContributionDungeonAdmission = Contribution.DungeonAdmission
+```
+
+### `core.threat.ContributionRelation`
+
+```luau
+export type ContributionRelation = Contribution.Relation
+```
+
+### `core.threat.ContributionObservation`
+
+```luau
+export type ContributionObservation = Contribution.Observation
+```
+
+### `core.threat.ContributionCredit`
+
+```luau
+export type ContributionCredit = Contribution.Credit
+```
+
+### `core.threat.ContributionActorContribution`
+
+```luau
+export type ContributionActorContribution = Contribution.ActorContribution
+```
+
+### `core.threat.ContributionEndActor`
+
+```luau
+export type ContributionEndActor = Contribution.EndActor
+```
+
+### `core.threat.ContributionEncounter`
+
+```luau
+export type ContributionEncounter = Contribution.Encounter
+```
+
+### `core.threat.ContributionParticipant`
+
+```luau
+export type ContributionParticipant = Contribution.Participant
+```
+
+### `core.threat.ContributionConfig`
+
+```luau
+export type ContributionConfig = Contribution.Config
+```
+
+### `core.threat.TableConfig`
+
+```luau
+export type TableConfig = Table.Config
+```
+
+### `core.threat.TableState`
+
+```luau
+export type TableState = Table.State
+```
+
+### `core.threat.TableCandidate`
+
+```luau
+export type TableCandidate = Table.Candidate
+```
+
+### `core.threat.TablePruned`
+
+```luau
+export type TablePruned = Table.Pruned
+```
+
+### `core.threat.API`
+
+```luau
+export type API = {
+	read contribution: typeof(Contribution),
+	read table: typeof(Table),
+}
+```
+
+### `core.threat.contribution`
+
+Exported value; see its declaration in [source](../src/core/threat.luau).
+
+### `core.threat.table`
+
+Exported value; see its declaration in [source](../src/core/threat.luau).
+
+## `core.trade.exchange`
+
+[Source](../src/core/trade/exchange.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.trade.exchange.Stack`
+
+```luau
+export type Stack = { itemId: string, count: number }
+```
+
+### `core.trade.exchange.Offer`
+
+```luau
+export type Offer = { coin: number, items: { Stack } }
+```
+
+### `core.trade.exchange.Phase`
+
+```luau
+export type Phase = "open" | "locked" | "confirmed" | "settled" | "cancelled"
+```
+
+### `core.trade.exchange.State`
+
+```luau
+export type State = {
+	tradeId: string,
+	expiresAt: number,
+	players: { number },
+	phase: Phase,
+	revision: number,
+	offers: { [number]: Offer },
+	locks: { [number]: boolean },
+	confirms: { [number]: boolean },
+}
+```
+
+### `core.trade.exchange.Config`
+
+```luau
+export type Config = {
+	maxItems: number,
+	maxCount: number,
+	maxCoin: number,
+	maxUserId: number,
+	maxRevision: number,
+	idLimit: number,
+}
+```
+
+### `core.trade.exchange.exchange`
+
+```luau
+function Trade.exchange(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+offer = function Core.offer(value: unknown): Offer?
+empty = function Core.empty(tradeId: string, firstUserId: number, secondUserId: number): State?
+step = function Core.step(state: State, actorId: number, commandValue: unknown): (State?, string?)
+settled = function Core.settled(state: State): State?
+```
+
+## `core.trade.receipt`
+
+[Source](../src/core/trade/receipt.luau)
+
+```luau
+local Exchange = require("./exchange")
+```
+
+```luau
+local Value = require("../value")
+```
+
+### `core.trade.receipt.Record`
+
+```luau
+export type Record<K> = {
+	tradeId: string,
+	players: { number },
+	offers: { [K]: Exchange.Offer },
+	characters: { [K]: string },
+	revision: number,
+	expiresAt: number,
+	phase: "prepared" | "committed" | "resolved" | "cancelled",
+	grants: { [K]: boolean? },
+}
+```
+
+### `core.trade.receipt.Projected`
+
+```luau
+export type Projected = Record<number>
+```
+
+### `core.trade.receipt.Wire`
+
+```luau
+export type Wire = Record<string>
+```
+
+### `core.trade.receipt.Pointer`
+
+```luau
+export type Pointer = { tradeId: string, receipt: Wire }
+```
+
+### `core.trade.receipt.Config`
+
+```luau
+export type Config = {
+	offer: (unknown) -> Exchange.Offer?,
+	tradeIdLimit: number,
+	characterIdLimit: number,
+	maxUserId: number,
+	maxRevision: number,
+	maxTimestamp: number,
+	maxPointers: number,
+}
+```
+
+### `core.trade.receipt.receipts`
+
+```luau
+function Receipts.receipts(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+project = function Receipt.project(value: unknown): Projected?
+wire = function Receipt.wire(raw: unknown): Wire?
+pointers = function Receipt.pointers(value: unknown): { [string]: Pointer }?
+```
+
+## `core.trade`
+
+[Source](../src/core/trade.luau)
+
+```luau
+local Exchange = require("./trade/exchange")
+```
+
+```luau
+local Receipt = require("./trade/receipt")
+```
+
+### `core.trade.ExchangeStack`
+
+```luau
+export type ExchangeStack = Exchange.Stack
+```
+
+### `core.trade.ExchangeOffer`
+
+```luau
+export type ExchangeOffer = Exchange.Offer
+```
+
+### `core.trade.ExchangePhase`
+
+```luau
+export type ExchangePhase = Exchange.Phase
+```
+
+### `core.trade.ExchangeState`
+
+```luau
+export type ExchangeState = Exchange.State
+```
+
+### `core.trade.ExchangeConfig`
+
+```luau
+export type ExchangeConfig = Exchange.Config
+```
+
+### `core.trade.ReceiptRecord`
+
+```luau
+export type ReceiptRecord<K> = Receipt.Record<K>
+```
+
+### `core.trade.ReceiptProjected`
+
+```luau
+export type ReceiptProjected = Receipt.Projected
+```
+
+### `core.trade.ReceiptWire`
+
+```luau
+export type ReceiptWire = Receipt.Wire
+```
+
+### `core.trade.ReceiptPointer`
+
+```luau
+export type ReceiptPointer = Receipt.Pointer
+```
+
+### `core.trade.ReceiptConfig`
+
+```luau
+export type ReceiptConfig = Receipt.Config
+```
+
+### `core.trade.API`
+
+```luau
+export type API = {
+	read exchange: typeof(Exchange),
+	read receipt: typeof(Receipt),
+}
+```
+
+### `core.trade.exchange`
+
+Exported value; see its declaration in [source](../src/core/trade.luau).
+
+### `core.trade.receipt`
+
+Exported value; see its declaration in [source](../src/core/trade.luau).
+
+## `core.value`
+
+[Source](../src/core/value.luau)
+
+```luau
+local Internal = require("./internal/value")
+```
+
+### `core.value.Raw`
+
+```luau
+export type Raw = Internal.Raw
+```
+
+### `core.value.dense`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.finite`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.freezeDeep`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.identifier`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.nonempty`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.opaque`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.raw`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.record`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+### `core.value.whole`
+
+Exported value; see its declaration in [source](../src/core/value.luau).
+
+## `core.vendors.exchange`
+
+[Source](../src/core/vendors/exchange.luau)
+
+```luau
+local Value = require("../value")
+```
+
+### `core.vendors.exchange.Inventory`
+
+```luau
+export type Inventory = { [string]: number }
+```
+
+### `core.vendors.exchange.Account`
+
+```luau
+export type Account = { gold: number, inventory: Inventory }
+```
+
+### `core.vendors.exchange.Ware`
+
+```luau
+export type Ware = { itemId: string, price: number, stock: number? }
+```
+
+### `core.vendors.exchange.Vendor`
+
+```luau
+export type Vendor = { id: string, npcId: string, wares: { Ware } }
+```
+
+### `core.vendors.exchange.Decision`
+
+```luau
+export type Decision = {
+	ok: boolean,
+	reason: string?,
+	itemId: string?,
+	quantity: number?,
+	price: number?,
+	gold: number?,
+	action: string?,
+}
+```
+
+### `core.vendors.exchange.Receipt`
+
+```luau
+export type Receipt = { id: number, itemId: string, quantity: number, unitPrice: number, expiresAt: number }
+```
+
+### `core.vendors.exchange.State`
+
+```luau
+export type State = {
+	stock: { [string]: { [string]: number } },
+	buyback: { [string]: { Receipt } },
+	nextReceipt: number,
+}
+```
+
+### `core.vendors.exchange.Config`
+
+```luau
+export type Config = {
+	maxQuantity: number,
+	maxStack: number,
+	exists: (string) -> boolean,
+	sellValue: (string) -> number?,
+	add: (Inventory, string, number) -> Inventory,
+	remove: (Inventory, string, number) -> (Inventory, boolean),
+	canCarry: (Inventory, Inventory, string?) -> boolean,
+	buybackLimit: number,
+	buybackSeconds: number,
+}
+```
+
+### `core.vendors.exchange.empty`
+
+```luau
+function Exchange.empty(): State
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+stock = {}
+buyback = {}
+nextReceipt = 1
+```
+
+### `core.vendors.exchange.vendor`
+
+```luau
+function Exchange.vendor(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+validateVendor = function validateVendor(value: unknown): (boolean, string?)
+buy = function buy(
+		account: Account,
+		vendor: Vendor,
+		itemId: unknown,
+		quantity: unknown,
+		bag: string?
+	): (Account, Decision)
+sell = function sell(account: Account, vendor: Vendor, itemId: unknown, quantity: unknown): (Account, Decision)
+buyStock = function buyStock(
+		state: State,
+		account: Account,
+		vendor: Vendor,
+		itemId: unknown,
+		quantity: unknown,
+		bag: string?
+	): (State, Account, Decision)
+sellBack = function sellBack(
+		state: State,
+		account: Account,
+		vendor: Vendor,
+		sender: string,
+		itemId: unknown,
+		quantity: unknown,
+		now: number
+	): (State, Account, Decision)
+buyBack = function buyBack(
+		state: State,
+		account: Account,
+		sender: string,
+		receiptId: number,
+		quantity: unknown,
+		bag: string?,
+		now: number
+	): (State, Account, Decision)
+```
+
+## `core.vendors`
+
+[Source](../src/core/vendors.luau)
+
+```luau
+local Exchange = require("./vendors/exchange")
+```
+
+### `core.vendors.ExchangeInventory`
+
+```luau
+export type ExchangeInventory = Exchange.Inventory
+```
+
+### `core.vendors.ExchangeAccount`
+
+```luau
+export type ExchangeAccount = Exchange.Account
+```
+
+### `core.vendors.ExchangeWare`
+
+```luau
+export type ExchangeWare = Exchange.Ware
+```
+
+### `core.vendors.ExchangeVendor`
+
+```luau
+export type ExchangeVendor = Exchange.Vendor
+```
+
+### `core.vendors.ExchangeDecision`
+
+```luau
+export type ExchangeDecision = Exchange.Decision
+```
+
+### `core.vendors.ExchangeReceipt`
+
+```luau
+export type ExchangeReceipt = Exchange.Receipt
+```
+
+### `core.vendors.ExchangeState`
+
+```luau
+export type ExchangeState = Exchange.State
+```
+
+### `core.vendors.ExchangeConfig`
+
+```luau
+export type ExchangeConfig = Exchange.Config
+```
+
+### `core.vendors.API`
+
+```luau
+export type API = {
+	read exchange: typeof(Exchange),
+}
+```
+
+### `core.vendors.exchange`
+
+Exported value; see its declaration in [source](../src/core/vendors.luau).
+
+## `roblox.camera`
+
+[Source](../src/roblox/camera.luau)
+
+### `roblox.camera.Spring`
+
+```luau
+export type Spring = { position: number, velocity: number }
+```
+
+### `roblox.camera.Obstruction`
+
+```luau
+export type Obstruction = {
+	anchored: boolean,
+	transparency: number,
+	collidable: boolean,
+	structural: boolean,
+	actor: boolean,
+	effect: boolean,
+}
+```
+
+### `roblox.camera.Tuning`
+
+```luau
+export type Tuning = {
+	MIN_ZOOM: number,
+	MAX_ZOOM: number,
+	CLASSIC_MIN_ZOOM: number,
+	CLASSIC_MAX_ZOOM: number,
+	SHOULDER_RIGHT: number,
+	SHOULDER_UP: number,
+	BASE_FOV: number,
+	MAX_FOV_WIDEN: number,
+	SPRINT_SPEED_RATIO: number,
+	STRUCTURE_ALPHA: number,
+	OBSTRUCTION_OMEGA: number,
+	OBSTRUCTION_PADDING: number,
+	SPRINT_LEAD: number,
+	SPRINT_SPAN: number,
+}
+```
+
+### `roblox.camera.create`
+
+```luau
+function Module.create(tuning: Tuning)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+zoomLimits = function Camera.zoomLimits(classic: boolean): (number, number)
+isCameraStructure = function Camera.isCameraStructure(part: Obstruction): boolean
+smoothObstruction = function Camera.smoothObstruction(previous: number, limit: number, dt: number): number
+obstructedDistance = function Camera.obstructedDistance(distance: number, hitDistance: number?): number
+newSpring = function Camera.newSpring(position: number): Spring
+springStep = function Camera.springStep(spring: Spring, target: number, omega: number, dt: number): Spring
+shoulderOffset = function Camera.shoulderOffset(blend: number): (number, number)
+sprintWiden = function Camera.sprintWiden(speed: number, walkSpeed: number, autoRun: boolean): number
+fovTarget = function Camera.fovTarget(widen: number): number
+yields = function Camera.yields(cameraIsCustom: boolean, scriptedStateActive: boolean, classic: boolean): boolean
+```
+
+## `roblox.chat`
+
+[Source](../src/roblox/chat.luau)
+
+### `roblox.chat.DirectQuery`
+
+```luau
+export type DirectQuery = (number, { number }) -> { number }
+```
+
+### `roblox.chat.directAllowed`
+
+```luau
+function Chat.directAllowed(query: DirectQuery, requester: number, target: number): boolean
+```
+
+### `roblox.chat.permission`
+
+```luau
+function Chat.permission(
+	query: () -> boolean,
+	waitFor: (number) -> (),
+	studio: boolean,
+	userId: number,
+	attempts: number,
+	retry: number
+): string
+```
+
+### `roblox.chat.removeForeign`
+
+```luau
+function Chat.removeForeign<Channel>(
+	children: { Channel },
+	nameOf: (Channel) -> string,
+	isChannel: (Channel) -> boolean,
+	keep: (string) -> boolean,
+	destroy: (Channel) -> ()
+): { string }
+```
+
+### `roblox.chat.seat`
+
+```luau
+function Chat.seat<Channel>(
+	channels: { Channel },
+	userId: number,
+	nameOf: (Channel) -> string,
+	addUser: (Channel, number) -> boolean
+): { string }
+```
+
+## `roblox.consumables`
+
+[Source](../src/roblox/consumables.luau)
+
+```luau
+local Consumables = require("../core/progression/consumables")
+```
+
+### `roblox.consumables.Actor`
+
+```luau
+export type Actor = Consumables.ActorView & { read characterId: string? }
+```
+
+### `roblox.consumables.Snapshot`
+
+```luau
+export type Snapshot = { actor: Actor?, mobs: { read [string]: Consumables.Mob }?, now: number }
+```
+
+### `roblox.consumables.Status`
+
+```luau
+export type Status = { cue: string, hpRemaining: number, manaRemaining: number, hpGained: number?, manaGained: number? }
+```
+
+### `roblox.consumables.CommitResult`
+
+```luau
+export type CommitResult = { read ok: boolean, read outcome: string, read reason: string? }
+```
+
+### `roblox.consumables.Rules`
+
+```luau
+export type Rules = {
+	read item: (unknown) -> Consumables.Item?,
+	read begin: (
+		Consumables.State?,
+		Consumables.ActorView,
+		{ read [string]: Consumables.Mob }?,
+		unknown,
+		unknown,
+		unknown
+	) -> (Consumables.State?, string?),
+}
+```
+
+### `roblox.consumables.Dependencies`
+
+```luau
+export type Dependencies<P, C, B> = {
+	core: Rules,
+	present: (P) -> boolean,
+	contextFor: (P) -> C?,
+	characterFor: (P) -> B?,
+	snapshotFor: (P) -> Snapshot?,
+	characterIdFor: (C) -> string,
+	alive: (P) -> boolean,
+	stationary: (P) -> boolean,
+	profilePresent: (C) -> boolean,
+	recorded: (C, string) -> boolean,
+	commit: (P, C, B, string, string) -> CommitResult,
+	receipt: () -> string,
+	begin: (P, string, number) -> boolean,
+	cancel: ((P) -> ())?,
+	unavailableCue: string,
+	idleCue: string,
+	movementToleranceSquared: number,
+}
+```
+
+### `roblox.consumables.Handle`
+
+```luau
+export type Handle<P> = {
+	read use: (P, unknown, unknown) -> (boolean, string),
+	read status: (P) -> Status,
+	read enforce: (P) -> (),
+	read forget: (P) -> (),
+}
+```
+
+### `roblox.consumables.UseRequest`
+
+```luau
+export type UseRequest = { kind: "use", itemId: string, order: number } | { kind: "refused" }
+```
+
+### `roblox.consumables.create`
+
+```luau
+function Service.create<P, C, B>(deps: Dependencies<P, C, B>): Handle<P>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+use = function use(player: P, rawItemId: unknown, rawOrder: unknown): (boolean, string)
+status = function status(player: P): Status
+enforce = function enforce(player: P)
+forget = function(player)
+```
+
+### `roblox.consumables.decodeUseRequest`
+
+```luau
+function Service.decodeUseRequest(item: (unknown) -> Consumables.Item?, itemId: unknown, order: unknown): UseRequest
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+kind = "use"
+itemId = itemId
+order = order
+```
+
+## `roblox.contact-markers`
+
+[Source](../src/roblox/contact-markers.luau)
+
+### `roblox.contact-markers.Host`
+
+```luau
+export type Host<C, T> = {
+	stamp: (C) -> (string?, number?),
+	listen: (C, (T) -> ()) -> () -> (),
+	marker: (T, () -> ()) -> () -> (),
+	admit: (C, T, string, number) -> boolean,
+}
+```
+
+### `roblox.contact-markers.create`
+
+```luau
+function Module.create<C, T>(host: Host<C, T>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+watch = function Contacts.watch(character: C): () -> ()
+onContact = function Contacts.onContact(character: C, id: string, at: number, present: () -> (), confirmed: boolean?): () -> ()
+confirmed = function Contacts.confirmed(character: C, id: string, at: number?): boolean
+retrigger = function Contacts.retrigger(character: C, track: T, id: string?, at: number?)
+```
+
+## `roblox.conversation-camera`
+
+[Source](../src/roblox/conversation-camera.luau)
+
+```luau
+local Dynamics = require("./camera")
+```
+
+### `roblox.conversation-camera.Point`
+
+```luau
+export type Point = { x: number, y: number, z: number }
+```
+
+### `roblox.conversation-camera.Rect`
+
+```luau
+export type Rect = { x: number, y: number, width: number, height: number }
+```
+
+### `roblox.conversation-camera.View`
+
+```luau
+export type View = { eye: Point, look: Point }
+```
+
+### `roblox.conversation-camera.State`
+
+```luau
+export type State = { key: string?, released: boolean, blend: Dynamics.Spring }
+```
+
+### `roblox.conversation-camera.Tuning`
+
+```luau
+export type Tuning = {
+	gap: number,
+	minimumSpace: number,
+	omega: number,
+	minimumDistance: number,
+	coverage: number,
+	eyeLift: number,
+	angles: { number },
+	touchThresholdSquared: number,
+	stickThresholdSquared: number,
+}
+```
+
+### `roblox.conversation-camera.create`
+
+```luau
+function Module.create(
+	Action: {
+		newSpring: (number) -> Dynamics.Spring,
+		springStep: (Dynamics.Spring, number, number, number) -> Dynamics.Spring,
+	},
+	tuning: Tuning
+)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+new = function Core.new(): State
+step = function Core.step(
+		state: State,
+		key: string?,
+		available: boolean,
+		override: boolean,
+		dt: number,
+		departed: boolean?
+	): State
+space = function Core.space(safe: Rect, card: Rect): Rect?
+views = function Core.views(
+		focus: Point,
+		toward: Point,
+		width: number,
+		height: number,
+		fov: number,
+		region: Rect,
+		radius: number?
+	): { View }
+choose = function Core.choose(views: { View }, clear: (View) -> boolean): View?
+cameraGesture = function Core.cameraGesture(kind: string, x: number, y: number, rotating: boolean, processed: boolean): boolean
+```
+
+## `roblox.cue-mixer`
+
+[Source](../src/roblox/cue-mixer.luau)
+
+### `roblox.cue-mixer.MixSpec`
+
+```luau
+export type MixSpec = { family: string, maxVoices: number, minIntervalSec: number, voiceSec: number }
+```
+
+### `roblox.cue-mixer.DuckSpec`
+
+```luau
+export type DuckSpec = { bedGain: number, voiceBedGain: number, families: { string } }
+```
+
+### `roblox.cue-mixer.CueSource`
+
+```luau
+export type CueSource = {
+	specFor: (cueId: string) -> MixSpec?,
+	duck: () -> DuckSpec,
+}
+```
+
+### `roblox.cue-mixer.Mixer`
+
+```luau
+export type Mixer = {
+	admit: (self: Mixer, cueId: string) -> boolean,
+	gate: (self: Mixer, cueId: string) -> boolean,
+	activeVoices: (self: Mixer, family: string) -> number,
+	duckGain: (self: Mixer) -> number,
+	setVoiceActive: (self: Mixer, active: boolean) -> (),
+}
+```
+
+### `roblox.cue-mixer.new`
+
+```luau
+function SoundCueMix.new(catalog: CueSource, clock: () -> number): Mixer
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+admit = function admit(_self: Mixer, cueId: string): boolean
+gate = function gate(self: Mixer, cueId: string): boolean
+activeVoices = function activeVoices(_self: Mixer, family: string): number
+duckGain = function duckGain(self: Mixer): number
+setVoiceActive = function setVoiceActive(_self: Mixer, active: boolean)
+```
+
+## `roblox.cue-playback`
+
+[Source](../src/roblox/cue-playback.luau)
+
+### `roblox.cue-playback.VoiceProps`
+
+```luau
+export type VoiceProps = {
+	SoundId: string,
+	Volume: number,
+	RollOffMinDistance: number?,
+	RollOffMaxDistance: number?,
+}
+```
+
+### `roblox.cue-playback.PlaySpec`
+
+```luau
+export type PlaySpec = {
+	soundId: string,
+	volume: number,
+	spatial: boolean,
+	rollOffMinDistance: number,
+	rollOffMaxDistance: number,
+	voiceSec: number,
+}
+```
+
+### `roblox.cue-playback.Source`
+
+```luau
+export type Source = { specFor: (string) -> PlaySpec? }
+```
+
+### `roblox.cue-playback.Deps`
+
+```luau
+export type Deps<N, V> = {
+	mountVoice: (string, VoiceProps, N) -> (() -> (), V),
+	play: (V) -> (),
+	schedule: (number, () -> ()) -> (),
+	home: N,
+	admit: (string) -> boolean,
+	catalog: Source,
+	tailSec: number,
+}
+```
+
+### `roblox.cue-playback.animator`
+
+```luau
+function Playback.animator(host: { clock: () -> number, connect: (() -> ()) -> () -> () })
+```
+
+### `roblox.cue-playback.make`
+
+```luau
+function Playback.make<N, V>(deps: Deps<N, V>): (cueId: string, at: N?) -> boolean
+```
+
+## `roblox.data-store`
+
+[Source](../src/roblox/data-store.luau)
+
+### `roblox.data-store.RetryPolicy`
+
+```luau
+export type RetryPolicy = { attempts: number, baseDelay: number, maxDelay: number }
+```
+
+### `roblox.data-store.retryPolicy`
+
+```luau
+function DataStore.retryPolicy(policy: RetryPolicy)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+delay = function delay(attempt: number, jitter: number): number
+run = function run<T>(op: () -> (boolean, T), sleep: (number) -> (), jitter: () -> number): (boolean, T)
+```
+
+## `roblox.equipment-queue`
+
+[Source](../src/roblox/equipment-queue.luau)
+
+### `roblox.equipment-queue.Deps`
+
+```luau
+export type Deps<P, C> = {
+	spawn: (() -> ()) -> (),
+	active: () -> boolean,
+	current: (P, C) -> boolean,
+	perform: (P, C, () -> boolean) -> (),
+	warn: (string) -> (),
+}
+```
+
+### `roblox.equipment-queue.Queue`
+
+```luau
+export type Queue<P, C> = {
+	request: (P, C) -> (),
+	invalidate: (P) -> (),
+	forget: (P) -> (),
+	generation: (P) -> number?,
+	running: (P) -> boolean,
+	dispose: () -> (),
+}
+```
+
+### `roblox.equipment-queue.create`
+
+```luau
+function EquipmentApplyQueue.create<P, C>(deps: Deps<P, C>): Queue<P, C>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+request = function queue.request(player: P, character: C)
+invalidate = function queue.invalidate(player: P)
+forget = function queue.forget(player: P)
+generation = function queue.generation(player: P): number?
+running = function queue.running(player: P): boolean
+dispose = function queue.dispose()
+```
+
+## `roblox.equipment-rig`
+
+[Source](../src/roblox/equipment-rig.luau)
+
+### `roblox.equipment-rig.Ownership`
+
+```luau
+export type Ownership<O, C> = {
+	read current: () -> O?,
+	read create: () -> O,
+	read run: <T...>(O, () -> T...) -> T...,
+	read dispose: (O) -> (),
+	read checkpoint: (O) -> C,
+	read rollback: (O, C) -> (),
+}
+```
+
+### `roblox.equipment-rig.MeshCache`
+
+```luau
+export type MeshCache<K, V> = {
+	read peek: (K) -> V?,
+	read get: (K) -> V?,
+}
+```
+
+### `roblox.equipment-rig.Failure`
+
+```luau
+export type Failure<A> = { application: A, reason: string }
+```
+
+### `roblox.equipment-rig.BatchState`
+
+```luau
+export type BatchState<P, O> = { accessoryOwners: { [P]: O } }
+```
+
+### `roblox.equipment-rig.BatchHost`
+
+```luau
+export type BatchHost<A, P, O> = {
+	read slot: (A) -> string,
+	read pieceSlot: (P) -> string?,
+	read permitted: (A) -> string?,
+	read createOwner: () -> O,
+	read run: <T...>(O, () -> T...) -> T...,
+	read dispose: (O) -> (),
+	read make: (A) -> ({ P }?, string?),
+	read attach: (A, P) -> string?,
+	read assertCurrent: () -> (),
+	read refused: (A, string) -> (),
+}
+```
+
+### `roblox.equipment-rig.applyBatch`
+
+```luau
+function applyBatch<A, P, O>(
+	host: BatchHost<A, P, O>,
+	state: BatchState<P, O>,
+	applications: { A },
+	reused: { [A]: boolean },
+	reusedPieces: { [P]: boolean },
+	previous: { P },
+	retiredOwners: { [O]: boolean },
+	retiredPieces: { [P]: boolean }
+): ({ A }, { Failure<A> })
+```
+
+### `roblox.equipment-rig.lifetime`
+
+```luau
+function lifetime<O, C, N>(ownership: Ownership<O, C>, adopt: (N) -> (), report: (string) -> ())
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+withOwner = function withOwner<T...>(build: () -> T...): T...
+attempt = function attempt<T...>(build: () -> T...): T...
+assertCurrent = function assertCurrent(fence: (() -> boolean)?)
+afterExternal = function afterExternal(fence: (() -> boolean)?, ok: boolean, value: N)
+stale = stale
+disposeLoose = function()
+```
+
+### `roblox.equipment-rig.meshCache`
+
+```luau
+function meshCache<K, V>(cache: MeshCache<K, V>, ceiling: number)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+resolve = function resolve(key: K, step: () -> (), clock: () -> number): V
+refuse = function(key: K)
+isRefused = function(key: K): boolean
+isInFlight = function(key: K): boolean
+refusedCount = function(): number
+reset = function()
+```
+
+## `roblox.input-bindings`
+
+[Source](../src/roblox/input-bindings.luau)
+
+### `roblox.input-bindings.Action`
+
+```luau
+export type Action<C> = {
+	id: string,
+	context: C,
+	keyboard: { string },
+	gamepad: string?,
+	chord: string?,
+	release: boolean?,
+	gamepadAlt: string?,
+	touch: "thumbstick" | "button" | "screen",
+	affordance: string,
+}
+```
+
+### `roblox.input-bindings.create`
+
+```luau
+function Module.create<C>(actions: { Action<C> }, labels: { [string]: string }, modifier: string)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+get = function Bindings.get(id: string): Action<C>
+keyboardNames = function Bindings.keyboardNames(id: string): { string }
+primaryKeyboard = function Bindings.primaryKeyboard(id: string): string
+gamepad = function Bindings.gamepad(id: string): string?
+matches = function Bindings.matches(id: string, name: string): boolean
+keyboardLabel = function Bindings.keyboardLabel(id: string): string
+gamepadLabel = function Bindings.gamepadLabel(id: string): string?
+matchesCode = function Bindings.matchesCode<K>(id: string, code: unknown, keys: { [string]: K }): boolean
+matchesInput = function Bindings.matchesInput<K>(id: string, code: unknown, keys: { [string]: K }, held: (string) -> boolean): boolean
+forContext = function Bindings.forContext(context: C): { Action<C> }
+```
+
+## `roblox.input-contexts`
+
+[Source](../src/roblox/input-contexts.luau)
+
+### `roblox.input-contexts.Template`
+
+```luau
+export type Template = { folder: string, name: string }
+```
+
+### `roblox.input-contexts.Surfaces`
+
+```luau
+export type Surfaces = {
+	template: (string, string) -> unknown?,
+	existing: (string) -> unknown?,
+	adopt: (unknown, string) -> unknown?,
+}
+```
+
+### `roblox.input-contexts.Mounted`
+
+```luau
+export type Mounted = typeof(mounted("", {}, nil))
+```
+
+### `roblox.input-contexts.create`
+
+```luau
+function Contexts.create<N, A>(host: {
+	find: (N, string) -> N?,
+	wait: (N, string, number) -> N?,
+	clock: () -> number,
+	isContext: (N) -> boolean,
+	asAction: (N) -> A?,
+	name: (N) -> string,
+	minimumWait: number,
+})
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+action = function Input.action(context: N, name: string): A
+context = function Input.context(root: N, path: { string }, required: { string }, deadline: number): N
+```
+
+### `roblox.input-contexts.mount`
+
+```luau
+function Contexts.mount(plan: { Template }, raw: Surfaces?, phases: { mounted: string, refused: string }): Mounted
+```
+
+## `roblox.input-profile`
+
+[Source](../src/roblox/input-profile.luau)
+
+```luau
+local Value = require("../core/value")
+```
+
+### `roblox.input-profile.Device`
+
+```luau
+export type Device = "keyboard" | "gamepad" | "touch"
+```
+
+### `roblox.input-profile.TouchAffordance`
+
+```luau
+export type TouchAffordance = "thumbstick" | "button" | "screen"
+```
+
+### `roblox.input-profile.Action`
+
+```luau
+export type Action = {
+	id: string,
+	keyboard: string,
+	gamepad: string,
+	touch: TouchAffordance,
+}
+```
+
+### `roblox.input-profile.Profile`
+
+```luau
+export type Profile = {
+	id: string,
+	actions: { Action },
+}
+```
+
+### `roblox.input-profile.Session`
+
+```luau
+export type Session = typeof(session("", nil, nil, nil, nil))
+```
+
+### `roblox.input-profile.create`
+
+```luau
+function Module.create(profiles: { [string]: Profile }, phases: { mounted: string, refused: string })
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+profile = function Input.profile(name: unknown): Profile?
+reach = function Input.reach(profile: unknown, device: unknown): { string }
+parity = function Input.parity(profile: unknown): boolean
+coverage = function Input.coverage(profile: unknown, hosts: unknown): boolean
+start = function Input.start(rawDependencies: Dependencies): Session
+```
+
+## `roblox.messaging`
+
+[Source](../src/roblox/messaging.luau)
+
+### `roblox.messaging.Host`
+
+```luau
+export type Host<T> = {
+	available: () -> boolean,
+	spawn: (() -> ()) -> (),
+	publish: (string, T) -> (),
+	subscribe: (string, (unknown) -> ()) -> () -> (),
+	warn: (string, string) -> (),
+}
+```
+
+### `roblox.messaging.bind`
+
+```luau
+function Messaging.bind<T>(host: Host<T>, topic: string, decode: (unknown) -> T?)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+publish = function publish(payload: T)
+subscribe = function subscribe(onNotice: (T) -> ()): (() -> ())
+```
+
+## `roblox.movement-intake`
+
+[Source](../src/roblox/movement-intake.luau)
+
+```luau
+local Value = require("../core/value")
+```
+
+### `roblox.movement-intake.Point`
+
+```luau
+export type Point = { x: number, z: number }
+```
+
+### `roblox.movement-intake.State`
+
+```luau
+export type State = {
+	hp: number,
+	facing: Point?,
+	movement: Point?,
+	movementEpoch: number?,
+	movementSequence: number?,
+}
+```
+
+### `roblox.movement-intake.Observation`
+
+```luau
+export type Observation = { x: number, z: number, hp: number }
+```
+
+### `roblox.movement-intake.Normalized`
+
+```luau
+export type Normalized = { sequence: number, intent: Point, strafe: boolean?, epoch: number? }
+```
+
+### `roblox.movement-intake.Ack`
+
+```luau
+export type Ack = { epoch: number, sequence: number, intent: Point, acceptedCount: number }
+```
+
+### `roblox.movement-intake.Dependencies`
+
+```luau
+export type Dependencies<P, B> = {
+	clock: () -> number,
+	registerClose: (() -> ()) -> () -> (),
+	remote: {
+		connect: ((boolean, P, unknown) -> ()) -> () -> (),
+		acknowledge: (P, Ack) -> (),
+	},
+	step: { connect: (() -> ()) -> () -> () },
+	players: {
+		validatePlayer: (P) -> boolean,
+		isPresent: (P) -> boolean,
+		identity: (P) -> number,
+		currentBody: (P) -> B?,
+	},
+	normalize: (unknown) -> Normalized?,
+	control: {
+		apply: (B, Point, Point?) -> boolean,
+		restore: (B, number, number) -> boolean,
+	},
+	snapshot: {
+		state: (P) -> State?,
+		reset: (P, number) -> (),
+		move: (P, Point, boolean, number, number) -> boolean,
+		observe: (B) -> Observation?,
+		setPlayerSnapshot: (P, number, number, number, boolean?) -> boolean,
+		travelRevision: (B) -> number,
+	},
+	mark: (string, string?) -> (),
+}
+```
+
+### `roblox.movement-intake.StopResult`
+
+```luau
+export type StopResult = { phase: string }
+```
+
+### `roblox.movement-intake.Started`
+
+```luau
+export type Started<P> = {
+	phase: "movement_authority_started",
+	admitPlayer: (P) -> boolean,
+	removePlayer: (P) -> boolean,
+	stop: () -> StopResult,
+	dispose: () -> StopResult,
+}
+```
+
+### `roblox.movement-intake.Refused`
+
+```luau
+export type Refused = { read phase: "movement_authority_refused", read reason: string }
+```
+
+### `roblox.movement-intake.start`
+
+```luau
+function MovementIntake.start<P, B>(dependencies: Dependencies<P, B>): Started<P> | Refused
+```
+
+## `roblox.movement-sender`
+
+[Source](../src/roblox/movement-sender.luau)
+
+### `roblox.movement-sender.Planar`
+
+```luau
+export type Planar = { read x: number, read z: number }
+```
+
+### `roblox.movement-sender.Refused`
+
+```luau
+export type Refused = { read phase: "movement_sender_refused", read reason: string }
+```
+
+### `roblox.movement-sender.Stopped`
+
+```luau
+export type Stopped = { read phase: "movement_sender_stopped" | "movement_sender_stop_failed" }
+```
+
+### `roblox.movement-sender.Started`
+
+```luau
+export type Started = {
+	read phase: "movement_sender_started",
+	read activate: (unknown) -> boolean,
+	read revoke: (unknown) -> boolean,
+	read sample: (unknown) -> boolean,
+	read stop: () -> Stopped,
+	read dispose: () -> Stopped,
+}
+```
+
+### `roblox.movement-sender.StartResult`
+
+```luau
+export type StartResult = Started | Refused
+```
+
+### `roblox.movement-sender.Payload`
+
+```luau
+export type Payload = { read intent: Planar, read sequence: number, read sentAt: number, read epoch: number? }
+```
+
+```luau
+local Value = require("../core/value")
+```
+
+### `roblox.movement-sender.Connection`
+
+```luau
+export type Connection = { read Disconnect: ((Connection) -> ())? }
+```
+
+### `roblox.movement-sender.Dependencies`
+
+```luau
+export type Dependencies = {
+	clock: () -> number,
+	remote: { send: (Payload) -> boolean, connect: ((unknown) -> ()) -> Connection },
+	heartbeat: { connect: (() -> ()) -> Connection },
+	action: { connect: ((unknown) -> boolean) -> Connection, setEnabled: (boolean) -> boolean },
+	motion: { resendDecision: (Planar, Planar, Planar, Planar?, number, number, number, number) -> (Planar, boolean) },
+	camera: { read: () -> unknown },
+	mark: (string) -> (),
+}
+```
+
+### `roblox.movement-sender.start`
+
+```luau
+function MovementSender.start(dependencies: Dependencies): StartResult
+```
+
+## `roblox.npc-motion`
+
+[Source](../src/roblox/npc-motion.luau)
+
+### `roblox.npc-motion.Planar`
+
+```luau
+export type Planar = { x: number, z: number }
+```
+
+### `roblox.npc-motion.Point`
+
+```luau
+export type Point = { x: number, y: number?, z: number }
+```
+
+### `roblox.npc-motion.Observed`
+
+```luau
+export type Observed = { position: Planar, facing: Planar }
+```
+
+### `roblox.npc-motion.Projection`
+
+```luau
+export type Projection = { position: Planar, facing: Planar, planarSpeed: number }
+```
+
+### `roblox.npc-motion.Changes`
+
+```luau
+export type Changes = { transform: boolean, planarSpeed: boolean }
+```
+
+### `roblox.npc-motion.distance`
+
+```luau
+function Motion.distance(a: Point, b: Point): number
+```
+
+### `roblox.npc-motion.movement`
+
+```luau
+function Motion.movement(epsilon: number)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+insideLeash = function Movement.insideLeash(origin: Point?, radius: number?, point: Point): boolean
+moveToward = function Movement.moveToward(pos: Point, target: Point, maxDistance: number): Point
+```
+
+### `roblox.npc-motion.projection`
+
+```luau
+function Motion.projection(tuning: { epsilon: number, facingEpsilon: number, minimumDt: number })
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+anchoredSurfaceY = function anchoredSurfaceY(anchorY: number, hitY: number?): number
+groundedPivotY = function groundedPivotY(
+		terrainY: number,
+		hipHeight: number,
+		rootHalfHeight: number,
+		rootToPivotY: number
+	): number
+plan = function plan(
+		previous: Projection?,
+		observed: Observed,
+		position: Planar,
+		target: Planar?,
+		dt: number
+	): (Projection, Changes)
+```
+
+## `roblox.party`
+
+[Source](../src/roblox/party.luau)
+
+```luau
+local Membership = require("../core/social/membership")
+```
+
+```luau
+local Value = require("../core/value")
+```
+
+### `roblox.party.StoreOutcome`
+
+```luau
+export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
+```
+
+### `roblox.party.Store`
+
+```luau
+export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
+```
+
+### `roblox.party.Dependencies`
+
+```luau
+export type Dependencies = {
+	store: Store,
+	keyForParty: (string) -> string,
+	readMembership: (string) -> unknown,
+}
+```
+
+### `roblox.party.PartyOutcome`
+
+```luau
+export type PartyOutcome = {
+	ok: boolean,
+	reason: string?,
+	replayed: boolean,
+	found: boolean,
+	party: CoreState?,
+	boundary: string,
+}
+```
+
+### `roblox.party.Service`
+
+```luau
+export type Service = {
+	open: (request: unknown) -> PartyOutcome,
+	invite: (request: unknown) -> PartyOutcome,
+	accept: (request: unknown) -> PartyOutcome,
+	decline: (request: unknown) -> PartyOutcome,
+	leave: (request: unknown) -> PartyOutcome,
+	kick: (request: unknown) -> PartyOutcome,
+	transferLeader: (request: unknown) -> PartyOutcome,
+	acceptLeaderTransfer: (request: unknown) -> PartyOutcome,
+	disband: (request: unknown) -> PartyOutcome,
+	setLootMode: (request: unknown) -> PartyOutcome,
+	markAbsent: (request: unknown) -> PartyOutcome,
+	markPresent: (request: unknown) -> PartyOutcome,
+	sweep: (request: unknown) -> PartyOutcome,
+	read: (partyId: unknown) -> PartyOutcome,
+}
+```
+
+### `roblox.party.MountResult`
+
+```luau
+export type MountResult = {
+	ok: boolean,
+	service: Service?,
+	reason: string?,
+}
+```
+
+### `roblox.party.Config`
+
+```luau
+export type Config = { core: Membership.Core, schemaVersion: number, boundary: string, maxText: number }
+```
+
+### `roblox.party.party`
+
+```luau
+function System.party(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+mount = function PartyService.mount(dependencies: Dependencies?): MountResult
+```
+
+## `roblox.professions`
+
+[Source](../src/roblox/professions.luau)
+
+```luau
+local Craft = require("../core/professions/crafting")
+```
+
+```luau
+local Fish = require("../core/professions/fishing")
+```
+
+```luau
+local Harvest = require("../core/professions/harvest")
+```
+
+```luau
+local Sessions = require("../core/professions/session")
+```
+
+```luau
+local Skills = require("../core/professions/skills")
+```
+
+```luau
+local Types = require("../core/professions/types")
+```
+
+### `roblox.professions.Fields`
+
+```luau
+export type Fields = {
+	inventory: { [string]: number },
+	gold: number,
+	read faction: string,
+	read bagItem: string?,
+	professions: State,
+}
+```
+
+### `roblox.professions.CommitResult`
+
+```luau
+export type CommitResult = {
+	ok: boolean,
+	outcome: "committed" | "replayed" | "rejected" | "not_durable",
+	reason: string?,
+}
+```
+
+### `roblox.professions.ProfilePort`
+
+```luau
+export type ProfilePort<C, F> = {
+	read: (C) -> F?,
+	updateProfile: (C, (F) -> F) -> (),
+	removeGold: (C, number) -> boolean,
+	addGold: (C, number) -> (),
+	requestSave: ((C) -> ())?,
+	saveProfile: ((C) -> boolean)?,
+}
+```
+
+### `roblox.professions.SkinTarget`
+
+```luau
+export type SkinTarget = { key: string, mobId: string, x: number, z: number }
+```
+
+### `roblox.professions.World`
+
+```luau
+export type World<P> = {
+	node: (string) -> { kindId: string, x: number, z: number }?,
+	sample: (P) -> Sample?,
+	stations: (P) -> { [string]: boolean },
+	trainerGroup: (P) -> string?,
+	nearWater: (P) -> boolean,
+	corpse: (P) -> SkinTarget?,
+}
+```
+
+### `roblox.professions.WorkKind`
+
+```luau
+export type WorkKind = "gather" | "skin" | "craft"
+```
+
+### `roblox.professions.GatherPayload`
+
+```luau
+export type GatherPayload = { nodeId: string, nodeKind: Types.NodeKind }
+```
+
+### `roblox.professions.SkinPayload`
+
+```luau
+export type SkinPayload = { corpseKey: string, skinRow: Types.SkinRow }
+```
+
+### `roblox.professions.CraftPayload`
+
+```luau
+export type CraftPayload = { recipeId: string }
+```
+
+### `roblox.professions.WorkPayload`
+
+```luau
+export type WorkPayload = GatherPayload | SkinPayload | CraftPayload
+```
+
+### `roblox.professions.WorkMetadata`
+
+```luau
+export type WorkMetadata = { session: ActionSession, trackReceipt: string }
+```
+
+### `roblox.professions.GatherEntry`
+
+```luau
+export type GatherEntry = WorkMetadata & { kind: "gather", payload: GatherPayload }
+```
+
+### `roblox.professions.SkinEntry`
+
+```luau
+export type SkinEntry = WorkMetadata & { kind: "skin", payload: SkinPayload }
+```
+
+### `roblox.professions.CraftEntry`
+
+```luau
+export type CraftEntry = WorkMetadata & { kind: "craft", payload: CraftPayload }
+```
+
+### `roblox.professions.WorkEntry`
+
+```luau
+export type WorkEntry = GatherEntry | SkinEntry | CraftEntry
+```
+
+### `roblox.professions.RecipeView`
+
+```luau
+export type RecipeView = {
+	id: string,
+	name: string,
+	profession: string,
+	requiredSkill: number,
+	color: string?,
+	canCraft: boolean,
+	reason: string?,
+	source: Types.Source,
+	station: string?,
+	outputItemId: string,
+	outputQuantity: number,
+	reagents: { Types.Reagent },
+}
+```
+
+### `roblox.professions.RecipeItemView`
+
+```luau
+export type RecipeItemView = { itemId: string, name: string, canLearn: boolean, reason: string? }
+```
+
+### `roblox.professions.ProfessionView`
+
+```luau
+export type ProfessionView = {
+	id: string,
+	name: string,
+	kind: Skills.Kind,
+	skill: number,
+	cap: number,
+	recipes: { RecipeView },
+	recipeItems: { RecipeItemView },
+}
+```
+
+### `roblox.professions.ProfessionLesson`
+
+```luau
+export type ProfessionLesson = {
+	id: string,
+	name: string,
+	known: boolean,
+	canLearn: boolean,
+	reason: string?,
+	cost: number,
+}
+```
+
+### `roblox.professions.RecipeLesson`
+
+```luau
+export type RecipeLesson = {
+	id: string,
+	name: string,
+	profession: string,
+	status: string,
+	cost: number,
+	requiredSkill: number,
+	preview: string,
+}
+```
+
+### `roblox.professions.SupplyView`
+
+```luau
+export type SupplyView = { itemId: string, price: number, stock: number?, canBuy: boolean, reason: string? }
+```
+
+### `roblox.professions.TrainerBook`
+
+```luau
+export type TrainerBook = {
+	group: string,
+	professions: { ProfessionLesson },
+	recipes: { RecipeLesson },
+	supplies: { SupplyView },
+}
+```
+
+### `roblox.professions.Book`
+
+```luau
+export type Book<X> = {
+	professions: { ProfessionView },
+	primaryFree: number,
+	trainer: TrainerBook?,
+	stations: { [string]: boolean },
+	chapterProgress: X?,
+	repair: { price: number, requestId: string, pending: boolean, canRepair: boolean }?,
+}
+```
+
+### `roblox.professions.ResultExtras`
+
+```luau
+export type ResultExtras = {
+	yields: { Harvest.Yield }?,
+	produced: { itemId: string, quantity: number }?,
+	quality: string?,
+	skillUp: boolean?,
+	skill: number?,
+	profession: string?,
+	color: string?,
+	chapterProgressAwarded: number?,
+	nodeId: string?,
+	recipeId: string?,
+	itemId: string?,
+	price: number?,
+}
+```
+
+### `roblox.professions.ResultMessage`
+
+```luau
+export type ResultMessage = ResultExtras & { kind: "result", action: string, ok: boolean, reason: string? }
+```
+
+### `roblox.professions.Message`
+
+```luau
+export type Message<X> =
+	ResultMessage
+	| { kind: "book", book: Book<X>, open: boolean? }
+	| { kind: "cast", action: WorkKind | "fish", key: string, duration: number, endsAt: number }
+	| { kind: "bite" }
+```
+
+### `roblox.professions.Handle`
+
+```luau
+export type Handle<P> = {
+	handle: (P, unknown, unknown, unknown) -> (),
+	interrupt: (P, string) -> (),
+	step: () -> (),
+	forget: (P) -> (),
+	harvestedSlots: () -> { [string]: number },
+}
+```
+
+### `roblox.professions.CorePort`
+
+```luau
+export type CorePort = {
+	read SKILL_CAP: number,
+	read catalogue: { Profession },
+	read normalize: (unknown) -> State,
+	read profession: (unknown) -> Profession?,
+	read skillOf: (State, string) -> number,
+	read colorFor: (number, Types.Thresholds) -> string?,
+	read primarySlotsFree: (State) -> number,
+	read canLearn: (State, unknown) -> (boolean, string?),
+	read learn: (State, unknown) -> (State?, string?),
+	read unlearn: (State, unknown) -> (State?, string?),
+	read learnRecipe: (State, unknown, "trainer" | "item") -> (State?, string?),
+	read learnFromItem: (State, unknown) -> (State?, string?, Recipe?),
+	read trainerRoster: (State, string) -> { { recipe: Recipe, status: string, cost: number } },
+}
+```
+
+### `roblox.professions.Policy`
+
+```luau
+export type Policy<F, X> = {
+	read core: CorePort,
+	read crafting: {
+		read plan: (State, unknown, { [string]: number }, { [string]: boolean }) -> Craft.Plan,
+		read craft: (
+			State,
+			unknown,
+			{ [string]: number },
+			{ [string]: boolean },
+			number,
+			number?,
+			number?
+		) -> Craft.Outcome,
+	},
+	read fishing: {
+		read idle: () -> Fish.Line,
+		read cast: (Fish.Line, State, number, number) -> (Fish.Line?, string?),
+		read observe: (Fish.Line, number) -> Fish.Line,
+		read hook: (Fish.Line, number) -> (boolean, string),
+		read reel: (State, string, () -> number) -> Fish.Catch,
+	},
+	read gather: {
+		read harvestNode: (State, Types.NodeKind, () -> number) -> Harvest.Outcome,
+		read skinCorpse: (State, Types.SkinRow, () -> number) -> Harvest.Outcome,
+		read canAttempt: (State, string, Types.NodeKind | Types.SkinRow) -> (boolean, string?),
+	},
+	read session: {
+		read begin: (Sessions.Kind, string, number, Sample) -> (ActionSession?, string?),
+		read check: (ActionSession, Sample) -> (string, string?),
+	},
+	read nodes: {
+		read available: ({ [string]: number }, string, number, number) -> boolean,
+		read slotAt: (number, number) -> number,
+		read kind: (unknown) -> Types.NodeKind?,
+		read skinFor: (unknown) -> Types.SkinRow?,
+		read GATHER_RANGE_STUDS: number,
+		read CORPSE_RANGE_STUDS: number,
+		read CRAFT_SEC: number,
+	},
+	read recipes: {
+		read all: { Recipe },
+		read get: (unknown) -> Recipe?,
+		read forProfession: (string) -> { Recipe },
+		read forRecipeItem: (unknown) -> Recipe?,
+	},
+	read trainers: {
+		read LEARN_COST: number,
+		read group: (unknown) -> { professions: { string }, supplies: { { itemId: string, price: number } } }?,
+		read groupOfProfession: (string) -> string?,
+		read supplyPrice: (string, string) -> number?,
+	},
+	read inventory: {
+		read capacity: (string?) -> number,
+		read entries: ({ [string]: number }) -> number,
+		read addToBag: ({ [string]: number }, string, number) -> { [string]: number },
+		read removeFromBag: ({ [string]: number }, string, number) -> ({ [string]: number }, boolean),
+	},
+	read maxStack: number,
+	read maxIdLength: number,
+	read vendorWindow: number,
+	read repairGroup: string,
+	read fishingTool: string,
+	read fishingId: string,
+	read skinningId: string,
+	read itemName: (string) -> string,
+	read recipeAllowed: (F, Recipe) -> boolean,
+	read recordProgress: (F, string, string, string?) -> number,
+	read progress: (F) -> X?,
+	read repairQuote: (F) -> number,
+	read repair: (F, number) -> (F?, string?),
+	read earnQuestInputs: (
+		State,
+		{ [string]: number },
+		{ [string]: { [string]: number } }
+	) -> (State, { [string]: number }, boolean),
+}
+```
+
+### `roblox.professions.Deps`
+
+```luau
+export type Deps<P, C, F, X> = {
+	read questCounts: ((P) -> { [string]: { [string]: number } }?)?,
+	read profiles: ProfilePort<C, F>,
+	read context: (P) -> C?,
+	read zoneId: string,
+	read clock: () -> number,
+	read rng: () -> number,
+	read world: World<P>,
+	read send: (P, Message<X>) -> (),
+	read eventId: () -> string,
+	read commit: (C, string, (F) -> (F?, string?)) -> CommitResult,
+}
+```
+
+### `roblox.professions.IntentPayload`
+
+```luau
+export type IntentPayload = { action: string, arg: string?, extra: string? }
+```
+
+### `roblox.professions.decodeIntent`
+
+```luau
+function Service.decodeIntent(action: unknown, arg: unknown, extra: unknown): IntentPayload?
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+action = action
+arg = arg
+extra = extra
+```
+
+### `roblox.professions.new`
+
+```luau
+function Service.new<P, C, F, X>(deps: Deps<P, C, F & Fields, X>, policy: Policy<F & Fields, X>): Handle<P>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+handle = function service.handle(player: P, action: unknown, arg: unknown, extra: unknown)
+interrupt = function service.interrupt(player: P, reason: string)
+step = function service.step()
+forget = function service.forget(player: P)
+harvestedSlots = function service.harvestedSlots(): { [string]: number }
+```
+
+## `roblox.profile-sessions`
+
+[Source](../src/roblox/profile-sessions.luau)
+
+### `roblox.profile-sessions.Owner`
+
+```luau
+export type Owner = {
+	own: (() -> ()) -> () -> (),
+	createChild: () -> Owner,
+	dispose: () -> (),
+	size: () -> number,
+}
+```
+
+### `roblox.profile-sessions.Outcome`
+
+```luau
+export type Outcome = { ok: boolean, reason: string?, expiresAt: number? }
+```
+
+### `roblox.profile-sessions.Dependencies`
+
+```luau
+export type Dependencies<C, P> = {
+	clock: () -> number,
+	schedule: (number, () -> ()) -> () -> (),
+	spawn: ((() -> ()) -> () -> ())?,
+	wait: (() -> ())?,
+	report: ("write" | "drain" | "held", string, string?) -> (),
+	renewalDelay: number,
+	retryDelay: number,
+	drainBudget: number,
+	jitter: () -> number,
+	jitterFraction: number,
+	keyFor: (C) -> string,
+	same: (C, C) -> boolean,
+	write: (P, C, number, () -> boolean, boolean, number) -> Outcome,
+}
+```
+
+### `roblox.profile-sessions.new`
+
+```luau
+function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+admit = function admit(context: C, leaseExpiresAt: number, profile: () -> P?, onReleased: () -> ())
+save = function save(context: C): Outcome
+requestSave = function requestSave(context: C): boolean
+unload = function unload(context: C): Outcome
+drain = function drain(): { [string]: Outcome }
+isAdmitted = function isAdmitted(context: C): boolean
+ownedTaskCount = function ownedTaskCount(context: C): number
+dispose = function dispose()
+```
+
+## `roblox.profile-transfer`
+
+[Source](../src/roblox/profile-transfer.luau)
+
+### `roblox.profile-transfer.Identity`
+
+```luau
+export type Identity = {
+	read userId: number,
+	read characterId: string,
+	read key: string,
+	read sessionId: string,
+	read acquisitionId: string,
+	read leaseRevision: number,
+}
+```
+
+### `roblox.profile-transfer.Outcome`
+
+```luau
+export type Outcome = "committed" | "replayed" | "rejected" | "not_durable"
+```
+
+### `roblox.profile-transfer.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	outcome: Outcome,
+	reason: string?,
+}
+```
+
+### `roblox.profile-transfer.Reader`
+
+```luau
+export type Reader<P> = {
+	read profile: (Identity) -> Readable<P?>?,
+}
+```
+
+### `roblox.profile-transfer.exclusive`
+
+```luau
+function exclusive<K, T, F>(busy: { [K]: boolean }, key: K, refused: F, body: () -> T): T | F
+```
+
+### `roblox.profile-transfer.profileFor`
+
+```luau
+function profileFor<P>(reader: Reader<P>, contextFor: (number) -> Identity?, userId: number): (P?, Identity?)
+```
+
+### `roblox.profile-transfer.sameSession`
+
+```luau
+function sameSession(left: Identity?, right: Identity?): boolean
+```
+
+### `roblox.profile-transfer.settle`
+
+```luau
+function settle(
+	contextFor: (number) -> Identity?,
+	userId: number,
+	context: Identity,
+	strict: boolean,
+	run: () -> Result
+): Result
+```
+
+## `roblox.remote-events`
+
+[Source](../src/roblox/remote-events.luau)
+
+### `roblox.remote-events.Host`
+
+```luau
+export type Host<Event, Player, Handler, Options> = {
+	register: (string, Handler, Options?) -> () -> (),
+	served: (string) -> number,
+	connect: (Event, (Player, ...unknown) -> ()) -> () -> (),
+	receive: (string, Player, ...unknown) -> (),
+	own: (() -> ()) -> (),
+}
+```
+
+### `roblox.remote-events.transport`
+
+```luau
+function Events.transport<Event, Player, Handler, Options>(host: Host<Event, Player, Handler, Options>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+serve = function serve(name: string, event: Event, handler: Handler, options: Options?): () -> ()
+```
+
+## `roblox.screen-labels`
+
+[Source](../src/roblox/screen-labels.luau)
+
+### `roblox.screen-labels.ScreenRect`
+
+```luau
+export type ScreenRect = {
+	left: number,
+	top: number,
+	right: number,
+	bottom: number,
+}
+```
+
+### `roblox.screen-labels.ScreenPlate`
+
+```luau
+export type ScreenPlate = {
+	id: string,
+	distanceStuds: number,
+	rect: ScreenRect,
+	priority: number?,
+}
+```
+
+### `roblox.screen-labels.ScreenPlacement`
+
+```luau
+export type ScreenPlacement = {
+	rect: ScreenRect,
+	collapsed: boolean,
+}
+```
+
+### `roblox.screen-labels.contains`
+
+```luau
+function Labels.contains(outer: ScreenRect, inner: ScreenRect): boolean
+```
+
+### `roblox.screen-labels.create`
+
+```luau
+function Labels.create(tuning: {
+	maximum: number,
+	farDistance: number,
+	farCount: number,
+	focusPriority: number,
+	defaultPriority: number,
+})
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+placementForScreen = function placementForScreen(
+		plates: { ScreenPlate },
+		hudReserves: { ScreenRect }?,
+		topbarFloorY: number?,
+		screenBounds: ScreenRect?
+	): { [string]: ScreenPlacement }
+```
+
+### `roblox.screen-labels.horizontalAvoidance`
+
+```luau
+function Labels.horizontalAvoidance(label: ScreenRect, band: ScreenRect, gap: number): number
+```
+
+### `roblox.screen-labels.rect`
+
+```luau
+function Labels.rect(left: number, top: number, width: number, height: number): ScreenRect
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+left = left
+top = top
+right = left + math.max(width, 0)
+bottom = top + math.max(height, 0)
+```
+
+### `roblox.screen-labels.rectsOverlap`
+
+```luau
+function rectsOverlap(left: ScreenRect, right: ScreenRect): boolean
+```
+
+## `roblox.social-host`
+
+[Source](../src/roblox/social-host.luau)
+
+```luau
+local Fellowship = require("../core/social/fellowship")
+```
+
+```luau
+local Records = require("./social-records")
+```
+
+```luau
+local Transfer = require("./profile-transfer")
+```
+
+### `roblox.social-host.Membership`
+
+```luau
+export type Membership = Records.Membership
+```
+
+### `roblox.social-host.Response`
+
+```luau
+export type Response = Records.Result | Fellowship.Result
+```
+
+### `roblox.social-host.Host`
+
+```luau
+export type Host = {
+	read serially: <T>(actorUserId: number, body: () -> T) -> T | Records.Refusal,
+	read loadRecord: (fellowshipId: string, fresh: boolean) -> Records.Result,
+	read cachedRecord: (fellowshipId: string) -> Fellowship.State?,
+	read remember: (state: Fellowship.State) -> (),
+	read membershipOf: (userId: number, fresh: boolean) -> Membership?,
+	read cachedMembership: (userId: number) -> Membership?,
+	read adopt: (userId: number, membership: Membership?) -> (),
+	read forget: (userId: number) -> (),
+	read settle: (userId: number) -> string?,
+	read settleUnlessBusy: (userId: number) -> string?,
+	read commitRecord: (fellowshipId: string, event: unknown) -> Records.Result,
+	read claimThenCommit: (actorUserId: number, fellowshipId: string, commit: () -> Records.Result) -> Response,
+	read isMember: (state: Fellowship.State, userId: number) -> boolean,
+}
+```
+
+### `roblox.social-host.fellowships`
+
+```luau
+function SocialHost.fellowships(source: Records.Service?): Host
+```
+
+## `roblox.social-records`
+
+[Source](../src/roblox/social-records.luau)
+
+```luau
+local Fellowship = require("../core/social/fellowship")
+```
+
+```luau
+local Formation = require("../core/social/formation")
+```
+
+```luau
+local Notes = require("../core/social/notes")
+```
+
+```luau
+local Value = require("../core/value")
+```
+
+```luau
+local Warband = require("../core/social/warband")
+```
+
+### `roblox.social-records.Outcome`
+
+```luau
+export type Outcome = { ok: boolean, value: unknown, reason: string? }
+```
+
+### `roblox.social-records.Store`
+
+```luau
+export type Store = {
+	getOutcome: (key: string) -> Outcome,
+	updateOutcome: (key: string, transform: (unknown) -> unknown) -> Outcome,
+}
+```
+
+### `roblox.social-records.FellowshipPort`
+
+```luau
+export type FellowshipPort = {
+	create: (unknown, unknown) -> Fellowship.Result,
+	createFromFormation: (unknown, unknown) -> Fellowship.Result,
+	projectState: (unknown) -> Fellowship.State?,
+	transition: (unknown, unknown, unknown) -> Fellowship.Result,
+}
+```
+
+### `roblox.social-records.FormationPort`
+
+```luau
+export type FormationPort = {
+	start: (unknown, unknown) -> Formation.Result,
+	projectState: (unknown) -> Formation.State?,
+	transition: (unknown, unknown, unknown) -> Formation.Result,
+}
+```
+
+### `roblox.social-records.WarbandPort`
+
+```luau
+export type WarbandPort = {
+	project: (unknown) -> Warband.State?,
+	found: (string, string, Warband.Party, number, number) -> Warband.Result,
+	transition: (Warband.State, Warband.Event, Warband.Parties, number) -> Warband.Result,
+}
+```
+
+### `roblox.social-records.Dependencies`
+
+```luau
+export type Dependencies = {
+	store: Store,
+	keyFor: (string) -> string,
+	memberKeyFor: (number) -> string,
+	formationKeyFor: ((string) -> string)?,
+	warbandKeyFor: ((string, string) -> string)?,
+	clock: () -> number,
+	fellowship: FellowshipPort,
+	formation: FormationPort,
+	warband: WarbandPort,
+}
+```
+
+### `roblox.social-records.Refusal`
+
+```luau
+export type Refusal = { ok: false, state: nil, replayed: boolean, reason: string }
+```
+
+### `roblox.social-records.RecordResult`
+
+```luau
+export type RecordResult<T> = { ok: true, state: T, replayed: boolean, reason: nil } | Refusal
+```
+
+### `roblox.social-records.Result`
+
+```luau
+export type Result = RecordResult<Fellowship.State>
+```
+
+### `roblox.social-records.FormationResult`
+
+```luau
+export type FormationResult = RecordResult<Formation.State>
+```
+
+### `roblox.social-records.Status`
+
+```luau
+export type Status = { ok: boolean, reason: string? }
+```
+
+### `roblox.social-records.ProposerResult`
+
+```luau
+export type ProposerResult = Status & { formationId: string? }
+```
+
+### `roblox.social-records.Membership`
+
+```luau
+export type Membership = { read fellowshipId: string, read pending: boolean, read revision: number }
+```
+
+### `roblox.social-records.MembershipResult`
+
+```luau
+export type MembershipResult = { ok: boolean, membership: Membership?, reason: string? }
+```
+
+### `roblox.social-records.WarbandMembership`
+
+```luau
+export type WarbandMembership = { warbandId: string, revision: number, pending: boolean }
+```
+
+### `roblox.social-records.WarbandMembershipResult`
+
+```luau
+export type WarbandMembershipResult = { ok: boolean, membership: WarbandMembership?, reason: string? }
+```
+
+### `roblox.social-records.LedgerOutcome`
+
+```luau
+export type LedgerOutcome<State, Receipt> = {
+	ok: boolean,
+	state: State?,
+	replayed: boolean,
+	reason: string?,
+	receipts: { Receipt }?,
+	fence: string?,
+}
+```
+
+### `roblox.social-records.Settled`
+
+```luau
+export type Settled<State, Receipt> = {
+	ok: boolean,
+	state: State?,
+	replayed: boolean,
+	reason: string?,
+	receipts: { Receipt }?,
+	ambiguous: boolean,
+	fence: string?,
+}
+```
+
+### `roblox.social-records.LedgerCore`
+
+```luau
+export type LedgerCore<Subject, State, Receipt> = {
+	empty: (Subject) -> State,
+	project: (unknown) -> State?,
+	apply: (State, unknown, number) -> LedgerOutcome<State, Receipt>,
+	invalid: string,
+}
+```
+
+### `roblox.social-records.LedgerDependencies`
+
+```luau
+export type LedgerDependencies<Subject, State, Receipt> = {
+	store: Store,
+	keyFor: (Subject) -> string,
+	clock: () -> number,
+	core: LedgerCore<Subject, State, Receipt>,
+}
+```
+
+### `roblox.social-records.Ledger`
+
+```luau
+export type Ledger<Subject, State, Receipt> = {
+	read read: (Subject) -> Settled<State, Receipt>,
+	read apply: (Subject, unknown) -> Settled<State, Receipt>,
+}
+```
+
+### `roblox.social-records.InboxCore`
+
+```luau
+export type InboxCore = {
+	emptyState: (unknown) -> Notes.State?,
+	projectState: (unknown) -> Notes.State?,
+	deliver: (unknown, unknown, unknown) -> Notes.Result,
+	markRead: (unknown, unknown) -> Notes.Result,
+}
+```
+
+### `roblox.social-records.InboxDependencies`
+
+```luau
+export type InboxDependencies = {
+	store: Store,
+	keyFor: (number) -> string,
+	clock: () -> number,
+	guid: () -> string,
+	core: InboxCore,
+	invalid: string,
+}
+```
+
+### `roblox.social-records.InboxResult`
+
+```luau
+export type InboxResult = { ok: boolean, notes: { Notes.Note }?, reason: string? }
+```
+
+### `roblox.social-records.Inbox`
+
+```luau
+export type Inbox = {
+	read inbox: (number) -> InboxResult,
+	read deliver: (number, string, number, string) -> InboxResult,
+	read markRead: (number, string) -> InboxResult,
+}
+```
+
+### `roblox.social-records.UncachedStore`
+
+```luau
+export type UncachedStore = {
+	getUncachedOutcome: (key: string) -> Outcome,
+	updateOutcome: (key: string, transform: (unknown) -> unknown) -> Outcome,
+}
+```
+
+### `roblox.social-records.KeyedOutcome`
+
+```luau
+export type KeyedOutcome<Item> = { ok: boolean, value: Item?, reason: string? }
+```
+
+### `roblox.social-records.KeyedDependencies`
+
+```luau
+export type KeyedDependencies<Item> = {
+	store: UncachedStore,
+	keyFor: (string) -> string,
+	project: (unknown) -> Item?,
+	wire: (Item) -> unknown?,
+	idOf: (Item) -> string,
+	prefix: string,
+	invalid: string,
+}
+```
+
+### `roblox.social-records.Keyed`
+
+```luau
+export type Keyed<Item> = {
+	read getOutcome: (string) -> KeyedOutcome<Item>,
+	read updateOutcome: (string, (Item?) -> Item?) -> KeyedOutcome<Item>,
+}
+```
+
+### `roblox.social-records.IndexDependencies`
+
+```luau
+export type IndexDependencies<Entry> = {
+	store: UncachedStore,
+	keyFor: (number) -> string,
+	read: (unknown) -> Entry?,
+	idOf: (Entry) -> string,
+	owns: (Entry, number) -> boolean,
+	same: (Entry, Entry) -> boolean,
+	limit: number,
+}
+```
+
+### `roblox.social-records.IndexListing`
+
+```luau
+export type IndexListing<Entry> = { ok: boolean, entries: { [string]: Entry }?, reason: string? }
+```
+
+### `roblox.social-records.Index`
+
+```luau
+export type Index<Entry> = {
+	read add: (number, Entry) -> (boolean, string?),
+	read remove: (number, Entry) -> boolean,
+	read list: (number) -> IndexListing<Entry>,
+}
+```
+
+### `roblox.social-records.Service`
+
+```luau
+export type Service = {
+	read readWarband: (string) -> Warband.Result,
+	read foundWarband: (string, string, Warband.Party, number) -> Warband.Result,
+	read applyWarband: (string, Warband.Event, Warband.Parties) -> Warband.Result,
+	read readWarbandMembership: (string) -> WarbandMembershipResult,
+	read claimWarbandMembership: (string, string) -> WarbandMembershipResult,
+	read confirmWarbandMembership: (string, WarbandMembership) -> WarbandMembershipResult,
+	read releaseWarbandMembership: (string, WarbandMembership) -> WarbandMembershipResult,
+	read read: (string) -> Result,
+	read found: (Fellowship.FoundRequest) -> Result,
+	read apply: (string, unknown) -> Result,
+	read readFormation: (string) -> FormationResult,
+	read startFormation: (Formation.StartRequest) -> FormationResult,
+	read applyFormation: (string, unknown) -> FormationResult,
+	read foundFromFormation: (Formation.State) -> Result,
+	read readProposerFormation: (number) -> ProposerResult,
+	read setProposerFormation: (number, string) -> Status,
+	read clearProposerFormation: (number, string) -> Status,
+	read readMembership: (number) -> MembershipResult,
+	read claimMembership: (number, string) -> MembershipResult,
+	read confirmMembership: (number, string) -> MembershipResult,
+	read releaseMembership: (number, Membership) -> MembershipResult,
+}
+```
+
+### `roblox.social-records.create`
+
+```luau
+function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
+```
+
+### `roblox.social-records.inbox`
+
+```luau
+function SocialRecords.inbox(dependencies: InboxDependencies): (Inbox?, string?)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+inbox = function inbox(userId: number): InboxResult
+deliver = function deliver(fromUserId: number, fromName: string, toUserId: number, phraseId: string): InboxResult
+markRead = function markRead(userId: number, noteId: string): InboxResult
+```
+
+### `roblox.social-records.index`
+
+```luau
+function SocialRecords.index<Entry>(dependencies: IndexDependencies<Entry>): (Index<Entry>?, string?)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+add = function(userId: number, entry: Entry): (boolean, string?)
+remove = function(userId: number, entry: Entry): boolean
+list = function list(userId: number): IndexListing<Entry>
+```
+
+### `roblox.social-records.keyed`
+
+```luau
+function SocialRecords.keyed<Item>(dependencies: KeyedDependencies<Item>): (Keyed<Item>?, string?)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+getOutcome = function getOutcome(id: string): KeyedOutcome<Item>
+updateOutcome = function updateOutcome(id: string, transform: (Item?) -> Item?): KeyedOutcome<Item>
+```
+
+### `roblox.social-records.ledger`
+
+```luau
+function SocialRecords.ledger<Subject, State, Receipt>(
+	dependencies: LedgerDependencies<Subject, State, Receipt>
+): (Ledger<Subject, State, Receipt>?, string?)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+read = function read(subject: Subject): Settled<State, Receipt>
+apply = function apply(subject: Subject, command: unknown): Settled<State, Receipt>
+```
+
+## `roblox.target-selection`
+
+[Source](../src/roblox/target-selection.luau)
+
+### `roblox.target-selection.Candidate`
+
+```luau
+export type Candidate<P> = { npcId: string, screenPos: P }
+```
+
+### `roblox.target-selection.Release`
+
+```luau
+export type Release = typeof(Selection.release(1, 1))
+```
+
+### `roblox.target-selection.create`
+
+```luau
+function Selection.create<P>(coordinates: (P) -> (number, number))
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+pickNearestToTap = function Projected.pickNearestToTap(tap: P, candidates: { Candidate<P> }, radius: number): string?
+tapSelection = function Projected.tapSelection(resolved: string?, tap: P, candidates: { Candidate<P> }, radius: number): string?
+```
+
+### `roblox.target-selection.pickNext`
+
+```luau
+function Selection.pickNext(candidates: { string }, current: string?): string?
+```
+
+### `roblox.target-selection.release`
+
+```luau
+function Selection.release(range: number, seconds: number)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+observe = function(distance: number?, now: number): boolean
+reset = function()
+```
+
+## `roblox.thumbstick`
+
+[Source](../src/roblox/thumbstick.luau)
+
+### `roblox.thumbstick.Vec2`
+
+```luau
+export type Vec2 = { x: number, y: number }
+```
+
+### `roblox.thumbstick.Stick`
+
+```luau
+export type Stick = {
+	anchor: Vec2,
+	knob: Vec2,
+	vector: Vec2,
+}
+```
+
+### `roblox.thumbstick.create`
+
+```luau
+function Module.create(options: { radiusPx: number, deadZone: number, zoneWidth: number, zoneHeight: number })
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+DEAD_ZONE = options.deadZone
+RADIUS_PX = options.radiusPx
+ZONE_WIDTH_SCALE = options.zoneWidth
+ZONE_HEIGHT_SCALE = options.zoneHeight
+anchorAt = function anchorAt(point: Vec2): Stick
+drag = function drag(stick: Stick, point: Vec2, radiusPx: number?, deadZone: number?): Stick
+release = function release(): Vec2
+vectorFor = function vectorFor(offset: Vec2, radiusPx: number, deadZone: number): Vec2
+knobFor = function knobFor(offset: Vec2, radiusPx: number): Vec2
+```
+
+## `roblox.travel-placement`
+
+[Source](../src/roblox/travel-placement.luau)
+
+### `roblox.travel-placement.PlacementHost`
+
+```luau
+export type PlacementHost<Frame, Floor> = {
+	count: number,
+	candidate: (number) -> Frame,
+	clear: (Frame) -> boolean,
+	ground: () -> Floor?,
+	floor: (Frame) -> Floor?,
+	safe: (Floor, Floor) -> boolean,
+	commit: (Frame) -> (),
+}
+```
+
+### `roblox.travel-placement.EntranceHost`
+
+```luau
+export type EntranceHost<Frame, Point, Floor> = {
+	count: number,
+	point: (number) -> Point,
+	clear: (Point) -> boolean,
+	near: (Point) -> Floor?,
+	far: (Point) -> Floor?,
+	safe: (Floor) -> boolean,
+	frame: (Floor) -> Frame,
+}
+```
+
+### `roblox.travel-placement.entrance`
+
+```luau
+function Travel.entrance<Frame, Point, Floor>(host: EntranceHost<Frame, Point, Floor>): Frame?
+```
+
+### `roblox.travel-placement.place`
+
+```luau
+function Travel.place<Frame, Floor>(host: PlacementHost<Frame, Floor>): Frame?
+```
+
+## `test-scene.cast`
+
+[Source](../src/test-scene/cast.luau)
+
+```luau
+local Clock = require("./clock")
+```
+
+```luau
+local Queue = require("../core/cast/queue")
+```
+
+### `test-scene.cast.new`
+
+```luau
+function Scene.new(config: Queue.Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+clock = clock
+law = law
+enqueue = function enqueue(
+		payload: string,
+		requeues: number,
+		reason: string?,
+		remainingSec: number?
+	): Queue.Entry<string>?
+cancel = function(token: number?)
+snapshot = function(): Queue.State<string>
+fired = fired
+```
+
+## `test-scene.clock`
+
+[Source](../src/test-scene/clock.luau)
+
+### `test-scene.clock.Task`
+
+```luau
+export type Task = { due: number, active: boolean, callback: () -> () }
+```
+
+### `test-scene.clock.new`
+
+```luau
+function Clock.new()
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+clock = function(): number
+schedule = function schedule(delay: number, callback: () -> ()): () -> ()
+advance = function advance(seconds: number)
+```
+
+## `test-scene.diminishing`
+
+[Source](../src/test-scene/diminishing.luau)
+
+```luau
+local Clock = require("./clock")
+```
+
+```luau
+local Diminishing = require("../core/control/diminishing")
+```
+
+### `test-scene.diminishing.new`
+
+```luau
+function Scene.new(config: Diminishing.Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+clock = clock
+apply = function(category: string, durationSec: number): Diminishing.Result
+snapshot = function(): Diminishing.State
+```
+
+## `test-scene.effects`
+
+[Source](../src/test-scene/effects.luau)
+
+```luau
+local Clock = require("./clock")
+```
+
+```luau
+local Timed = require("../core/effects/timed")
+```
+
+### `test-scene.effects.Host`
+
+```luau
+export type Host = {
+	clock: () -> number,
+	apply: (string, Timed.Application) -> (),
+	advance: (number) -> (),
+	snapshot: () -> { [string]: Timed.Entry },
+}
+```
+
+### `test-scene.effects.new`
+
+```luau
+function Scene.new(epsilon: number): Host
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+clock = clock.clock
+apply = function apply(id: string, application: Timed.Application)
+advance = function advance(dt: number)
+snapshot = function(): { [string]: Timed.Entry }
+```
+
+## `test-scene.identity`
+
+[Source](../src/test-scene/identity.luau)
+
+```luau
+local Policy = require("../core/identity/policy")
+```
+
+### `test-scene.identity.accountLimit`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.maxLevel`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.minLevel`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.peoples`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.profilePartitionKey`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.realmLimit`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.realms`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.registryKey`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.validDestination`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.validRegistryKey`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+### `test-scene.identity.validateName`
+
+Exported value; see its declaration in [source](../src/test-scene/identity.luau).
+
+## `test-scene.owner`
+
+[Source](../src/test-scene/owner.luau)
+
+```luau
+local Sessions = require("../roblox/profile-sessions")
+```
+
+### `test-scene.owner.new`
+
+```luau
+function Owner.new(): Sessions.Owner
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+own = function own(cleanup: () -> ()): () -> ()
+createChild = function(): Sessions.Owner
+dispose = function()
+size = function(): number
+```
+
+## `test-scene.signal`
+
+[Source](../src/test-scene/signal.luau)
+
+### `test-scene.signal.new`
+
+```luau
+function Signal.new<T>()
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+connect = function(callback: (T) -> ()): () -> ()
+fire = function(value: T)
+count = function(): number
+```
+
+## `test-scene.social`
+
+[Source](../src/test-scene/social.luau)
+
+```luau
+local Fellowship = require("../core/social/fellowship")
+```
+
+```luau
+local Formation = require("../core/social/formation")
+```
+
+```luau
+local Records = require("../roblox/social-records")
+```
+
+```luau
+local Warband = require("../core/social/warband")
+```
+
+### `test-scene.social.Counters`
+
+```luau
+export type Counters = { writes: number, clock: number }
+```
+
+### `test-scene.social.rig`
+
+```luau
+function Social.rig(readback: ((unknown) -> unknown)?): (Records.Service, { [string]: unknown }, Counters)
+```
+
+## `test-scene.threat`
+
+[Source](../src/test-scene/threat.luau)
+
+```luau
+local Clock = require("./clock")
+```
+
+```luau
+local Threat = require("../core/threat/table")
+```
+
+### `test-scene.threat.new`
+
+```luau
+function Scene.new(config: Threat.Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+clock = clock
+add = function(actorId: string, amount: number, inMelee: boolean)
+taunt = function(actorId: string)
+remove = function(actorId: string)
+prune = function(candidates: { [string]: Threat.Candidate }): Threat.Pruned
+reset = function()
+snapshot = function(): Threat.State
+refreshes = function(): number
+```
+
+## `test-scene.vendor`
+
+[Source](../src/test-scene/vendor.luau)
+
+```luau
+local Clock = require("./clock")
+```
+
+```luau
+local Exchange = require("../core/vendors/exchange")
+```
+
+### `test-scene.vendor.new`
+
+```luau
+function Scene.new()
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+law = law
+clock = clock
+vendor = vendor
+prices = prices
+```

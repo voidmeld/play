@@ -15,12 +15,14 @@ type Watch<T> = {
 
 local Module = {}
 
-function Module.create<C, T>(host: {
+export type Host<C, T> = {
 	stamp: (C) -> (string?, number?),
 	listen: (C, (T) -> ()) -> () -> (),
 	marker: (T, () -> ()) -> () -> (),
 	admit: (C, T, string, number) -> boolean,
-})
+}
+
+function Module.create<C, T>(host: Host<C, T>)
 	local watches: { [C]: Watch<T> } = setmetatable({}, { __mode = "k" })
 	local Contacts = {}
 	function Contacts.watch(character: C): () -> ()

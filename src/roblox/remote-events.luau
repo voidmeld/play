@@ -2,13 +2,15 @@
 
 local Events = {}
 
-function Events.transport<Event, Player, Handler, Options>(host: {
+export type Host<Event, Player, Handler, Options> = {
 	register: (string, Handler, Options?) -> () -> (),
 	served: (string) -> number,
 	connect: (Event, (Player, ...unknown) -> ()) -> () -> (),
 	receive: (string, Player, ...unknown) -> (),
 	own: (() -> ()) -> (),
-})
+}
+
+function Events.transport<Event, Player, Handler, Options>(host: Host<Event, Player, Handler, Options>)
 	local dispatchers: { [string]: () -> () } = {}
 	local function serve(name: string, event: Event, handler: Handler, options: Options?): () -> ()
 		local remove = host.register(name, handler, options)
