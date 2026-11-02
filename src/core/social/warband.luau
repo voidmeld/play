@@ -655,6 +655,14 @@ function System.warband(config: Config)
 		return { ok = true, state = state }
 	end
 
+	function Core.read(value: unknown): State?
+		local state = readState(value)
+		if state == nil or Core.project(state) == nil then
+			return nil
+		end
+		return state
+	end
+
 	Core.unitOf = unitOf
 	Core.command = command
 
