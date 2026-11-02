@@ -125,6 +125,17 @@ local function meshCache<K, V>(cache: MeshCache<K, V>, ceiling: number)
 		isInFlight = function(key: K): boolean
 			return inFlight[key] == true
 		end,
+		refusedCount = function(): number
+			local count = 0
+			for _ in refused do
+				count += 1
+			end
+			return count
+		end,
+		reset = function()
+			table.clear(refused)
+			table.clear(inFlight)
+		end,
 	})
 end
 

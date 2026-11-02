@@ -112,7 +112,10 @@ return function(suite: Verify.Harness)
 			expect(joined.isInFlight(1)):toBe(false)
 			joined.refuse(1)
 			expect(joined.isRefused(1)):toBe(true)
+			expect(joined.refusedCount()):toBe(1)
 			expect((pcall(joined.resolve, 1, step, clock))):toBe(false)
+			joined.reset()
+			expect(joined.isRefused(1)):toBe(false)
 			local bounded = Rig.meshCache({
 				peek = function(_key: number): string?
 					return nil
