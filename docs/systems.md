@@ -67,4 +67,5 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [social-records](systems/roblox-social-records.md) | Coordinate ordered durable records, ledgers, inboxes and indexes. |
 | [target-selection](systems/roblox-target-selection.md) | Cycle ordered candidates, select pointer hits and release distant targets. |
 | [thumbstick](systems/roblox-thumbstick.md) | Convert touch displacement into dead-zone movement and a bounded knob. |
+| [trade](systems/roblox-trade.md) | Coordinate revisioned exchange through durable holds, decisions and grants. |
 | [travel-placement](systems/roblox-travel-placement.md) | Find clear, grounded arrival/entrance positions through injected geometry. |

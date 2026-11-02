@@ -150,6 +150,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes. |
 | [target-selection](docs/systems/roblox-target-selection.md) | Cycling, pointer selection and range release. |
 | [thumbstick](docs/systems/roblox-thumbstick.md) | Dead-zone movement and knob displacement. |
+| [trade](docs/systems/roblox-trade.md) | Revisioned two-profile exchange with durable holds, decisions and recovery. |
 | [travel-placement](docs/systems/roblox-travel-placement.md) | Grounded destinations without collisions. |
 
 ## Host-operation contract

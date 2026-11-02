@@ -17,6 +17,7 @@ the game changes; this library change does not claim a completed production cuto
 | `roblox/shared/quests/QuestFramework.luau` | `quest.objectives`, `quest.lifecycle` | Game objective shape/metadata. `ZoneStoreQuest.luau` still combines actor progress with realm admission and content-row lookup (367 lines). |
 | `shared/progression/ProfileProgression.luau` | `progression.levels` | Authored XP curve, level cap, rewards and early-level death policy. `DerivedStats.luau` retains class/equipment formulas (415 lines). |
 | `shared/economy/trade/TradeCore.luau` and `TradeReceipt.luau` | `trade.exchange`, `trade.receipt` | Numeric bounds and durable account wiring. |
+| `roblox/shared/services/TradeService.luau` | `roblox/trade.configure` | Profile projection, transaction ledger, realm/item policy, storage namespace and native remote lifetime. The durable exchange coordinator can be removed from this service. |
 | `shared/economy/mail/MailCore.luau` | `mail.mailbox` | Profile schema, inventory conversion and game limits. |
 
 The already-delegating modules above are game bindings rather than duplicated rule implementations.
@@ -89,3 +90,20 @@ Maintained library specifications additionally exercise a different schema, smal
 caller-defined recovery phases and caller-owned migration. The gate runs these specifications and
 the [standalone fake-host example](../tools/examples/character-leases.luau). These checks establish
 the reusable rule/port contract; they do not establish native deployment or a repinned game build.
+
+## Durable trade cutover
+
+Replace the coordinator in `roblox/shared/services/TradeService.luau` with
+`src/roblox/trade.configure`. Keep its exported game types and `mount` binding. Supply the existing
+`TradeCore`, `TradeReceipt`, `ProfileTransactionCommit` and profile ledger through the typed ports;
+project gold, inventory and pending trade pointers through `account` and `withAccount`.
+Preserve the current profile-copy policy, realm admission, unbound-item checks, numeric bounds,
+receipt keys and transaction identifiers. Bind context lookup to the authoritative profile owner.
+No saved-shape migration is required when these projections and namespaces remain unchanged.
+
+All 15 existing Realms trade service cases were replayed against the extracted coordinator with
+the original game policy, profiles and native mount. They cover durable hold/grant boundaries,
+cross-server admission, uncertain receipt replies, malformed decisions, refunds, disconnect and
+expiry. Keep those consumer cases and the hub/session checks during the actual pin cutover.
+The neutral [library fixture](../src/roblox/trade.verify.luau) independently exercises the generic
+ports. The remaining game service must retain its authentication, remote bus and lifecycle owner.

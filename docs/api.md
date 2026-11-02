@@ -15568,6 +15568,193 @@ vectorFor = function vectorFor(offset: Vec2, radiusPx: number, deadZone: number)
 knobFor = function knobFor(offset: Vec2, radiusPx: number): Vec2
 ```
 
+## `roblox.trade`
+
+[Source](../src/roblox/trade.luau)
+
+```luau
+local Exchange = require("../core/trade/exchange")
+```
+
+```luau
+local ReceiptTypes = require("../core/trade/receipt")
+```
+
+```luau
+local Transfer = require("./profile-transfer")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.trade.Subject`
+
+```luau
+export type Subject = { read UserId: number }
+```
+
+### `roblox.trade.Location`
+
+```luau
+export type Location = { read x: number, read y: number, read z: number }
+```
+
+### `roblox.trade.Context`
+
+```luau
+export type Context = Transfer.Identity
+```
+
+### `roblox.trade.Account`
+
+```luau
+export type Account = {
+	coin: number,
+	inventory: { [string]: number },
+	pending: { [string]: ReceiptTypes.Pointer }?,
+}
+```
+
+### `roblox.trade.State`
+
+```luau
+export type State = Exchange.State & { sessions: { [number]: Context }?, characters: { [number]: string }? }
+```
+
+### `roblox.trade.ReceiptOutcome`
+
+```luau
+export type ReceiptOutcome = { read ok: boolean, read value: unknown, read reason: string? }
+```
+
+### `roblox.trade.Dependencies`
+
+```luau
+export type Dependencies<P, Surface> = {
+	read profiles: Surface,
+	read receipts: {
+		read getOutcome: (string) -> ReceiptOutcome,
+		read updateOutcome: (string, (ReceiptTypes.Projected?) -> ReceiptTypes.Projected?) -> ReceiptOutcome,
+	},
+	read contextFor: (number) -> Context?,
+	read playerFor: (number) -> Subject?,
+	read positionFor: (number) -> Location?,
+	read allowed: (number) -> boolean,
+	read tradeable: (number, P, string, number) -> boolean,
+	read newId: () -> string,
+	read clock: () -> number,
+	read identity: ((Subject) -> unknown)?,
+	read schedule: ((number, () -> ()) -> ())?,
+}
+```
+
+### `roblox.trade.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	reason: string?,
+	pending: boolean?,
+	tradeId: string?,
+	state: State?,
+	outcomes: { [string]: Result }?,
+}
+```
+
+### `roblox.trade.Service`
+
+```luau
+export type Service = {
+	read intent: (Subject, unknown) -> Result,
+	read recover: (string, number?) -> Result,
+	read admit: (number) -> Result,
+	read playerRemoving: (Subject) -> Result,
+	read sweepExpired: () -> number,
+	read state: (string) -> State?,
+	read stateFor: (number) -> State?,
+}
+```
+
+### `roblox.trade.ExchangeOps`
+
+```luau
+export type ExchangeOps = {
+	read offer: (unknown) -> Exchange.Offer?,
+	read empty: (string, number, number) -> Exchange.State?,
+	read step: (Exchange.State, number, unknown) -> (Exchange.State?, string?),
+	read settled: (Exchange.State) -> Exchange.State?,
+}
+```
+
+### `roblox.trade.ReceiptOps`
+
+```luau
+export type ReceiptOps = {
+	read project: (unknown) -> ReceiptTypes.Projected?,
+	read wire: (unknown) -> ReceiptTypes.Wire?,
+}
+```
+
+### `roblox.trade.Effect`
+
+```luau
+export type Effect<P> = (P) -> (P?, string?)
+```
+
+### `roblox.trade.Config`
+
+```luau
+export type Config<P, Surface> = {
+	read exchange: ExchangeOps,
+	read receipts: ReceiptOps,
+	read account: (P) -> Account,
+	read withAccount: (P, Account) -> P,
+	read capacity: (P) -> number,
+	read entries: ({ [string]: number }) -> number,
+	read unboundCount: (P, string) -> number,
+	read related: (P, P) -> boolean,
+	read recorded: (P, string) -> boolean,
+	read profileFor: (Surface, (number) -> Context?, number) -> (P?, Context?),
+	read commit: (Surface, Context, string, Effect<P>) -> Transfer.Result,
+	read receiptKey: (string) -> string,
+	read transactionId: (string, string, number) -> string,
+	read maxCoin: number,
+	read maxUserId: number,
+	read maxStack: number,
+	read maxDistance: number,
+	read idLimit: number,
+	read maxRecoverySlots: number,
+	read maxCompleted: number,
+	read rateWindowSec: number,
+	read rateLimit: number,
+	read tradeTtlSec: number,
+}
+```
+
+### `roblox.trade.Host`
+
+```luau
+export type Host<P, Surface> = {
+	read create: (Dependencies<P, Surface>) -> (Service?, string?),
+	read MAX_DISTANCE: number,
+	read RATE_LIMIT: number,
+	read TRADE_TTL_SEC: number,
+}
+```
+
+### `roblox.trade.configure`
+
+```luau
+function configure<P, Surface>(config: Config<P, Surface>): Host<P, Surface>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function TradeService.create(depsValue: Deps): (Service?, string?)
+```
+
 ## `roblox.travel-placement`
 
 [Source](../src/roblox/travel-placement.luau)

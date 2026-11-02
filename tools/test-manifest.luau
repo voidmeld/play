@@ -102,6 +102,7 @@ return table.freeze {
 	"src/roblox/social-host.verify.luau",
 	"src/roblox/social-records.verify.luau",
 	"src/roblox/target-selection.verify.luau",
+	"src/roblox/trade.verify.luau",
 	"src/roblox/travel-placement.verify.luau",
 	"tools/lib/api-reference.verify.luau",
 }
