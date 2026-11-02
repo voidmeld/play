@@ -13947,6 +13947,146 @@ commitRewardTransaction = function commitRewardTransaction(
 	): boolean
 ```
 
+## `roblox.mail`
+
+[Source](../src/roblox/mail.luau)
+
+```luau
+local Mail = require("../core/mail/mailbox")
+```
+
+```luau
+local Transfer = require("./profile-transfer")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.mail.Context`
+
+```luau
+export type Context = Transfer.Identity
+```
+
+### `roblox.mail.Envelope`
+
+```luau
+export type Envelope = Mail.Envelope
+```
+
+### `roblox.mail.Pointer`
+
+```luau
+export type Pointer = Mail.Pointer
+```
+
+### `roblox.mail.Result`
+
+```luau
+export type Result = {
+	ok: boolean,
+	reason: string?,
+	pending: boolean?,
+	envelope: Envelope?,
+	outcomes: { [string]: Result }?,
+}
+```
+
+### `roblox.mail.Outcome`
+
+```luau
+export type Outcome = { read ok: boolean, read value: unknown, read reason: string? }
+```
+
+### `roblox.mail.Effect`
+
+```luau
+export type Effect<P> = (P) -> (P?, string?)
+```
+
+### `roblox.mail.Dependencies`
+
+```luau
+export type Dependencies<P, Surface> = {
+	profiles: Surface,
+	envelopes: {
+		read getOutcome: (string) -> Outcome,
+		read updateOutcome: (string, (Envelope?) -> Envelope?) -> Outcome,
+	},
+	contextFor: (number) -> Context?,
+	identity: ((unknown) -> unknown)?,
+	resolveRecipient: (number, unknown, number) -> unknown,
+	tradeable: (number, P, string, number) -> boolean,
+	allowed: (number, number) -> boolean,
+	reserveInbox: (number, string, Envelope) -> (boolean, string?),
+	releaseInbox: (number, string, Envelope) -> boolean,
+	releaseRecipientInbox: ((number, string, Envelope) -> boolean)?,
+	clock: () -> number,
+	ttlSec: number,
+	requireSessions: boolean?,
+}
+```
+
+### `roblox.mail.Service`
+
+```luau
+export type Service = {
+	read send: (unknown, unknown) -> Result,
+	read claim: (unknown, string) -> Result,
+	read returnMail: (unknown, string) -> Result,
+	read expire: (string) -> Result,
+	read recover: (string, number?, Context?) -> Result,
+	read admit: (number) -> Result,
+	read status: (unknown, string) -> Result,
+}
+```
+
+### `roblox.mail.Config`
+
+```luau
+export type Config<P, Surface> = {
+	read identity: (unknown) -> unknown,
+	read core: Mail.Mailbox<P>,
+	read profileFor: (Surface, (number) -> Context?, number) -> (P?, Context?),
+	read commit: (Surface, Context, string, Effect<P>) -> Transfer.Result,
+	read update: (Surface, Context, (P) -> P) -> (),
+	read characterId: (P) -> string?,
+	read pointers: (P) -> { [string]: Pointer }?,
+	read withPointers: (P, { [string]: Pointer }) -> P,
+	read envelopeKey: (string) -> string,
+	read transactionId: (string, string) -> string,
+	read senderId: (string) -> number?,
+	read maxUserId: number,
+	read maxPointers: number,
+	read maxTtlSec: number,
+	read idLimit: number,
+	read rateWindowSec: number,
+	read rateLimit: number,
+}
+```
+
+### `roblox.mail.Host`
+
+```luau
+export type Host<P, Surface> = {
+	read create: (Dependencies<P, Surface>?) -> (Service?, string?),
+	read RATE_LIMIT: number,
+}
+```
+
+### `roblox.mail.configure`
+
+```luau
+function configure<P, Surface>(config: Config<P, Surface>): Host<P, Surface>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function MailService.create(depsValue: Deps?): (Service?, string?)
+```
+
 ## `roblox.messaging`
 
 [Source](../src/roblox/messaging.luau)

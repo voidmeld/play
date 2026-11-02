@@ -19,6 +19,7 @@ the game changes; this library change does not claim a completed production cuto
 | `shared/economy/trade/TradeCore.luau` and `TradeReceipt.luau` | `trade.exchange`, `trade.receipt` | Numeric bounds and durable account wiring. |
 | `roblox/shared/services/TradeService.luau` | `roblox/trade.configure` | Profile projection, transaction ledger, realm/item policy, storage namespace and native remote lifetime. The durable exchange coordinator can be removed from this service. |
 | `shared/economy/mail/MailCore.luau` | `mail.mailbox` | Profile schema, inventory conversion and game limits. |
+| `roblox/shared/services/MailService.luau` | `roblox/mail.configure` | Native identity decoding, recipient resolution, storage scope, profile/pointer projection and limits. The durable delivery coordinator can be removed. |
 
 The already-delegating modules above are game bindings rather than duplicated rule implementations.
 The character lease block is the largest self-contained remaining extraction selected in this pass:
@@ -107,3 +108,16 @@ cross-server admission, uncertain receipt replies, malformed decisions, refunds,
 expiry. Keep those consumer cases and the hub/session checks during the actual pin cutover.
 The neutral [library fixture](../src/roblox/trade.verify.luau) independently exercises the generic
 ports. The remaining game service must retain its authentication, remote bus and lifecycle owner.
+
+## Durable mail cutover
+
+Replace `roblox/shared/services/MailService.luau` with a configured `src/roblox/mail` binding.
+Retain `MailCore` policy and its account conversion, the exact transaction/envelope namespaces,
+profile copy and pointer projections, native player decoding, recipient resolution and inbox scope.
+Supply the existing profile transaction commit and update operations. Preserve session fencing
+selection and current TTL/rate/pointer limits. Mail transport and hub projections remain game-owned.
+
+All 12 existing Realms mail service cases pass through the extracted coordinator with the original
+profile, mailbox and transaction policy. Neutral maintained fixtures cover uncertainty, replay,
+interrupted delivery admission, character replacement and returns. Keep the consumer service,
+transport, hub and profile-session cases for the actual repin cutover.

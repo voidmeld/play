@@ -90,6 +90,7 @@ return table.freeze {
 	"src/roblox/input-contexts.verify.luau",
 	"src/roblox/input-profile.verify.luau",
 	"src/roblox/inventory.verify.luau",
+	"src/roblox/mail.verify.luau",
 	"src/roblox/messaging.verify.luau",
 	"src/roblox/movement-intake.verify.luau",
 	"src/roblox/movement-sender.verify.luau",
