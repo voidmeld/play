@@ -905,6 +905,10 @@ invalid action identities and metatables. Use `copy(state)` for an already typed
 
 ### `roblox.movement-intake.start`
 
+## [`src/roblox/movement-sender.luau`](../src/roblox/movement-sender.luau)
+
+### `roblox.movement-sender.start`
+
 ## [`src/roblox/profile-sessions.luau`](../src/roblox/profile-sessions.luau)
 
 ### `roblox.profile-sessions.new`

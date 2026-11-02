@@ -158,6 +158,7 @@ The game installs the returned state.
 | [profile-sessions](../src/roblox/profile-sessions.luau) | Lease admission, saves, renewal, close, drain, and disposal. |
 | [profile-transfer](../src/roblox/profile-transfer.luau) | Session identity, profile reads, settled writes, and per-key exclusion for profile transfers. |
 | [movement-intake](../src/roblox/movement-intake.luau) | Port-injected movement intake: epochs, sequence acknowledgements, step and sustained speed caps, and revocation on invalid input. |
+| [movement-sender](../src/roblox/movement-sender.luau) | Port-injected client movement sender: handshake, epoch echo, acknowledgement ledger, resend cadence, pending reclaim and fail-closed revocation. |
 | [data-store](../src/roblox/data-store.luau) | Operation retries, delays, and jitter. |
 | [remote-events](../src/roblox/remote-events.luau) | Shared channel dispatchers and handler release. |
 | [chat](../src/roblox/chat.luau) | Native channel membership and platform privacy. |

@@ -87,6 +87,7 @@ return table.freeze {
 	"src/roblox/input-profile.verify.luau",
 	"src/roblox/messaging.verify.luau",
 	"src/roblox/movement-intake.verify.luau",
+	"src/roblox/movement-sender.verify.luau",
 	"src/roblox/npc-motion.verify.luau",
 	"src/roblox/party.verify.luau",
 	"src/roblox/profile-sessions.verify.luau",
