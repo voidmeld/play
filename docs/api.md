@@ -1609,6 +1609,289 @@ equalStored = function Aggregate.equalStored(leftRaw: unknown, rightRaw: unknown
 empty = function Aggregate.empty(userId: unknown): State?
 ```
 
+## `core.identity.character-lease-store`
+
+[Source](../src/core/identity/character-lease-store.luau)
+
+```luau
+local CharacterLease = require("./character-lease")
+```
+
+```luau
+local StoreHost = require("../persistence/store-host")
+```
+
+```luau
+local Value = require("../internal/value")
+```
+
+### `core.identity.character-lease-store.StoreOutcome`
+
+```luau
+export type StoreOutcome = StoreHost.Outcome
+```
+
+### `core.identity.character-lease-store.Store`
+
+```luau
+export type Store = { updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+```
+
+### `core.identity.character-lease-store.Accepted`
+
+```luau
+export type Accepted = { ok: true, value: Lease, reason: string?, takeoverPrior: Lease? }
+```
+
+### `core.identity.character-lease-store.Refused`
+
+```luau
+export type Refused = { ok: false, value: nil, reason: string, takeoverPrior: Lease? }
+```
+
+### `core.identity.character-lease-store.Outcome`
+
+```luau
+export type Outcome = Accepted | Refused
+```
+
+### `core.identity.character-lease-store.Config`
+
+```luau
+export type Config = {
+	read record: CharacterLease.API,
+	read identityLimit: number,
+	read zoneIdLimit: number,
+}
+```
+
+### `core.identity.character-lease-store.API`
+
+```luau
+export type API = {
+	read acquire: (
+		store: Store,
+		keyForCharacter: (string) -> string,
+		characterId: string,
+		sessionId: string,
+		acquisitionId: string,
+		now: number,
+		ttl: number,
+		sessionLive: ((string) -> boolean)?,
+		lapsedLive: ((string) -> boolean)?,
+		zoneId: string?
+	) -> Outcome,
+	read renew: (
+		store: Store,
+		keyForCharacter: (string) -> string,
+		characterId: string,
+		sessionId: string,
+		acquisitionId: string,
+		expectedRevision: number,
+		now: number,
+		ttl: number
+	) -> Outcome,
+	read release: (
+		store: Store,
+		keyForCharacter: (string) -> string,
+		characterId: string,
+		sessionId: string,
+		acquisitionId: string,
+		expectedRevision: number
+	) -> Outcome,
+	read retire: (store: Store, keyForCharacter: (string) -> string, rawWitness: unknown) -> Outcome,
+	read restore: (store: Store, keyForCharacter: (string) -> string, rawWitness: unknown) -> Outcome,
+	read arrive: (store: Store, keyForCharacter: (string) -> string, rawClaim: unknown) -> Outcome,
+}
+```
+
+### `core.identity.character-lease-store.create`
+
+```luau
+function create(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+acquire = function Repository.acquire(
+		store: Store,
+		keyForCharacter: (string) -> string,
+		characterId: string,
+		sessionId: string,
+		acquisitionId: string,
+		now: number,
+		ttl: number,
+		sessionLive: ((string) -> boolean)?,
+		lapsedLive: ((string) -> boolean)?,
+		zoneId: string?
+	): Outcome
+renew = function Repository.renew(
+		store: Store,
+		keyForCharacter: (string) -> string,
+		characterId: string,
+		sessionId: string,
+		acquisitionId: string,
+		expectedRevision: number,
+		now: number,
+		ttl: number
+	): Outcome
+release = function Repository.release(
+		store: Store,
+		keyForCharacter: (string) -> string,
+		characterId: string,
+		sessionId: string,
+		acquisitionId: string,
+		expectedRevision: number
+	): Outcome
+retire = function Repository.retire(store: Store, keyForCharacter: (string) -> string, rawWitness: unknown): Outcome
+restore = function Repository.restore(store: Store, keyForCharacter: (string) -> string, rawWitness: unknown): Outcome
+arrive = function Repository.arrive(store: Store, keyForCharacter: (string) -> string, rawClaim: unknown): Outcome
+```
+
+## `core.identity.character-lease`
+
+[Source](../src/core/identity/character-lease.luau)
+
+```luau
+local Shape = require("../internal/shape")
+```
+
+```luau
+local Value = require("../internal/value")
+```
+
+### `core.identity.character-lease.Record`
+
+```luau
+export type Record = CharacterLeaseRecord
+```
+
+### `core.identity.character-lease.Retirement`
+
+```luau
+export type Retirement = {
+	operationId: string,
+	fingerprint: string,
+	fence: number,
+	retiredAtUnix: number,
+}
+```
+
+### `core.identity.character-lease.Arrival`
+
+```luau
+export type Arrival = {
+	sessionId: string,
+	acquisitionId: string,
+	fence: number,
+	arrivedAtUnix: number,
+}
+```
+
+### `core.identity.character-lease.CharacterLeaseRecord`
+
+```luau
+export type CharacterLeaseRecord = {
+	schemaVersion: number,
+	revision: number,
+	characterId: string,
+	zoneId: string?,
+	sessionId: string?,
+	acquisitionId: string?,
+	expiresAt: number,
+	retirement: Retirement | false,
+	arrival: Arrival | false,
+}
+```
+
+### `core.identity.character-lease.Witness`
+
+```luau
+export type Witness = {
+	characterId: string,
+	operationId: string,
+	fingerprint: string,
+	fence: number,
+	atUnix: number,
+}
+```
+
+### `core.identity.character-lease.Claim`
+
+```luau
+export type Claim = {
+	characterId: string,
+	sessionId: string,
+	acquisitionId: string,
+	revision: number,
+	fence: number,
+	atUnix: number,
+}
+```
+
+### `core.identity.character-lease.Config`
+
+```luau
+export type Config = {
+	read schemaVersion: number,
+	read maxRevision: number,
+	read maxTime: number,
+	read maxFence: number,
+	read characterIdLimit: number,
+	read zoneIdLimit: number,
+	read sessionIdLimit: number,
+	read acquisitionIdLimit: number,
+	read operationIdLimit: number,
+	read fingerprintLimit: number,
+	read migrate: (unknown) -> unknown,
+}
+```
+
+### `core.identity.character-lease.API`
+
+```luau
+export type API = {
+	read SCHEMA_VERSION: number,
+	read MAX_REVISION: number,
+	read MAX_TIME: number,
+	read MAX_FENCE: number,
+	read retirementOf: (record: CharacterLeaseRecord) -> Retirement?,
+	read arrivalOf: (record: CharacterLeaseRecord) -> Arrival?,
+	read copy: (stored: unknown) -> (CharacterLeaseRecord?, string?),
+	read create: (characterId: string) -> (CharacterLeaseRecord?, string?),
+	read equal: (left: unknown, right: unknown) -> boolean,
+	read witness: (raw: unknown) -> (Witness?, string?),
+	read claim: (raw: unknown) -> (Claim?, string?),
+	read retire: (raw: unknown, rawWitness: unknown) -> (CharacterLeaseRecord?, string),
+	read restore: (raw: unknown, rawWitness: unknown) -> (CharacterLeaseRecord?, string),
+	read arrive: (raw: unknown, rawClaim: unknown) -> (CharacterLeaseRecord?, string),
+	read retired: (raw: unknown) -> boolean,
+}
+```
+
+### `core.identity.character-lease.create`
+
+```luau
+function create(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+retirementOf = function Record.retirementOf(record: CharacterLeaseRecord): Retirement?
+arrivalOf = function Record.arrivalOf(record: CharacterLeaseRecord): Arrival?
+copy = function Record.copy(stored: unknown): (CharacterLeaseRecord?, string?)
+create = function Record.create(characterId: string): (CharacterLeaseRecord?, string?)
+equal = function Record.equal(left: unknown, right: unknown): boolean
+witness = function Record.witness(raw: unknown): (Witness?, string?)
+claim = function Record.claim(raw: unknown): (Claim?, string?)
+retire = function Record.retire(raw: unknown, rawWitness: unknown): (CharacterLeaseRecord?, string)
+restore = function Record.restore(raw: unknown, rawWitness: unknown): (CharacterLeaseRecord?, string)
+arrive = function Record.arrive(raw: unknown, rawClaim: unknown): (CharacterLeaseRecord?, string)
+retired = function Record.retired(raw: unknown): boolean
+```
+
 ## `core.identity.creation-record`
 
 [Source](../src/core/identity/creation-record.luau)
@@ -2102,6 +2385,84 @@ export type Policy = {
 }
 ```
 
+## `core.identity.retirement`
+
+[Source](../src/core/identity/retirement.luau)
+
+```luau
+local Shape = require("../internal/shape")
+```
+
+```luau
+local Value = require("../internal/value")
+```
+
+### `core.identity.retirement.Deletion`
+
+```luau
+export type Deletion = { characterId: string, phase: string, fence: number }
+```
+
+### `core.identity.retirement.Retirement`
+
+```luau
+export type Retirement = { operationId: string, fingerprint: string, fence: number }
+```
+
+### `core.identity.retirement.View`
+
+```luau
+export type View = {
+	characterId: string,
+	rosterHolds: boolean,
+	deletion: Deletion | false,
+	retirement: Retirement | false,
+}
+```
+
+### `core.identity.retirement.Decision`
+
+```luau
+export type Decision = { action: string, reason: string }
+```
+
+### `core.identity.retirement.Config`
+
+```luau
+export type Config = {
+	read maxFence: number,
+	read characterIdLimit: number,
+	read operationIdLimit: number,
+	read fingerprintLimit: number,
+	read phaseLimit: number,
+	read retiringPhases: { [string]: boolean },
+	read restoringPhases: { [string]: boolean },
+}
+```
+
+### `core.identity.retirement.API`
+
+```luau
+export type API = {
+	read MAX_FENCE: number,
+	read view: (raw: unknown) -> (View?, string?),
+	read decide: (raw: unknown) -> Decision,
+}
+```
+
+### `core.identity.retirement.create`
+
+```luau
+function create(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+view = function Plan.view(raw: unknown): (View?, string?)
+decide = function Plan.decide(raw: unknown): Decision
+```
+
 ## `core.identity.roster`
 
 [Source](../src/core/identity/roster.luau)
@@ -2198,6 +2559,14 @@ local AccountLease = require("./identity/account-lease")
 ```
 
 ```luau
+local CharacterLease = require("./identity/character-lease")
+```
+
+```luau
+local CharacterLeaseStore = require("./identity/character-lease-store")
+```
+
+```luau
 local Creation = require("./identity/creation")
 ```
 
@@ -2219,6 +2588,10 @@ local NameRecord = require("./identity/name-record")
 
 ```luau
 local Policy = require("./identity/policy")
+```
+
+```luau
+local Retirement = require("./identity/retirement")
 ```
 
 ```luau
@@ -2259,6 +2632,96 @@ export type AccountAccount<E> = Account.Account<E>
 
 ```luau
 export type AccountExtension<E> = Account.Extension<E>
+```
+
+### `core.identity.CharacterLeaseStoreStoreOutcome`
+
+```luau
+export type CharacterLeaseStoreStoreOutcome = CharacterLeaseStore.StoreOutcome
+```
+
+### `core.identity.CharacterLeaseStoreStore`
+
+```luau
+export type CharacterLeaseStoreStore = CharacterLeaseStore.Store
+```
+
+### `core.identity.CharacterLeaseStoreAccepted`
+
+```luau
+export type CharacterLeaseStoreAccepted = CharacterLeaseStore.Accepted
+```
+
+### `core.identity.CharacterLeaseStoreRefused`
+
+```luau
+export type CharacterLeaseStoreRefused = CharacterLeaseStore.Refused
+```
+
+### `core.identity.CharacterLeaseStoreOutcome`
+
+```luau
+export type CharacterLeaseStoreOutcome = CharacterLeaseStore.Outcome
+```
+
+### `core.identity.CharacterLeaseStoreConfig`
+
+```luau
+export type CharacterLeaseStoreConfig = CharacterLeaseStore.Config
+```
+
+### `core.identity.CharacterLeaseStoreAPI`
+
+```luau
+export type CharacterLeaseStoreAPI = CharacterLeaseStore.API
+```
+
+### `core.identity.CharacterLeaseRecord`
+
+```luau
+export type CharacterLeaseRecord = CharacterLease.Record
+```
+
+### `core.identity.CharacterLeaseRetirement`
+
+```luau
+export type CharacterLeaseRetirement = CharacterLease.Retirement
+```
+
+### `core.identity.CharacterLeaseArrival`
+
+```luau
+export type CharacterLeaseArrival = CharacterLease.Arrival
+```
+
+### `core.identity.CharacterLeaseCharacterLeaseRecord`
+
+```luau
+export type CharacterLeaseCharacterLeaseRecord = CharacterLease.CharacterLeaseRecord
+```
+
+### `core.identity.CharacterLeaseWitness`
+
+```luau
+export type CharacterLeaseWitness = CharacterLease.Witness
+```
+
+### `core.identity.CharacterLeaseClaim`
+
+```luau
+export type CharacterLeaseClaim = CharacterLease.Claim
+```
+
+### `core.identity.CharacterLeaseConfig`
+
+```luau
+export type CharacterLeaseConfig = CharacterLease.Config
+```
+
+### `core.identity.CharacterLeaseAPI`
+
+```luau
+export type CharacterLeaseAPI = CharacterLease.API
 ```
 
 ### `core.identity.CreationRecordSeed`
@@ -2411,6 +2874,42 @@ export type NameRecordClaim = NameRecord.Claim
 export type PolicyPolicy = Policy.Policy
 ```
 
+### `core.identity.RetirementDeletion`
+
+```luau
+export type RetirementDeletion = Retirement.Deletion
+```
+
+### `core.identity.RetirementRetirement`
+
+```luau
+export type RetirementRetirement = Retirement.Retirement
+```
+
+### `core.identity.RetirementView`
+
+```luau
+export type RetirementView = Retirement.View
+```
+
+### `core.identity.RetirementDecision`
+
+```luau
+export type RetirementDecision = Retirement.Decision
+```
+
+### `core.identity.RetirementConfig`
+
+```luau
+export type RetirementConfig = Retirement.Config
+```
+
+### `core.identity.RetirementAPI`
+
+```luau
+export type RetirementAPI = Retirement.API
+```
+
 ### `core.identity.RosterCharacterIdentity`
 
 ```luau
@@ -2429,12 +2928,15 @@ export type RosterRoster = Roster.Roster
 export type API = {
 	read account_lease: typeof(AccountLease),
 	read account: typeof(Account),
+	read character_lease_store: typeof(CharacterLeaseStore),
+	read character_lease: typeof(CharacterLease),
 	read creation_record: typeof(CreationRecord),
 	read creation: typeof(Creation),
 	read deletion: typeof(Deletion),
 	read name_claims: typeof(NameClaims),
 	read name_record: typeof(NameRecord),
 	read policy: typeof(Policy),
+	read retirement: typeof(Retirement),
 	read roster: typeof(Roster),
 }
 ```
@@ -2444,6 +2946,14 @@ export type API = {
 Exported value; see its declaration in [source](../src/core/identity.luau).
 
 ### `core.identity.account_lease`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.character_lease`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.character_lease_store`
 
 Exported value; see its declaration in [source](../src/core/identity.luau).
 
@@ -2468,6 +2978,10 @@ Exported value; see its declaration in [source](../src/core/identity.luau).
 Exported value; see its declaration in [source](../src/core/identity.luau).
 
 ### `core.identity.policy`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.retirement`
 
 Exported value; see its declaration in [source](../src/core/identity.luau).
 
@@ -15042,6 +15556,58 @@ enqueue = function enqueue(
 cancel = function(token: number?)
 snapshot = function(): Queue.State<string>
 fired = fired
+```
+
+## `test-scene.character-leases`
+
+[Source](../src/test-scene/character-leases.luau)
+
+```luau
+local Clock = require("./clock")
+```
+
+```luau
+local Lease = require("../core/identity/character-lease")
+```
+
+```luau
+local Leases = require("../core/identity/character-lease-store")
+```
+
+```luau
+local Retry = require("../roblox/data-store")
+```
+
+```luau
+local StoreHost = require("../core/persistence/store-host")
+```
+
+### `test-scene.character-leases.Config`
+
+```luau
+export type Config = Lease.Config
+```
+
+### `test-scene.character-leases.Options`
+
+```luau
+export type Options = StoreHost.TestOptions
+```
+
+### `test-scene.character-leases.new`
+
+```luau
+function new(config: Config, options: Options?)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+record = record
+repository = repository
+store = store
+clock = clock
+writes = function(): number
 ```
 
 ## `test-scene.clock`

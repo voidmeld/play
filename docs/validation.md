@@ -22,7 +22,7 @@ The fast gate excludes the war benchmark and the clean clone check.
 The `game-canon` producer checks runtime modules, specifications and fake hosts for adopter-specific
 world, faction, class and group identities. Use neutral fixture identifiers; keep game examples in the adopter.
 
-The `examples` producer runs the standalone threat, input-binding and thumbstick examples:
+The `examples` producer runs the standalone threat, input-binding, thumbstick and character-lease examples:
 
 ```sh
 lute run tools/run-examples.luau
