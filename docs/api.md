@@ -1,5 +1,22 @@
 # Public API
 
+## [`src/core/identity/account.luau`](../src/core/identity/account.luau)
+
+### `core.identity.account.create`
+
+Creates an account aggregate from identity `Policy` and `Extension<E>`. `Base` owns roster,
+creation and deletion state, pending profiles, committed profiles and matching receipts.
+`Account<E>` adds game-owned fields without changing their saved shape. The extension lists its
+optional field names and projects validated base state plus raw extension fields into a complete
+account. Every transition carries the current extension through that projector; clearing a deletion
+terminal also supplies its validated deletion state. Games own extension validation and policy.
+
+The aggregate validates detached immutable snapshots, exact fields, account identity, seed/receipt
+correspondence, transaction revisions and exclusion between creation and deletion. It exposes
+creation/deletion transitions, terminal clearing, character removal, card updates, receipt queries,
+stored validation and equality. Identity catalogs, storage operations and extension policy stay
+with the caller.
+
 ## [`src/core/threat/contribution.luau`](../src/core/threat/contribution.luau)
 
 ### `core.threat.contribution.create`

@@ -12,6 +12,7 @@ return table.freeze {
 	"src/core/events/schedule.verify.luau",
 	"src/core/events/watch.verify.luau",
 	"src/core/identity/account-lease.verify.luau",
+	"src/core/identity/account.verify.luau",
 	"src/core/identity/creation.verify.luau",
 	"src/core/identity/deletion.verify.luau",
 	"src/core/identity/name-claims.verify.luau",
