@@ -19786,10 +19786,6 @@ fired = fired
 [Source](../src/test-scene/character-leases.luau)
 
 ```luau
-local AtomicStore = require("../roblox/persistence/store")
-```
-
-```luau
 local Clock = require("./clock")
 ```
 
@@ -19802,11 +19798,7 @@ local Leases = require("../core/identity/character-lease-store")
 ```
 
 ```luau
-local Retry = require("../roblox/data-store")
-```
-
-```luau
-local StoreHost = require("../core/persistence/store-host")
+local StoreScene = require("./persistence/store")
 ```
 
 ### `test-scene.character-leases.Config`
@@ -19818,7 +19810,7 @@ export type Config = Lease.Config
 ### `test-scene.character-leases.Options`
 
 ```luau
-export type Options = StoreHost.TestOptions
+export type Options = StoreScene.Options
 ```
 
 ### `test-scene.character-leases.new`
@@ -19832,10 +19824,10 @@ Returned operations and values (declarations; unannotated results are inferred):
 ```luau
 record = record
 repository = repository
-store = AtomicStore.new(store)
-seed = store.set
+store = storage.store
+seed = storage.seed
 clock = clock
-writes = function(): number
+writes = storage.writes
 ```
 
 ## `test-scene.clock`
@@ -19999,6 +19991,58 @@ own = function own(cleanup: () -> ()): () -> ()
 createChild = function(): Sessions.Owner
 dispose = function()
 size = function(): number
+```
+
+## `test-scene.persistence.store`
+
+[Source](../src/test-scene/persistence/store.luau)
+
+```luau
+local Atomic = require("../../roblox/persistence/store")
+```
+
+```luau
+local Host = require("../../core/persistence/store-host")
+```
+
+```luau
+local Kernel = require("../../kernel/store")
+```
+
+```luau
+local Retry = require("../../roblox/data-store")
+```
+
+### `test-scene.persistence.store.Options`
+
+```luau
+export type Options = Host.TestOptions
+```
+
+### `test-scene.persistence.store.Scene`
+
+```luau
+export type Scene = { read store: Kernel.Port, read seed: (string, unknown) -> (), read writes: () -> number }
+```
+
+### `test-scene.persistence.store.API`
+
+```luau
+export type API = { read new: typeof(new) }
+```
+
+### `test-scene.persistence.store.new`
+
+```luau
+function new(clock: () -> number, options: Options?): Scene
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+store = Atomic.new(backend)
+seed = backend.set
+writes = function(): number
 ```
 
 ## `test-scene.signal`
