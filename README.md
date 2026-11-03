@@ -133,6 +133,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [data-store](docs/systems/roblox-data-store.md) | Storage retries, delays and jitter. |
 | [equipment-queue](docs/systems/roblox-equipment-queue.md) | Serial per-owner application and fencing. |
 | [equipment-rig](docs/systems/roblox-equipment-rig.md) | Construction ownership, mesh joins and slot settlement. |
+| [guild-bank](docs/systems/roblox-guild-bank.md) | Durable guild stock deposits, receipt claims, acknowledgment and recovery. |
 | [input-bindings](docs/systems/roblox-input-bindings.md) | Keyboard/gamepad bindings, labels and chords. |
 | [input-contexts](docs/systems/roblox-input-contexts.md) | Deadline-bound readiness and template adoption. |
 | [input-profile](docs/systems/roblox-input-profile.md) | Device coverage and rollback-safe binding sessions. |

@@ -13826,6 +13826,169 @@ refusedCount = function(): number
 reset = function()
 ```
 
+## `roblox.guild-bank`
+
+[Source](../src/roblox/guild-bank.luau)
+
+```luau
+local BankTypes = require("../core/social/guildbank")
+```
+
+```luau
+local LedgerTypes = require("../core/social/guildledger")
+```
+
+```luau
+local Records = require("./social-records")
+```
+
+```luau
+local Transfer = require("./profile-transfer")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.guild-bank.Bank`
+
+```luau
+export type Bank = Records.Ledger<string, BankTypes.State, BankTypes.Receipt>
+```
+
+### `roblox.guild-bank.BankResult`
+
+```luau
+export type BankResult = Records.Settled<BankTypes.State, BankTypes.Receipt>
+```
+
+### `roblox.guild-bank.Material`
+
+```luau
+export type Material = { read id: string, read label: string }
+```
+
+### `roblox.guild-bank.MaterialRow`
+
+```luau
+export type MaterialRow = { read materialId: string, read label: string, read held: number, read stock: number }
+```
+
+### `roblox.guild-bank.LogRow`
+
+```luau
+export type LogRow = { read kind: string, read actorId: number, read materialId: string, read count: number }
+```
+
+### `roblox.guild-bank.Projection`
+
+```luau
+export type Projection = {
+	read available: boolean,
+	read role: "member" | "steward",
+	read dailyLimit: number,
+	read materials: { MaterialRow },
+	read log: { LogRow },
+}
+```
+
+### `roblox.guild-bank.ProfileAccess`
+
+```luau
+export type ProfileAccess<P> = { read read: () -> P?, read update: ((P) -> P) -> (), read save: () -> boolean }
+```
+
+### `roblox.guild-bank.Membership`
+
+```luau
+export type Membership = { fellowshipId: string, role: "member" | "steward", memberIds: { number } }
+```
+
+### `roblox.guild-bank.Dependencies`
+
+```luau
+export type Dependencies<P> = {
+	bank: Bank,
+	materials: { Material },
+	profileFor: (number) -> ProfileAccess<P>?,
+	membershipFor: (number, boolean) -> (Membership?, string?),
+	clock: () -> number,
+	newOpId: () -> string,
+}
+```
+
+### `roblox.guild-bank.Outcome`
+
+```luau
+export type Outcome = { ok: boolean, reason: string?, pending: boolean }
+```
+
+### `roblox.guild-bank.Handle`
+
+```luau
+export type Handle = {
+	read join: (number) -> Outcome,
+	read deposit: (number, unknown, unknown) -> Outcome,
+	read withdraw: (number, unknown, unknown) -> Outcome,
+	read projection: (number) -> Projection | false,
+	read refresh: (number) -> Outcome,
+	read forget: (number) -> (),
+}
+```
+
+### `roblox.guild-bank.ProfileLedger`
+
+```luau
+export type ProfileLedger<P> = {
+	read projectLedger: (unknown) -> LedgerTypes.Ledger?,
+	read beginDeposit: (P, string, string, string, number, number, LedgerTypes.Limits) -> (P?, string?),
+	read settle: (P, string) -> (P?, string?),
+	read refund: (P, string, LedgerTypes.Limits) -> (P?, string?),
+	read claim: (P, unknown, number, string, LedgerTypes.Limits) -> (P?, string?),
+	read acked: (P, { string }) -> (P?, string?),
+	read claimed: (P, string) -> boolean,
+	read canWithdraw: (P) -> boolean,
+}
+```
+
+### `roblox.guild-bank.Config`
+
+```luau
+export type Config<P> = {
+	read ledger: ProfileLedger<P>,
+	read copy: (P) -> P,
+	read profileLedger: (P) -> unknown,
+	read inventory: (P) -> { [string]: number },
+	read capacity: (P?) -> number,
+	read receiptsFor: (unknown, unknown) -> { BankTypes.Receipt }?,
+	read maxItemCount: number,
+	read maxMove: number,
+	read joinRetrySec: number,
+	read healRetentionSec: number,
+	read receiptTtlSec: number,
+	read memberDailyWithdrawal: number,
+	read logRows: number,
+}
+```
+
+### `roblox.guild-bank.API`
+
+```luau
+export type API<P> = { read mount: (Dependencies<P>) -> (Handle?, string?) }
+```
+
+### `roblox.guild-bank.configure`
+
+```luau
+function configure<P>(config: Config<P>): API<P>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+mount = function GuildBankService.mount(deps: Dependencies<P>): (Handle?, string?)
+```
+
 ## `roblox.input-bindings`
 
 [Source](../src/roblox/input-bindings.luau)
