@@ -1,6 +1,6 @@
 --!strict
 local Run = require("./run")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 type Raw = { [unknown]: unknown }
 type RunState = Run.RunState
 type RunMember = Run.Member

@@ -2,7 +2,7 @@
 
 local Book = require("../core/market/book")
 local Records = require("./social-records")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 local Wallet = require("../core/market/wallet")
 
 export type BookResult = Records.Settled<Book.State, Book.Receipt>

@@ -40,8 +40,9 @@ lute run tools/generate-api.luau --write
 `lute run tools/generate-api.luau` checks freshness without writing. The `api-reference`
 gate producer runs this check. Core system entries are `src/core/<system>.luau`, with an
 exported `API` type and component-prefixed aliases for their exported types. Existing
-component imports remain compatible. Helpers live under `src/core/internal`; the old
-value/shape paths forward to their implementations for existing adopters.
+component imports remain compatible. Domain helpers live under `src/core/internal`;
+shared value operations live only at `src/kernel/value`. Kernel boundary checks reject
+imports from domain, native host, client and test-scene layers.
 
 For a focused check, select a producer:
 

@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 
 local MovementIntake = {}
 

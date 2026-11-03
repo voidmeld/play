@@ -3,7 +3,7 @@ local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Host = require("./character-admission")
 local LeaseStores = require("../core/identity/character-lease-store")
 local Routing = require("../core/identity/routing")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 type Profile = { account: number, subject: string, generation: number, identity: string }

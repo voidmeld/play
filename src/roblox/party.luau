@@ -1,6 +1,6 @@
 --!strict
 local Membership = require("../core/social/membership")
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 type CoreMember = Membership.Member
 type CoreInvite = Membership.Invite
 type CoreState = Membership.State

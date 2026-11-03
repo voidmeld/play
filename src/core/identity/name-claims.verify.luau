@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../value")
+local Value = require("../../kernel/value")
 type Raw = Value.Raw
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")

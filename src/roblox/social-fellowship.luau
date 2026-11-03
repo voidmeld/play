@@ -5,7 +5,7 @@ local GroupCoreTypes = require("../core/social/group")
 local Homes = require("../core/social/guildhome")
 local RecordsTypes = require("./social-records")
 local SocialHost = require("./social-host")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 local Views = require("./internal/social-views")
 
 export type BankMembership = { fellowshipId: string, role: "member" | "steward", memberIds: { number } }

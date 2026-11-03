@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Kind = "gather" | "skin" | "craft" | "fish"
 

@@ -5,7 +5,7 @@ local freeze = require("../social/shape").freezeDeep
 local Creation = require("./creation")
 local CreationRecord = require("./creation-record")
 local Deletion = require("./deletion")
-local HasMetatable = require("./value")
+local HasMetatable = require("../../kernel/value")
 local Roster = require("./roster")
 
 type CreationState = Creation.State
@@ -76,7 +76,7 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 		if type(value) ~= "table" then
 			return true
 		end
-		if HasMetatable.check(value) or seen[value] then
+		if HasMetatable.hasMetatable(value) or seen[value] then
 			return false
 		end
 		seen[value] = true
@@ -89,10 +89,10 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 	end
 
 	local function exact(raw: unknown): boolean
-		if type(raw) ~= "table" or HasMetatable.check(raw) then
+		if type(raw) ~= "table" or HasMetatable.hasMetatable(raw) then
 			return false
 		end
-		local view = assert(HasMetatable.fields(raw))
+		local view = assert(HasMetatable.raw(raw))
 		for key in view do
 			if type(key) ~= "string" or (FIELDS[key] ~= true and extension.fields[key] ~= true) then
 				return false
@@ -113,8 +113,8 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 		if type(left) ~= "table" then
 			return left == right
 		end
-		local leftFields = assert(HasMetatable.fields(left))
-		local rightFields = HasMetatable.fields(right)
+		local leftFields = assert(HasMetatable.raw(left))
+		local rightFields = HasMetatable.raw(right)
 		if rightFields == nil then
 			return false
 		end
@@ -132,10 +132,10 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 	end
 
 	local function dense(raw: unknown): number?
-		if type(raw) ~= "table" or HasMetatable.check(raw) then
+		if type(raw) ~= "table" or HasMetatable.hasMetatable(raw) then
 			return nil
 		end
-		local view = assert(HasMetatable.fields(raw))
+		local view = assert(HasMetatable.raw(raw))
 		local count = 0
 		for key in view do
 			if not whole(key, 1, Aggregate.ACCOUNT_LIMIT) then
@@ -417,7 +417,7 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 		if not noMetatables(candidate, {}) or not exact(candidate) then
 			return nil
 		end
-		local raw = assert(HasMetatable.fields(candidate))
+		local raw = assert(HasMetatable.raw(candidate))
 		local userId, revision = raw.userId, raw.revision
 		if
 			raw.schemaVersion ~= Aggregate.SCHEMA_VERSION
@@ -437,8 +437,8 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 				return nil
 			end
 		end
-		local rawProfiles = HasMetatable.fields(raw.profiles)
-		local rawReceipts = HasMetatable.fields(raw.receipts)
+		local rawProfiles = HasMetatable.raw(raw.profiles)
+		local rawReceipts = HasMetatable.raw(raw.receipts)
 		local profileCount = dense(raw.profiles)
 		local receiptCount = dense(raw.receipts)
 		if
@@ -754,7 +754,7 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 		if current == nil or type(candidate) ~= "table" then
 			return nil
 		end
-		local request = assert(HasMetatable.fields(candidate))
+		local request = assert(HasMetatable.raw(candidate))
 		for index, profile in current.profiles do
 			if
 				profile.displayName == request.displayName

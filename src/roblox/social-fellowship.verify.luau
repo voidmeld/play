@@ -8,7 +8,7 @@ local Homes = require("../core/social/guildhome")
 local Social = require("../test-scene/social")
 local SocialHost = require("./social-host")
 local Transfer = require("./profile-transfer")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 local group = Groups.group({

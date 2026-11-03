@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type CollectionSet = { [string]: boolean }
 export type Outcome = "committed" | "replayed" | "rejected"

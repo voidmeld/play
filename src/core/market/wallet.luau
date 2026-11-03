@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Pending = {
 	kind: "consign" | "buy",

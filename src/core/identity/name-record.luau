@@ -2,7 +2,7 @@
 
 local Policy = require("./policy")
 local Registry = require("./name-claims")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Record = NameRecord
 export type Claim = Registry.Claim
@@ -21,13 +21,7 @@ local function create(policy: Policy.Policy)
 	local FIELDS: { [string]: boolean } = { schemaVersion = true, revision = true, registryKey = true, claim = true }
 
 	local function whole(value: unknown, minimum: number, maximum: number): boolean
-		return type(value) == "number"
-			and value == value
-			and value ~= math.huge
-			and value ~= -math.huge
-			and value >= minimum
-			and value <= maximum
-			and value % 1 == 0
+		return Value.whole(value, minimum, maximum) ~= nil
 	end
 
 	local function copiedClaim(raw: unknown): Claim?

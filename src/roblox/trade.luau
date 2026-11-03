@@ -3,7 +3,7 @@
 local Exchange = require("../core/trade/exchange")
 local ReceiptTypes = require("../core/trade/receipt")
 local Transfer = require("./profile-transfer")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 
 export type Subject = { read UserId: number }
 export type Location = { read x: number, read y: number, read z: number }

@@ -3,7 +3,7 @@ local Journal = require("../core/quest/journal")
 local LeaseRecordTypes = require("../core/identity/character-lease")
 local LeaseStore = require("../core/identity/character-lease-store")
 local ProfileSessionTypes = require("../core/persistence/profile-session")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 
 export type Lease = LeaseRecordTypes.Record
 export type SessionState = ProfileSessionTypes.State

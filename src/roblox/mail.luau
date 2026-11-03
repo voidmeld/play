@@ -2,7 +2,7 @@
 
 local Mail = require("../core/mail/mailbox")
 local Transfer = require("./profile-transfer")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 
 export type Context = Transfer.Identity
 export type Envelope = Mail.Envelope

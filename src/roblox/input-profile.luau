@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 
 export type Device = "keyboard" | "gamepad" | "touch"
 export type TouchAffordance = "thumbstick" | "button" | "screen"

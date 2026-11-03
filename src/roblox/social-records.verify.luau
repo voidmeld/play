@@ -4,7 +4,7 @@ local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Notes = require("../core/social/notes")
 local Records = require("./social-records")
 local Social = require("../test-scene/social")
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 return function(suite: Verify.Harness)

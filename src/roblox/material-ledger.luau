@@ -2,7 +2,7 @@
 local CoreTypes = require("../core/ledger/ledger")
 local EqualData = require("../core/internal/equal-data")
 local Shape = require("../core/social/shape")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 export type State = CoreTypes.State
 export type Event = CoreTypes.Event
 type StoredRecord = { schemaVersion: number, events: { Event }, recentEventIds: { string }, windowFloorAt: number }

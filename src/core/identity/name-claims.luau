@@ -1,7 +1,7 @@
 --!strict
 
 local Policy = require("./policy")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Claim = {
 	displayName: string,

@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Sustain = {
 	read resource: "hp" | "mana" | "none",

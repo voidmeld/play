@@ -1,6 +1,6 @@
 --!strict
 local Run = require("../quest/run")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 type RunState = Run.RunState
 type Member = Run.Member
 export type RewardReceipt<Q> = {

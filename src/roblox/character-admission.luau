@@ -2,7 +2,7 @@
 local LeaseRepository = require("../core/identity/character-lease-store")
 local Routing = require("../core/identity/routing")
 local Stores = require("../core/persistence/store-host")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 type Raw = { [unknown]: unknown }
 export type Subject = { read Character: unknown, read UserId: number, read Name: string? }
 export type Context = {

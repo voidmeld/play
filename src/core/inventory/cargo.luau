@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Status = "carried" | "dropped" | "banked" | "lost"
 
@@ -266,9 +266,7 @@ function Cargo.create(config: Config)
 		extractionIndex: { [string]: number },
 	}
 
-	local function finite(value: unknown): boolean
-		return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
-	end
+	local finite = Value.finite
 
 	local function integral(value: unknown): boolean
 		return (type(value) == "number" and finite(value)) and value == math.floor(value)

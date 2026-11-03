@@ -6,7 +6,7 @@ local LeaseStores = require("../core/identity/character-lease-store")
 local Leases = require("../core/identity/character-lease")
 local Records = require("../core/persistence/record-store")
 local Sessions = require("../core/persistence/profile-session")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 type Record = { bucket: string, owner: string, generation: number, content: number, tag: string }
