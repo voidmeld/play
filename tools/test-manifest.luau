@@ -88,6 +88,7 @@ return table.freeze {
 	"src/roblox/data-store.verify.luau",
 	"src/roblox/equipment-queue.verify.luau",
 	"src/roblox/equipment-rig.verify.luau",
+	"src/roblox/guild-bank.verify.luau",
 	"src/roblox/input-contexts.verify.luau",
 	"src/roblox/input-profile.verify.luau",
 	"src/roblox/inventory.verify.luau",

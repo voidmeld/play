@@ -50,6 +50,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [data-store](systems/roblox-data-store.md) | Retry injected operations with bounded exponential delay and jitter. |
 | [equipment-queue](systems/roblox-equipment-queue.md) | Serialize equipment application per owner across yielding work. |
 | [equipment-rig](systems/roblox-equipment-rig.md) | Scope construction attempts, join meshes and settle equipment slots. |
+| [guild-bank](systems/roblox-guild-bank.md) | Settle profile holds and receipt claims against shared guild stock. |
 | [input-bindings](systems/roblox-input-bindings.md) | Project configured keyboard/gamepad bindings, labels and chords. |
 | [input-contexts](systems/roblox-input-contexts.md) | Resolve native readiness against one deadline and adopt server templates. |
 | [input-profile](systems/roblox-input-profile.md) | Coordinate device reach, action coverage and rollback-safe sessions. |

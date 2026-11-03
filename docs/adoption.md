@@ -27,6 +27,7 @@ the game changes; this library change does not claim a completed production cuto
 | `roblox/shared/services/SocialParty.luau` | `roblox/social-party.configure` | Configured TTL/loot/rally policy, grouping-domain and character lookup, party namespaces, labels and projection reporting. The invitation/projection coordinator can be removed. |
 | `roblox/shared/services/SocialFellowship.luau` | `roblox/social-fellowship.configure` | Configured home/group policies, TTLs, refresh cadence, namespaces and labels. The guild membership/invitation/projection coordinator can be removed. |
 | `roblox/shared/services/SocialFormation.luau` | `roblox/social-formation.configure` | Configured home/group policy, founder count, fee and native/profile ports. The multi-founder fee/charter coordinator can be removed. |
+| `roblox/shared/services/GuildBankService.luau` | `roblox/guild-bank.configure` | Profile/ledger projection, capacity, configured rules, retention and material labels. The deposit/claim/recovery coordinator can be removed. |
 
 The already-delegating modules above are game bindings rather than duplicated rule implementations.
 The character lease block is the largest self-contained remaining extraction selected in this pass:
@@ -165,3 +166,10 @@ coordinators together. Neutral maintained fixtures additionally use two founders
 and a different refresh interval. The formation host retains proposer pointers across uncertain fee
 holds/refunds and failed charter responses; the consumer must preserve the fee port's explicit outcome.
 Keep guild profile fees, durable transports, platform observations and native notifications in Realms.
+
+The guild-bank binding supplies existing ledger transitions and inventory projections to
+`roblox/guild-bank.configure`. All 14 consumer cases pass against the new host after making the
+crowded-ledger fixture clone its frozen nested ledger before editing it. Keep that fixture repair
+in the consumer cutover. Neutral cases additionally verify final-transform retry acceptance,
+missing callbacks and missing bank state. Keep guild bank/ledger/transport and social integration
+specifications on repin; namespaces, current role lookup and profile save authority stay in Realms.
