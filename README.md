@@ -111,7 +111,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [Market](docs/systems/market.md) | Listings, fills, fees, wallet holds and conservation. |
 | [Network](docs/systems/net.md) | Token buckets and per-sender rate limits. |
 | [Orders](docs/systems/orders.md) | Work progress, realm orders and reward claims. |
-| [Persistence](docs/systems/persistence.md) | Session locks, profile lifetime, ordered stores and close draining. |
+| [Persistence](docs/systems/persistence.md) | Session locks, profile lifetime, projected record compare-and-swap and ordered stores. |
 | [Professions](docs/systems/professions.md) | Skills, crafting, harvest, fishing and node sessions. |
 | [Progression](docs/systems/progression.md) | Levels, talents, consumables, action bars, recovery, reputation, seasons and settlement. |
 | [Quest](docs/systems/quest.md) | Objectives, saved journals, prerequisites, ordered progress, markers, run history and claims. |
@@ -154,6 +154,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [screen-labels](docs/systems/roblox-screen-labels.md) | Priority labels and reserved-screen avoidance. |
 | [social-host](docs/systems/roblox-social-host.md) | Actor exclusion, caches and membership settlement. |
 | [quest-durability](docs/systems/roblox-quest-durability.md) | Leased journal hydration, dirty batches, retry/renewal, fencing and close draining. |
+| [leased-record-session](docs/systems/roblox-leased-record-session.md) | Acquire/hydrate opaque records, fence takeovers and save through renewed leases. |
 | [social-fellowship](docs/systems/roblox-social-fellowship.md) | Guild custody, privacy admission, invitations, steward activity and member projections. |
 | [social-formation](docs/systems/roblox-social-formation.md) | Multi-founder charters with durable fee custody and recovery pointers. |
 | [social-notes](docs/systems/roblox-social-notes.md) | Preset inbox delivery, contact/filter admission, privacy and session projections. |
