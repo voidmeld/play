@@ -11,16 +11,19 @@ fields are read-only; payload ownership stays with its domain.
 Check `ok` before accessing the payload. The `reason` helper returns nil for success
 and the refusal reason otherwise, without changing the envelope. Constructors do
 not freeze payloads or decode untrusted data; domain codecs still own admission.
+`unwrap` returns a successful value, including nil, or raises the refusal reason.
+Use it when failure should abort the caller, such as fixture setup. Runtime bindings
+that must return a refusal should branch on `ok` instead.
 
 Material ledger append and snapshot operations use this contract, as does the
 adopting game's character repository binding. Store-port envelopes move with the
 atomic Store primitive; other domain responses remain described by their respective
 guides during the kernel migration.
 
-Run the [ledger specification](../../src/roblox/material-ledger.verify.luau):
+Run the [cargo and ledger specification](../../src/roblox/cargo.verify.luau):
 
 ```sh
-lute run tools/gate.luau --only specs --file src/roblox/material-ledger.verify.luau
+lute run tools/gate.luau --only specs --file src/roblox/cargo.verify.luau
 ```
 
 It exercises the real coordinator against fake storage ports: retained receipts

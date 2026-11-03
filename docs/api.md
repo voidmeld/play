@@ -14134,7 +14134,12 @@ export type Result<T> = Success<T> | Failure
 ### `kernel.result.API`
 
 ```luau
-export type API = { read ok: typeof(ok), read fail: typeof(fail), read reason: typeof(reason) }
+export type API = {
+	read ok: typeof(ok),
+	read fail: typeof(fail),
+	read reason: typeof(reason),
+	read unwrap: typeof(unwrap),
+}
 ```
 
 ### `kernel.result.fail`
@@ -14168,6 +14173,12 @@ value = value
 
 ```luau
 function reason<T>(result: Result<T>): string?
+```
+
+### `kernel.result.unwrap`
+
+```luau
+function unwrap<T>(result: Result<T>): T
 ```
 
 ## `kernel.value`

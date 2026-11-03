@@ -16,6 +16,18 @@ local function reason<T>(result: Result<T>): string?
 	return if result.ok then nil else result.reason
 end
 
-export type API = { read ok: typeof(ok), read fail: typeof(fail), read reason: typeof(reason) }
-local api: API = { ok = ok, fail = fail, reason = reason }
+local function unwrap<T>(result: Result<T>): T
+	if not result.ok then
+		error(result.reason, 2)
+	end
+	return result.value
+end
+
+export type API = {
+	read ok: typeof(ok),
+	read fail: typeof(fail),
+	read reason: typeof(reason),
+	read unwrap: typeof(unwrap),
+}
+local api: API = { ok = ok, fail = fail, reason = reason, unwrap = unwrap }
 return table.freeze(api)
