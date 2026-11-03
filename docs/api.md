@@ -14116,13 +14116,13 @@ Exported value; see its declaration in [source](../src/core/vendors.luau).
 ### `kernel.result.Success`
 
 ```luau
-export type Success<T> = { ok: true, value: T }
+export type Success<T> = { read ok: true, read value: T }
 ```
 
 ### `kernel.result.Failure`
 
 ```luau
-export type Failure = { ok: false, reason: string, detail: string? }
+export type Failure = { read ok: false, read reason: string, read detail: string? }
 ```
 
 ### `kernel.result.Result`

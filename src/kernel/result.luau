@@ -1,7 +1,7 @@
 --!strict
 
-export type Success<T> = { ok: true, value: T }
-export type Failure = { ok: false, reason: string, detail: string? }
+export type Success<T> = { read ok: true, read value: T }
+export type Failure = { read ok: false, read reason: string, read detail: string? }
 export type Result<T> = Success<T> | Failure
 
 local function ok<T>(value: T): Success<T>

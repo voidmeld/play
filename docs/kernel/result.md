@@ -5,7 +5,8 @@
 `src/kernel/result` owns the shared success or refusal envelope. Exact exported
 types and helpers are in the [generated API](../api.md#kernelresult). It has no
 mutable state or host requirements. A refusal has a required reason and optional
-detail; a success carries the operation's value, which may itself be nil.
+detail; a success carries the operation's value, which may itself be nil. Envelope
+fields are read-only; payload ownership stays with its domain.
 
 Check `ok` before accessing the payload. The `reason` helper returns nil for success
 and the refusal reason otherwise, without changing the envelope. Constructors do
