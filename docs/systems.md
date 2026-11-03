@@ -53,6 +53,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [input-contexts](systems/roblox-input-contexts.md) | Resolve native readiness against one deadline and adopt server templates. |
 | [input-profile](systems/roblox-input-profile.md) | Coordinate device reach, action coverage and rollback-safe sessions. |
 | [inventory](systems/roblox-inventory.md) | Coordinate authoritative profile inventory and receipt-backed rewards. |
+| [mail](systems/roblox-mail.md) | Coordinate durable attachment holds, delivery, returns and recovery. |
 | [messaging](systems/roblox-messaging.md) | Publish and receive typed notices over injected messaging. |
 | [movement-intake](systems/roblox-movement-intake.md) | Validate authoritative movement against body epochs, ordering and speed bounds. |
 | [movement-sender](systems/roblox-movement-sender.md) | Send client movement through an epoch handshake and acknowledgment ledger. |
