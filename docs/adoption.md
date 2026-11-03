@@ -20,6 +20,7 @@ the game changes; this library change does not claim a completed production cuto
 | `roblox/shared/services/TradeService.luau` | `roblox/trade.configure` | Profile projection, transaction ledger, realm/item policy, storage namespace and native remote lifetime. The durable exchange coordinator can be removed from this service. |
 | `shared/economy/mail/MailCore.luau` | `mail.mailbox` | Profile schema, inventory conversion and game limits. |
 | `roblox/shared/services/MailService.luau` | `roblox/mail.configure` | Native identity decoding, recipient resolution, storage scope, profile/pointer projection and limits. The durable delivery coordinator can be removed. |
+| `roblox/shared/services/MarketSettlement.luau` | `roblox/market-settlement.configure` | Configured wallet transitions, receipt projection and matching retention policy. The settlement coordinator can be removed. |
 
 The already-delegating modules above are game bindings rather than duplicated rule implementations.
 The character lease block is the largest self-contained remaining extraction selected in this pass:
@@ -121,3 +122,11 @@ All 12 existing Realms mail service cases pass through the extracted coordinator
 profile, mailbox and transaction policy. Neutral maintained fixtures cover uncertainty, replay,
 interrupted delivery admission, character replacement and returns. Keep the consumer service,
 transport, hub and profile-session cases for the actual repin cutover.
+
+## Market settlement cutover
+
+Bind `roblox/shared/services/MarketSettlement.luau` to `src/roblox/market-settlement.configure`
+using the existing `MarketWalletCore`, `MarketBookCore.receiptsFor` and wallet heal retention.
+Keep profile-wallet projection, book transport, catalog admission and UI in Realms. The original
+19 consumer cases pass against this binding, including conservation, lost replies, durable void
+fences, receipt batching, item room, delayed writes and aged recovery. Keep those cases on repin.
