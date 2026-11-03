@@ -25,6 +25,8 @@ the game changes; this library change does not claim a completed production cuto
 | `roblox/shared/services/MarketProfileWallet.luau` | `roblox/market-profile-wallet.configure` | Profile projections, catalog/tradeability policy, item rules and save authority. The paired-delta coordinator can be removed. |
 | `roblox/shared/services/BankService.luau` | `roblox/bank.configure` | Configured vault rules, profile transaction commit, namespace, bounds and banker/item policy. The transfer admission coordinator can be removed. |
 | `roblox/shared/services/SocialParty.luau` | `roblox/social-party.configure` | Configured TTL/loot/rally policy, grouping-domain and character lookup, party namespaces, labels and projection reporting. The invitation/projection coordinator can be removed. |
+| `roblox/shared/services/SocialFellowship.luau` | `roblox/social-fellowship.configure` | Configured home/group policies, TTLs, refresh cadence, namespaces and labels. The guild membership/invitation/projection coordinator can be removed. |
+| `roblox/shared/services/SocialFormation.luau` | `roblox/social-formation.configure` | Configured home/group policy, founder count, fee and native/profile ports. The multi-founder fee/charter coordinator can be removed. |
 
 The already-delegating modules above are game bindings rather than duplicated rule implementations.
 The character lease block is the largest self-contained remaining extraction selected in this pass:
@@ -156,3 +158,10 @@ same cutover. Keep the game's existing test/diagnostic surface and native subscr
 All 85 original SocialService cases pass with the extracted party coordinator, including party
 lifecycles, privacy admission, notices and native fake-host composition. Keep that consumer suite,
 party core/host and module-import checks for the actual pin cutover.
+
+The fellowship and formation bindings configure their existing home/group APIs, rule constants,
+identifier prefixes and labels. All 85 original SocialService cases pass with all three extracted
+coordinators together. Neutral maintained fixtures additionally use two founders, a seven-unit fee
+and a different refresh interval. The formation host retains proposer pointers across uncertain fee
+holds/refunds and failed charter responses; the consumer must preserve the fee port's explicit outcome.
+Keep guild profile fees, durable transports, platform observations and native notifications in Realms.
