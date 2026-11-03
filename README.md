@@ -102,7 +102,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [Craft](docs/systems/craft.md) | Recipe projection and material requirements. |
 | [Effects](docs/systems/effects.md) | Timed stacks, periodic ticks and dispels. |
 | [Events](docs/systems/events.md) | Catalogs, schedules, participation and reward tickets. |
-| [Identity](docs/systems/identity.md) | Rosters, claims, account/character leases, arrival receipts and retirement recovery. |
+| [Identity](docs/systems/identity.md) | Rosters, claims, leases, retirement recovery and configured route admission. |
 | [Inventory](docs/systems/inventory.md) | Stacks, bag capacity, equipment wear/exchanges, cargo custody and delivery. |
 | [Ledger](docs/systems/ledger.md) | Value events, balances, reservations and grouped operations. |
 | [Loot](docs/systems/loot.md) | Weighted draws and party need/greed/pass decisions. |
