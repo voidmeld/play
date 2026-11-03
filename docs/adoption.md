@@ -22,6 +22,8 @@ the game changes; this library change does not claim a completed production cuto
 | `roblox/shared/services/MailService.luau` | `roblox/mail.configure` | Native identity decoding, recipient resolution, storage scope, profile/pointer projection and limits. The durable delivery coordinator can be removed. |
 | `roblox/shared/services/MarketSettlement.luau` | `roblox/market-settlement.configure` | Configured wallet transitions, receipt projection and matching retention policy. The settlement coordinator can be removed. |
 | `roblox/shared/services/MarketService.luau` | `roblox/market.configure` | Item facts/rarity, category and class matching policy, configured transitions, numeric bounds and native UI. The admission/search/projection coordinator can be removed. |
+| `roblox/shared/services/MarketProfileWallet.luau` | `roblox/market-profile-wallet.configure` | Profile projections, catalog/tradeability policy, item rules and save authority. The paired-delta coordinator can be removed. |
+| `roblox/shared/services/BankService.luau` | `roblox/bank.configure` | Configured vault rules, profile transaction commit, namespace, bounds and banker/item policy. The transfer admission coordinator can be removed. |
 
 The already-delegating modules above are game bindings rather than duplicated rule implementations.
 The character lease block is the largest self-contained remaining extraction selected in this pass:
@@ -136,3 +138,10 @@ fences, receipt batching, item room, delayed writes and aged recovery. Keep thos
 policy and typed rarity. All 27 original market service cases pass through this adapter, including
 catalog rules, paid-item permission, room admission, item search and merchant pricing. Keep those
 cases and the consumer hub/profile integration checks during the actual cutover.
+
+The profile wallet binds `src/roblox/market-profile-wallet` to existing inventory fit/unbound rules,
+wallet codecs, game goods projection and profile copy/save operations. All 12 original profile-wallet
+cases pass through this binding. Keep those cases with market settlement and profile-session checks.
+`BankService.luau` binds `src/roblox/bank` to existing vault and profile transaction APIs. Its neutral
+library fixture covers actor identity, distance, rate admission, receipt replay and uncertain saves;
+retain the consumer bank-hub and vault checks during repin. Banker positions and item policy stay local.
