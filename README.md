@@ -153,6 +153,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [remote-events](docs/systems/roblox-remote-events.md) | Shared channel dispatch and handler release. |
 | [screen-labels](docs/systems/roblox-screen-labels.md) | Priority labels and reserved-screen avoidance. |
 | [social-host](docs/systems/roblox-social-host.md) | Actor exclusion, caches and membership settlement. |
+| [quest-durability](docs/systems/roblox-quest-durability.md) | Leased journal hydration, dirty batches, retry/renewal, fencing and close draining. |
 | [social-fellowship](docs/systems/roblox-social-fellowship.md) | Guild custody, privacy admission, invitations, steward activity and member projections. |
 | [social-formation](docs/systems/roblox-social-formation.md) | Multi-founder charters with durable fee custody and recovery pointers. |
 | [social-notes](docs/systems/roblox-social-notes.md) | Preset inbox delivery, contact/filter admission, privacy and session projections. |

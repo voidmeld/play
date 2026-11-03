@@ -70,6 +70,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [remote-events](systems/roblox-remote-events.md) | Share one dispatcher per channel and release native handlers safely. |
 | [screen-labels](systems/roblox-screen-labels.md) | Admit anchored labels around reserved screen rectangles. |
 | [social-host](systems/roblox-social-host.md) | Coordinate actor exclusion, social caches and membership settlement. |
+| [quest-durability](systems/roblox-quest-durability.md) | Coordinate leased journal hydration, dirty admission, retry/renewal and draining. |
 | [social-fellowship](systems/roblox-social-fellowship.md) | Compose guild custody, privacy admission, invitations and member/steward projections. |
 | [social-formation](systems/roblox-social-formation.md) | Coordinate multi-founder charters, fee custody and interrupted creation recovery. |
 | [social-notes](systems/roblox-social-notes.md) | Compose preset inbox delivery, privacy, recipient admission and read projections. |
