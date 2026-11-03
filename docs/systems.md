@@ -40,6 +40,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | Adapter | Purpose |
 | --- | --- |
 | [camera](systems/roblox-camera.md) | Project configured follow-camera dynamics and obstruction response. |
+| [bank](systems/roblox-bank.md) | Admit nearby vault transfers through durable profile receipts. |
 | [chat](systems/roblox-chat.md) | Bind admitted users to native channels and check platform privacy. |
 | [consumables](systems/roblox-consumables.md) | Coordinate durable item consumption before recovery dispatch. |
 | [contact-markers](systems/roblox-contact-markers.md) | Share animation-track watchers and confirm stamped contacts once. |
@@ -56,6 +57,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [mail](systems/roblox-mail.md) | Coordinate durable attachment holds, delivery, returns and recovery. |
 | [market](systems/roblox-market.md) | Admit catalog-bound trades, merchant operations, item search and cached projections. |
 | [market-settlement](systems/roblox-market-settlement.md) | Settle wallets against order books with durable holds, fences and receipts. |
+| [market-profile-wallet](systems/roblox-market-profile-wallet.md) | Apply paired market wallet deltas without overwriting concurrent profile rewards. |
 | [messaging](systems/roblox-messaging.md) | Publish and receive typed notices over injected messaging. |
 | [movement-intake](systems/roblox-movement-intake.md) | Validate authoritative movement against body epochs, ordering and speed bounds. |
 | [movement-sender](systems/roblox-movement-sender.md) | Send client movement through an epoch handshake and acknowledgment ledger. |

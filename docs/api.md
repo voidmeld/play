@@ -13066,6 +13066,129 @@ export type API = {
 
 Exported value; see its declaration in [source](../src/core/vendors.luau).
 
+## `roblox.bank`
+
+[Source](../src/roblox/bank.luau)
+
+```luau
+local Bank = require("../core/bank/vault")
+```
+
+```luau
+local Transfer = require("./profile-transfer")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.bank.Result`
+
+```luau
+export type Result = {
+	read ok: boolean,
+	read pending: boolean?,
+	read reason: string?,
+	read outcome: string?,
+	read bank: Bank.State?,
+}
+```
+
+### `roblox.bank.Subject`
+
+```luau
+export type Subject = { read UserId: number }
+```
+
+### `roblox.bank.Point`
+
+```luau
+export type Point = { read x: number, read y: number, read z: number }
+```
+
+### `roblox.bank.Location`
+
+```luau
+export type Location = { read placeId: string | number, read position: Point }
+```
+
+### `roblox.bank.Banker`
+
+```luau
+export type Banker = { read id: string, read placeId: string | number, read position: Point, read enabled: boolean }
+```
+
+### `roblox.bank.Dependencies`
+
+```luau
+export type Dependencies<P, C, S> = {
+	profiles: S,
+	contextFor: (number) -> C?,
+	playerFor: (number) -> Subject?,
+	positionFor: (number) -> Location?,
+	bankerFor: (string) -> Banker?,
+	canBank: (number, P, string, string) -> boolean,
+	clock: () -> number,
+	identity: ((Subject) -> number?)?,
+}
+```
+
+### `roblox.bank.Handle`
+
+```luau
+export type Handle = { read intent: (Subject, unknown) -> Result, read forget: (number) -> () }
+```
+
+### `roblox.bank.Core`
+
+```luau
+export type Core<P> = {
+	read request: (unknown) -> Bank.Request?,
+	read project: (unknown) -> Bank.State?,
+	read sameRequest: (Bank.Request, Bank.Request) -> boolean,
+	read apply: (P, unknown) -> (P?, string?),
+}
+```
+
+### `roblox.bank.Config`
+
+```luau
+export type Config<P, C, S> = {
+	read core: Core<P>,
+	read read: (S, C) -> P?,
+	read commit: (S, C, string, (P) -> (P?, string?)) -> Transfer.Result,
+	read bank: (P) -> unknown,
+	read transactionId: (number, string) -> string,
+	read maxUserId: number,
+	read maxReach: number,
+	read rateWindowSec: number,
+	read rateLimit: number,
+}
+```
+
+### `roblox.bank.Host`
+
+```luau
+export type Host<P, C, S> = {
+	read create: (Dependencies<P, C, S>) -> (Handle?, string?),
+	read reachable: (Location?, Banker?) -> boolean,
+	read MAX_REACH: number,
+	read RATE_LIMIT: number,
+}
+```
+
+### `roblox.bank.configure`
+
+```luau
+function configure<P, C, S>(config: Config<P, C, S>): Host<P, C, S>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function BankService.create(raw: Deps): (Handle?, string?)
+```
+
 ## `roblox.camera`
 
 [Source](../src/roblox/camera.luau)
@@ -14085,6 +14208,98 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 create = function MailService.create(depsValue: Deps?): (Service?, string?)
+```
+
+## `roblox.market-profile-wallet`
+
+[Source](../src/roblox/market-profile-wallet.luau)
+
+```luau
+local Wallets = require("../core/market/wallet")
+```
+
+### `roblox.market-profile-wallet.Inventory`
+
+```luau
+export type Inventory = { [string]: number }
+```
+
+### `roblox.market-profile-wallet.Wallet`
+
+```luau
+export type Wallet =
+	{ read read: () -> Wallets.State?, read write: (unknown) -> boolean, read room: (string) -> number }
+```
+
+### `roblox.market-profile-wallet.Dependencies`
+
+```luau
+export type Dependencies<P, I> = {
+	userId: number,
+	materials: { string },
+	readProfile: () -> P?,
+	updateProfile: ((P) -> P) -> (),
+	saveProfile: () -> boolean,
+	maxItemCount: number,
+	maxInventoryEntries: number,
+	items: I?,
+}
+```
+
+### `roblox.market-profile-wallet.Core`
+
+```luau
+export type Core = {
+	read ledgerOf: (unknown) -> Wallets.Ledger?,
+	read compose: (unknown, unknown, unknown, unknown) -> Wallets.State?,
+	read projectState: (unknown) -> Wallets.State?,
+}
+```
+
+### `roblox.market-profile-wallet.Config`
+
+```luau
+export type Config<P, I> = {
+	read wallet: Core,
+	read items: I,
+	read goods: (P, { string }, I) -> Inventory,
+	read coin: (P) -> number,
+	read inventory: (P) -> Inventory,
+	read ledger: (P) -> unknown,
+	read withAccount: (P, number, Inventory, Wallets.Ledger) -> P,
+	read capacity: (P) -> number,
+	read entries: (Inventory) -> number,
+	read fits: (Inventory, Inventory, number) -> boolean,
+	read unboundCount: (P, string) -> number,
+}
+```
+
+### `roblox.market-profile-wallet.Host`
+
+```luau
+export type Host<P, I> = {
+	read create: (Dependencies<P, I>) -> (Wallet?, string?),
+	read applyDelta: (P, Wallets.State, Wallets.State, number, number) -> (P?, string?),
+}
+```
+
+### `roblox.market-profile-wallet.configure`
+
+```luau
+function configure<P, I>(config: Config<P, I>): Host<P, I>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+applyDelta = function MarketProfileWallet.applyDelta(
+		profile: Profile,
+		base: State,
+		nextState: State,
+		maxItemCount: number,
+		maxInventoryEntries: number
+	): (Profile?, string?)
+create = function MarketProfileWallet.create(raw: Dependencies<P, I>): (Wallet?, string?)
 ```
 
 ## `roblox.market-settlement`

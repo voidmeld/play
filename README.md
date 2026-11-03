@@ -123,6 +123,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | Roblox adapter | Provides |
 | --- | --- |
 | [camera](docs/systems/roblox-camera.md) | Follow dynamics, springs and obstruction clearance. |
+| [bank](docs/systems/roblox-bank.md) | Authenticated nearby vault transfers with durable profile receipts. |
 | [chat](docs/systems/roblox-chat.md) | Native channels and platform privacy admission. |
 | [consumables](docs/systems/roblox-consumables.md) | Durable consumption and revalidated recovery dispatch. |
 | [contact-markers](docs/systems/roblox-contact-markers.md) | Ref-counted animation contacts with action stamps. |
@@ -139,6 +140,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [mail](docs/systems/roblox-mail.md) | Durable attachment holds, delivery decisions, returns and admission recovery. |
 | [market](docs/systems/roblox-market.md) | Catalog-bound trading, merchant operations, item search and server projections. |
 | [market-settlement](docs/systems/roblox-market-settlement.md) | Durable wallet holds, order-book fences, receipt claims and crash recovery. |
+| [market-profile-wallet](docs/systems/roblox-market-profile-wallet.md) | Profile wallet deltas which preserve concurrent rewards and enforce capacity. |
 | [messaging](docs/systems/roblox-messaging.md) | Notices, filtering and subscription cleanup. |
 | [movement-intake](docs/systems/roblox-movement-intake.md) | Epochs, acknowledgments and speed enforcement. |
 | [movement-sender](docs/systems/roblox-movement-sender.md) | Handshake, resend ledger and revocation. |
