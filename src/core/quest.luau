@@ -3,6 +3,7 @@
 local Claims = require("./quest/claims")
 local Counter = require("./quest/counter")
 local Index = require("./quest/index")
+local Journal = require("./quest/journal")
 local Lifecycle = require("./quest/lifecycle")
 local Markers = require("./quest/markers")
 local Objectives = require("./quest/objectives")
@@ -20,6 +21,10 @@ export type CounterCounts = Counter.Counts
 export type CounterConfig = Counter.Config
 export type IndexConfig = Index.Config
 export type IndexTargetBinding = Index.TargetBinding
+export type JournalQuestProgress = Journal.QuestProgress
+export type JournalRecord = Journal.Record
+export type JournalConfig = Journal.Config
+export type JournalAPI = Journal.API
 export type LifecycleObjective = Lifecycle.Objective
 export type LifecycleBinding = Lifecycle.Binding
 export type LifecycleEvent = Lifecycle.Event
@@ -61,6 +66,7 @@ export type API = {
 	read claims: typeof(Claims),
 	read counter: typeof(Counter),
 	read index: typeof(Index),
+	read journal: typeof(Journal),
 	read lifecycle: typeof(Lifecycle),
 	read markers: typeof(Markers),
 	read objectives: typeof(Objectives),
@@ -71,6 +77,7 @@ local api: API = {
 	claims = Claims,
 	counter = Counter,
 	index = Index,
+	journal = Journal,
 	lifecycle = Lifecycle,
 	markers = Markers,
 	objectives = Objectives,

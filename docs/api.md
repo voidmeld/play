@@ -9449,6 +9449,103 @@ bindingsForEvent = function bindingsForEvent(event: Objectives.Event): { Objecti
 byTarget = function byTarget(event: string, field: string): { [string]: { TargetBinding } }
 ```
 
+## `core.quest.journal`
+
+[Source](../src/core/quest/journal.luau)
+
+```luau
+local Tables = require("../internal/value")
+```
+
+### `core.quest.journal.QuestProgress`
+
+```luau
+export type QuestProgress = { status: string, step: number, counts: { [string]: number }? }
+```
+
+### `core.quest.journal.Record`
+
+```luau
+export type Record = {
+	version: number,
+	zoneId: string,
+	characterId: string,
+	quests: { [string]: QuestProgress },
+	semanticEventIds: { [string]: boolean },
+}
+```
+
+### `core.quest.journal.Config`
+
+```luau
+export type Config = {
+	read version: number,
+	read maxIdLength: number,
+	read maxCharacterIdLength: number,
+	read maxEventIdLength: number,
+	read maxEvents: number,
+	read maxQuests: number,
+	read maxCounts: number,
+	read maxStep: number,
+	read maxCount: number,
+	read eventPrefix: string,
+	read statuses: { [string]: boolean },
+	read claimableStatuses: { [string]: boolean },
+	read receiptStatus: string,
+	read eventIdAllowed: (string) -> boolean,
+}
+```
+
+### `core.quest.journal.API`
+
+```luau
+export type API = {
+	read CURRENT_VERSION: number,
+	read STATUSES: { [string]: boolean },
+	read MAX_EVENT_ID_LENGTH: number,
+	read MAX_EVENTS: number,
+	read create: (unknown, unknown, unknown, unknown?) -> (Record?, string?),
+	read decode: (unknown) -> (Record?, string?),
+	read copyQuests: (unknown) -> ({ [string]: QuestProgress }?, string?),
+	read copySemanticEventIds: (unknown) -> ({ [string]: boolean }?, string?),
+	read storageQuests: (unknown) -> ({ [string]: QuestProgress }?, string?),
+	read fromStorageQuests: (unknown, unknown, unknown, { [string]: boolean }?) -> (Record?, string?),
+	read key: (string, string) -> string,
+}
+```
+
+### `core.quest.journal.journal`
+
+```luau
+function journal(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+CURRENT_VERSION = CURRENT_VERSION
+STATUSES = table.freeze(table.clone(STATUSES))
+create = function create(
+		zoneId: unknown,
+		characterId: unknown,
+		quests: unknown,
+		semanticEventIds: unknown?
+	): (Record?, string?)
+decode = function decode(raw: unknown): (Record?, string?)
+copyQuests = function copyQuests(raw: unknown): ({ [string]: QuestProgress }?, string?)
+copySemanticEventIds = function copySemanticEventIds(raw: unknown): ({ [string]: boolean }?, string?)
+storageQuests = function storageQuests(recordRaw: unknown): ({ [string]: QuestProgress }?, string?)
+fromStorageQuests = function fromStorageQuests(
+		zoneId: unknown,
+		characterId: unknown,
+		raw: unknown,
+		knownQuestIds: { [string]: boolean }?
+	): (Record?, string?)
+MAX_EVENT_ID_LENGTH = MAX_EVENT_ID_LENGTH
+MAX_EVENTS = MAX_EVENTS
+key = function key(zoneId: string, characterId: string): string
+```
+
 ## `core.quest.lifecycle`
 
 [Source](../src/core/quest/lifecycle.luau)
@@ -9902,6 +9999,10 @@ local Index = require("./quest/index")
 ```
 
 ```luau
+local Journal = require("./quest/journal")
+```
+
+```luau
 local Lifecycle = require("./quest/lifecycle")
 ```
 
@@ -9987,6 +10088,30 @@ export type IndexConfig = Index.Config
 
 ```luau
 export type IndexTargetBinding = Index.TargetBinding
+```
+
+### `core.quest.JournalQuestProgress`
+
+```luau
+export type JournalQuestProgress = Journal.QuestProgress
+```
+
+### `core.quest.JournalRecord`
+
+```luau
+export type JournalRecord = Journal.Record
+```
+
+### `core.quest.JournalConfig`
+
+```luau
+export type JournalConfig = Journal.Config
+```
+
+### `core.quest.JournalAPI`
+
+```luau
+export type JournalAPI = Journal.API
 ```
 
 ### `core.quest.LifecycleObjective`
@@ -10212,6 +10337,7 @@ export type API = {
 	read claims: typeof(Claims),
 	read counter: typeof(Counter),
 	read index: typeof(Index),
+	read journal: typeof(Journal),
 	read lifecycle: typeof(Lifecycle),
 	read markers: typeof(Markers),
 	read objectives: typeof(Objectives),
@@ -10228,6 +10354,10 @@ Exported value; see its declaration in [source](../src/core/quest.luau).
 Exported value; see its declaration in [source](../src/core/quest.luau).
 
 ### `core.quest.index`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.journal`
 
 Exported value; see its declaration in [source](../src/core/quest.luau).
 
