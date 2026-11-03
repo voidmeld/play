@@ -20041,7 +20041,7 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 store = Atomic.new(backend)
-seed = backend.set
+seed = function(key: string, value: unknown)
 writes = function(): number
 ```
 
