@@ -6025,6 +6025,99 @@ finish = function M.finish(s: State, now: number, ok: boolean): Outcome
 close = function M.close(s: State, now: number): Outcome
 ```
 
+## `core.persistence.record-store`
+
+[Source](../src/core/persistence/record-store.luau)
+
+```luau
+local StoreHost = require("./store-host")
+```
+
+```luau
+local Value = require("../internal/value")
+```
+
+### `core.persistence.record-store.StoreOutcome`
+
+```luau
+export type StoreOutcome = StoreHost.Outcome
+```
+
+### `core.persistence.record-store.Store`
+
+```luau
+export type Store = { get: (string) -> StoreOutcome, updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+```
+
+### `core.persistence.record-store.Accepted`
+
+```luau
+export type Accepted<R> = { ok: true, value: R, reason: string?, found: boolean? }
+```
+
+### `core.persistence.record-store.Refused`
+
+```luau
+export type Refused = { ok: false, value: nil, reason: string?, found: boolean? }
+```
+
+### `core.persistence.record-store.Outcome`
+
+```luau
+export type Outcome<R> = Accepted<R> | Refused
+```
+
+### `core.persistence.record-store.View`
+
+```luau
+export type View = { read partitionId: string, read subjectId: string, read revision: number }
+```
+
+### `core.persistence.record-store.Config`
+
+```luau
+export type Config<R> = {
+	read copy: (unknown) -> (R?, string?),
+	read empty: (string, string) -> (R?, string?),
+	read equal: (R, R) -> boolean,
+	read view: (R) -> View,
+	read withRevision: (R, number) -> R,
+	read maxRevision: number,
+}
+```
+
+### `core.persistence.record-store.API`
+
+```luau
+export type API<R> = {
+	read read: (Store, (string, string) -> string, string, string) -> Outcome<R>,
+	read update: (Store, (string, string) -> string, unknown, unknown) -> Outcome<R>,
+}
+```
+
+### `core.persistence.record-store.configure`
+
+```luau
+function configure<R>(config: Config<R>): API<R>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+read = function read(
+		store: Store,
+		keyFor: (string, string) -> string,
+		partitionId: string,
+		subjectId: string
+	): Outcome<R>
+update = function update(
+		store: Store,
+		keyFor: (string, string) -> string,
+		snapshot: unknown,
+		desired: unknown
+	): Outcome<R>
+```
+
 ## `core.persistence.session-lock`
 
 [Source](../src/core/persistence/session-lock.luau)
@@ -6243,6 +6336,10 @@ local ProfileSession = require("./persistence/profile-session")
 ```
 
 ```luau
+local RecordStore = require("./persistence/record-store")
+```
+
+```luau
 local SessionLock = require("./persistence/session-lock")
 ```
 
@@ -6370,6 +6467,54 @@ export type StoreHostStore = StoreHost.Store
 export type StoreHostConfig = StoreHost.Config
 ```
 
+### `core.persistence.RecordStoreAccepted`
+
+```luau
+export type RecordStoreAccepted<R> = RecordStore.Accepted<R>
+```
+
+### `core.persistence.RecordStoreRefused`
+
+```luau
+export type RecordStoreRefused = RecordStore.Refused
+```
+
+### `core.persistence.RecordStoreOutcome`
+
+```luau
+export type RecordStoreOutcome<R> = RecordStore.Outcome<R>
+```
+
+### `core.persistence.RecordStoreView`
+
+```luau
+export type RecordStoreView = RecordStore.View
+```
+
+### `core.persistence.RecordStoreConfig`
+
+```luau
+export type RecordStoreConfig<R> = RecordStore.Config<R>
+```
+
+### `core.persistence.RecordStoreAPI`
+
+```luau
+export type RecordStoreAPI<R> = RecordStore.API<R>
+```
+
+### `core.persistence.RecordStoreStore`
+
+```luau
+export type RecordStoreStore = RecordStore.Store
+```
+
+### `core.persistence.RecordStoreStoreOutcome`
+
+```luau
+export type RecordStoreStoreOutcome = RecordStore.StoreOutcome
+```
+
 ### `core.persistence.API`
 
 ```luau
@@ -6377,10 +6522,15 @@ export type API = {
 	read profile_session: typeof(ProfileSession),
 	read session_lock: typeof(SessionLock),
 	read store_host: typeof(StoreHost),
+	read record_store: typeof(RecordStore),
 }
 ```
 
 ### `core.persistence.profile_session`
+
+Exported value; see its declaration in [source](../src/core/persistence.luau).
+
+### `core.persistence.record_store`
 
 Exported value; see its declaration in [source](../src/core/persistence.luau).
 
@@ -14851,6 +15001,171 @@ commitRewardTransaction = function commitRewardTransaction(
 		gold: number?,
 		season: string?
 	): boolean
+```
+
+## `roblox.leased-record-session`
+
+[Source](../src/roblox/leased-record-session.luau)
+
+```luau
+local LeaseRecords = require("../core/identity/character-lease")
+```
+
+```luau
+local LeaseStores = require("../core/identity/character-lease-store")
+```
+
+```luau
+local Records = require("../core/persistence/record-store")
+```
+
+```luau
+local Sessions = require("../core/persistence/profile-session")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.leased-record-session.Lease`
+
+```luau
+export type Lease = LeaseRecords.Record
+```
+
+### `roblox.leased-record-session.SessionState`
+
+```luau
+export type SessionState = Sessions.State
+```
+
+### `roblox.leased-record-session.StoreOutcome`
+
+```luau
+export type StoreOutcome = Records.StoreOutcome
+```
+
+### `roblox.leased-record-session.OutcomeStore`
+
+```luau
+export type OutcomeStore = Records.Store
+```
+
+### `roblox.leased-record-session.Dependencies`
+
+```luau
+export type Dependencies = {
+	store: OutcomeStore,
+	leaseKeyFor: (string) -> string,
+	zoneKeyFor: (string, string) -> string,
+	leaseZoneFamily: { string }?,
+	clock: () -> number,
+}
+```
+
+### `roblox.leased-record-session.Accepted`
+
+```luau
+export type Accepted<R> = {
+	ok: true,
+	reason: string?,
+	releaseReason: string?,
+	session: SessionState,
+	lease: Lease,
+	zoneSnapshot: Records.Accepted<R>,
+}
+```
+
+### `roblox.leased-record-session.Refused`
+
+```luau
+export type Refused =
+	{ ok: false, reason: string?, releaseReason: string?, session: nil, lease: nil, zoneSnapshot: nil }
+```
+
+### `roblox.leased-record-session.Outcome`
+
+```luau
+export type Outcome<R> = Accepted<R> | Refused
+```
+
+### `roblox.leased-record-session.SaveAccepted`
+
+```luau
+export type SaveAccepted<R> = { ok: true, reason: string?, lease: Lease, zoneSnapshot: Records.Accepted<R> }
+```
+
+### `roblox.leased-record-session.SaveRefused`
+
+```luau
+export type SaveRefused = { ok: false, reason: string?, lease: Lease?, zoneSnapshot: nil }
+```
+
+### `roblox.leased-record-session.SaveOutcome`
+
+```luau
+export type SaveOutcome<R> = SaveAccepted<R> | SaveRefused
+```
+
+### `roblox.leased-record-session.SessionPort`
+
+```luau
+export type SessionPort = {
+	read openAcquired: (number, number) -> (SessionState?, string?),
+	read dirty: (SessionState, number, string) -> Sessions.Outcome,
+	read begin: (SessionState, number) -> Sessions.Outcome,
+	read finish: (SessionState, number, boolean) -> Sessions.Outcome,
+}
+```
+
+### `roblox.leased-record-session.Config`
+
+```luau
+export type Config<R> = {
+	read leaseRecord: LeaseRecords.API,
+	read leaseStore: LeaseStores.API,
+	read session: SessionPort,
+	read records: Records.API<R>,
+	read copyRecord: (unknown) -> (R?, string?),
+	read withPayload: (R, unknown) -> (R?, string?),
+	read characterId: (R) -> string,
+	read leaseSeconds: number,
+	read dirtyReason: string,
+}
+```
+
+### `roblox.leased-record-session.API`
+
+```luau
+export type API<R> = {
+	read acquireAndHydrate: (Dependencies, string, string, string, string) -> Outcome<R>,
+	read savePayload: (Dependencies, SessionState, unknown, unknown, unknown) -> SaveOutcome<R>,
+}
+```
+
+### `roblox.leased-record-session.configure`
+
+```luau
+function configure<R>(config: Config<R>): API<R>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+acquireAndHydrate = function Coordinator.acquireAndHydrate(
+		dependencies: Dependencies,
+		zoneId: string,
+		characterId: string,
+		sessionId: string,
+		acquisitionId: string
+	): Outcome<R>
+savePayload = function Coordinator.savePayload(
+		dependencies: Dependencies,
+		session: SessionState,
+		leaseRaw: unknown,
+		zoneSnapshot: unknown,
+		questsRaw: unknown
+	): SaveOutcome<R>
 ```
 
 ## `roblox.mail`
