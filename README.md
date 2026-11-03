@@ -114,7 +114,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [Persistence](docs/systems/persistence.md) | Session locks, profile lifetime, ordered stores and close draining. |
 | [Professions](docs/systems/professions.md) | Skills, crafting, harvest, fishing and node sessions. |
 | [Progression](docs/systems/progression.md) | Levels, talents, consumables, action bars, recovery, reputation, seasons and settlement. |
-| [Quest](docs/systems/quest.md) | Objectives, indexes, saved journals, progress, markers, run history and claims. |
+| [Quest](docs/systems/quest.md) | Objectives, saved journals, prerequisites, ordered progress, markers, run history and claims. |
 | [Social](docs/systems/social.md) | Parties, fellowships, warbands, shared banks, allies, notes and chronicles. |
 | [Threat](docs/systems/threat.md) | Target selection, taunts, contribution and encounter eligibility. |
 | [Trade](docs/systems/trade.md) | Revisioned offers, mutual confirmation, receipts and recovery. |
