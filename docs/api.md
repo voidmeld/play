@@ -14087,6 +14087,116 @@ Returned operations and values (declarations; unannotated results are inferred):
 create = function MailService.create(depsValue: Deps?): (Service?, string?)
 ```
 
+## `roblox.market-settlement`
+
+[Source](../src/roblox/market-settlement.luau)
+
+```luau
+local Book = require("../core/market/book")
+```
+
+```luau
+local Records = require("./social-records")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+```luau
+local Wallet = require("../core/market/wallet")
+```
+
+### `roblox.market-settlement.BookResult`
+
+```luau
+export type BookResult = Records.Settled<Book.State, Book.Receipt>
+```
+
+### `roblox.market-settlement.BookService`
+
+```luau
+export type BookService = {
+	read read: (string, string) -> BookResult,
+	read apply: (string, string, unknown) -> BookResult,
+}
+```
+
+### `roblox.market-settlement.WalletAccess`
+
+```luau
+export type WalletAccess = {
+	read read: () -> Wallet.State?,
+	read write: (Wallet.State) -> boolean,
+	read room: ((string) -> number)?,
+}
+```
+
+### `roblox.market-settlement.Dependencies`
+
+```luau
+export type Dependencies = { book: BookService, wallet: WalletAccess, clock: () -> number, newOpId: () -> string }
+```
+
+### `roblox.market-settlement.Outcome`
+
+```luau
+export type Outcome = { ok: boolean, reason: string?, opId: string?, pending: boolean }
+```
+
+### `roblox.market-settlement.Service`
+
+```luau
+export type Service = {
+	read consign: (string, string, number, number, string?) -> Outcome,
+	read buy: (string, string, number, number, string?) -> Outcome,
+	read cancel: (string, string, string) -> Outcome,
+	read claimAll: (string, string) -> Outcome,
+	read heal: () -> Outcome,
+}
+```
+
+### `roblox.market-settlement.WalletOps`
+
+```luau
+export type WalletOps = {
+	read beginConsign: (unknown, unknown, unknown, unknown, unknown, unknown, unknown?) -> Wallet.Result,
+	read beginBuy: (unknown, unknown, unknown, unknown, unknown, unknown, unknown?) -> Wallet.Result,
+	read refund: (unknown, unknown) -> Wallet.Result,
+	read settleConsign: (unknown, unknown) -> Wallet.Result,
+	read claim: (unknown, unknown, unknown) -> Wallet.Result,
+	read heal: (unknown, unknown, unknown, unknown) -> Wallet.Result,
+}
+```
+
+### `roblox.market-settlement.Config`
+
+```luau
+export type Config = {
+	read wallet: WalletOps,
+	read receiptsFor: (unknown, unknown) -> { Book.Receipt }?,
+	read healRetentionSec: number,
+}
+```
+
+### `roblox.market-settlement.Host`
+
+```luau
+export type Host = { read create: (Dependencies?) -> (Service?, string?) }
+```
+
+### `roblox.market-settlement.configure`
+
+```luau
+function configure(config: Config): Host
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function MarketSettlement.create(raw: Dependencies?): (Service?, string?)
+```
+
 ## `roblox.messaging`
 
 [Source](../src/roblox/messaging.luau)

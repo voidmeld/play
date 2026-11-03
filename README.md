@@ -137,6 +137,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [input-profile](docs/systems/roblox-input-profile.md) | Device coverage and rollback-safe binding sessions. |
 | [inventory](docs/systems/roblox-inventory.md) | Context-fenced item mutation and atomic reward bundles over supplied profiles. |
 | [mail](docs/systems/roblox-mail.md) | Durable attachment holds, delivery decisions, returns and admission recovery. |
+| [market-settlement](docs/systems/roblox-market-settlement.md) | Durable wallet holds, order-book fences, receipt claims and crash recovery. |
 | [messaging](docs/systems/roblox-messaging.md) | Notices, filtering and subscription cleanup. |
 | [movement-intake](docs/systems/roblox-movement-intake.md) | Epochs, acknowledgments and speed enforcement. |
 | [movement-sender](docs/systems/roblox-movement-sender.md) | Handshake, resend ledger and revocation. |
