@@ -55,6 +55,7 @@ return table.freeze {
 	"src/core/progression/transactions.verify.luau",
 	"src/core/quest/counter.verify.luau",
 	"src/core/quest/index.verify.luau",
+	"src/core/quest/journal.verify.luau",
 	"src/core/quest/lifecycle.verify.luau",
 	"src/core/quest/markers.verify.luau",
 	"src/core/quest/objectives.verify.luau",
