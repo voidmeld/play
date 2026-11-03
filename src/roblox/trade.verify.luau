@@ -127,7 +127,7 @@ local function rig()
 		profiles = profiles,
 		receipts = {
 			getOutcome = function(key: string): Trade.ReceiptOutcome
-				return if blocked then { ok = false, reason = "store_failure" } else { ok = true, value = store[key] }
+				return { ok = not blocked, value = store[key] }
 			end,
 			updateOutcome = function(
 				key: string,
@@ -135,12 +135,12 @@ local function rig()
 			): Trade.ReceiptOutcome
 				local nextReceipt = apply(store[key])
 				if nextReceipt == nil then
-					return { ok = false, reason = "callback_cancelled" }
+					return { ok = false, value = nil }
 				end
 				store[key] = nextReceipt
 				if ambiguous then
 					ambiguous = false
-					return { ok = false, reason = "store_failure" }
+					return { ok = false, value = nil }
 				end
 				return { ok = true, value = nextReceipt }
 			end,

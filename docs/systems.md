@@ -8,7 +8,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 ## Kernel
 
 [Value](kernel/value.md) owns record admission, bounded scalar validation and explicit field copies.
-[Result](kernel/result.md) owns the shared success or refusal envelope used by storage ports.
+[Result](kernel/result.md) owns the shared success or refusal envelope used by material ledger responses.
 Neither has host operations or mutable state. Other kernel primitives follow the migration order in
 the [architecture](architecture.md).
 

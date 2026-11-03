@@ -6482,17 +6482,13 @@ Exported value; see its declaration in [source](../src/core/persistence/session-
 [Source](../src/core/persistence/store-host.luau)
 
 ```luau
-local Result = require("../../kernel/result")
-```
-
-```luau
 local Value = require("../../kernel/value")
 ```
 
 ### `core.persistence.store-host.Outcome`
 
 ```luau
-export type Outcome = Result.Result<unknown>
+export type Outcome = { ok: boolean, value: unknown, reason: string? }
 ```
 
 ### `core.persistence.store-host.DrainOutcome`
@@ -16006,10 +16002,6 @@ savePayload = function Coordinator.savePayload(
 [Source](../src/roblox/mail.luau)
 
 ```luau
-local Result = require("../kernel/result")
-```
-
-```luau
 local Mail = require("../core/mail/mailbox")
 ```
 
@@ -16054,7 +16046,7 @@ export type Result = {
 ### `roblox.mail.Outcome`
 
 ```luau
-export type Outcome = Result.Result<unknown>
+export type Outcome = { read ok: boolean, read value: unknown, read reason: string? }
 ```
 
 ### `roblox.mail.Effect`
@@ -16644,7 +16636,7 @@ export type Failure = Result.Failure
 ### `roblox.material-ledger.StoreOutcome`
 
 ```luau
-export type StoreOutcome = Result.Result<unknown>
+export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
 ```
 
 ### `roblox.material-ledger.Store`
@@ -17017,17 +17009,13 @@ local Membership = require("../core/social/membership")
 ```
 
 ```luau
-local Result = require("../kernel/result")
-```
-
-```luau
 local Value = require("../kernel/value")
 ```
 
 ### `roblox.party.StoreOutcome`
 
 ```luau
-export type StoreOutcome = Result.Result<unknown>
+export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
 ```
 
 ### `roblox.party.Store`
@@ -18744,10 +18732,6 @@ local Notes = require("../core/social/notes")
 ```
 
 ```luau
-local Result = require("../kernel/result")
-```
-
-```luau
 local Value = require("../kernel/value")
 ```
 
@@ -18758,7 +18742,7 @@ local Warband = require("../core/social/warband")
 ### `roblox.social-records.Outcome`
 
 ```luau
-export type Outcome = Result.Result<unknown>
+export type Outcome = { ok: boolean, value: unknown, reason: string? }
 ```
 
 ### `roblox.social-records.Store`
@@ -19411,10 +19395,6 @@ knobFor = function knobFor(offset: Vec2, radiusPx: number): Vec2
 [Source](../src/roblox/trade.luau)
 
 ```luau
-local Result = require("../kernel/result")
-```
-
-```luau
 local Exchange = require("../core/trade/exchange")
 ```
 
@@ -19467,7 +19447,7 @@ export type State = Exchange.State & { sessions: { [number]: Context }?, charact
 ### `roblox.trade.ReceiptOutcome`
 
 ```luau
-export type ReceiptOutcome = Result.Result<unknown>
+export type ReceiptOutcome = { read ok: boolean, read value: unknown, read reason: string? }
 ```
 
 ### `roblox.trade.Dependencies`

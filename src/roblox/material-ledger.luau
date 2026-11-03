@@ -19,7 +19,7 @@ export type SnapshotValue = {
 	boundary: string,
 }
 export type Failure = Result.Failure
-export type StoreOutcome = Result.Result<unknown>
+export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
 export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
 export type Outcome<T> = Result.Result<T>
 
