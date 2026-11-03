@@ -1,8 +1,13 @@
 --!strict
 
 export type Raw = { [unknown]: unknown }
+export type MetatableProbe = typeof(setmetatable({}, {}))
 
 local Value = {}
+
+function Value.hasMetatable(value: unknown): boolean
+	return type(value) == "table" and getmetatable(value) ~= nil
+end
 
 function Value.raw(value: unknown): Raw?
 	if type(value) ~= "table" then
@@ -105,4 +110,17 @@ function Value.freezeDeep<T>(value: T): T
 	return value
 end
 
-return Value
+export type API = {
+	read raw: typeof(Value.raw),
+	read record: typeof(Value.record),
+	read finite: typeof(Value.finite),
+	read nonempty: typeof(Value.nonempty),
+	read whole: typeof(Value.whole),
+	read opaque: typeof(Value.opaque),
+	read identifier: typeof(Value.identifier),
+	read dense: typeof(Value.dense),
+	read freezeDeep: typeof(Value.freezeDeep),
+	read hasMetatable: typeof(Value.hasMetatable),
+}
+local api: API = Value
+return table.freeze(api)

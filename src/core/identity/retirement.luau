@@ -1,7 +1,7 @@
 --!strict
 
 local Shape = require("../internal/shape")
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 
 export type Deletion = { characterId: string, phase: string, fence: number }
 export type Retirement = { operationId: string, fingerprint: string, fence: number }

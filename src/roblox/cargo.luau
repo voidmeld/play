@@ -2,7 +2,7 @@
 local CoreTypes = require("../core/inventory/cargo")
 local EqualData = require("../core/internal/equal-data")
 local LedgerTypes = require("./material-ledger")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 export type State = CoreTypes.State
 type CoreResult = CoreTypes.Result
 export type Intent = CoreTypes.Intent

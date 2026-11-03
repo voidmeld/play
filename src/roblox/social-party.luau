@@ -3,7 +3,7 @@
 local PartyHost = require("./party")
 local PartyTypes = require("../core/social/membership")
 local Rally = require("../core/social/rally")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 
 type PartyOutcome = PartyHost.PartyOutcome
 export type Handle = {

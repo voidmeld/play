@@ -17,6 +17,7 @@ bar and migration order. This README teaches the current adoption path.
 
 | Layer | Responsibility | Deployment |
 | --- | --- | --- |
+| [kernel](docs/kernel/value.md) | Shared boundary primitives, independent of domain and host layers. | Runtime wherever a system consumes them. |
 | [core](src/core) | Engine-independent rules, validators, state machines and injected host coordinators. Pure transitions perform no host work. | Runtime under the game's authority boundary. |
 | [roblox](src/roblox) | Typed adapters over injected native, storage, scheduling and observation operations. | Runtime beside the game's engine bindings. |
 | [test-scene](src/test-scene) | Fake clocks, signals, ownership and small hosts exercising real rules. | Lute verification only; exclude from shipped Roblox trees. |
@@ -71,6 +72,7 @@ A consumer using the shared delivery format adds this entry to its `dependencies
     tree = "<exact commit tree>",
     rights = "MIT",
     surfaces = {
+        { root = "src/kernel", role = "runtime" },
         { root = "src/core", role = "runtime" },
         { root = "src/roblox", role = "runtime" },
         { root = "src/test-scene", role = "verification" },
@@ -81,7 +83,7 @@ A consumer using the shared delivery format adds this entry to its `dependencies
 After fetching, resolve the merged commit with `git rev-parse origin/main` and its tree with
 `git rev-parse 'origin/main^{tree}'`. The placeholders above are not runnable pins.
 The game's dependency tooling verifies both identities and makes the selected surfaces available.
-Preserve relative paths within surfaces and between `core` and `roblox`. Map only runtime surfaces
+Preserve relative paths within surfaces and between `kernel`, `core` and `roblox`. Map only runtime surfaces
 into Roblox, then require the mapped module from the game's binding. Lute tests may require the
 pinned checkout through relative filesystem paths.
 

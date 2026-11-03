@@ -2,7 +2,7 @@
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Intake = require("./movement-intake")
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 type Point = Intake.Point

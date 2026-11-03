@@ -2,7 +2,7 @@
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Run = require("../quest/run")
 local Settlement = require("./settlement")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 type Ledger = { items: number, receipts: { [string]: boolean } }
 local package = { id = "route" }

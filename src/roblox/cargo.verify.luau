@@ -4,7 +4,7 @@ local Cargo = require("./cargo")
 local CargoRules = require("../core/inventory/cargo")
 local Ledger = require("./material-ledger")
 local LedgerRules = require("../core/ledger/ledger")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 type Control = { failKey: string, replyKey: string, reply: unknown, retryKey: string }

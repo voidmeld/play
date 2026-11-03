@@ -2,7 +2,7 @@
 
 local Bank = require("../core/bank/vault")
 local Transfer = require("./profile-transfer")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 
 export type Result = {
 	read ok: boolean,

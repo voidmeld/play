@@ -3,7 +3,7 @@
 local NameRegistry = require("./name-claims")
 local Policy = require("./policy")
 local Roster = require("./roster")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 type NameClaim = NameRegistry.Claim
 type RosterCharacter = Roster.CharacterIdentity

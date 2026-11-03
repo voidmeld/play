@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../value")
+local Value = require("../../kernel/value")
 export type Config = { statuses: { [string]: boolean } }
 local System = {}
 function System.tracking(config: Config)

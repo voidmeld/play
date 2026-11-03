@@ -31,7 +31,7 @@ type Entry = {
 }
 
 local MovementSender = {}
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 export type Connection = { read Disconnect: ((Connection) -> ())? }
 export type Dependencies = {
 	clock: () -> number,

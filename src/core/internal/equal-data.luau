@@ -1,5 +1,5 @@
 --!strict
-local Value = require("./value")
+local Value = require("../../kernel/value")
 local function equal(left: unknown, right: unknown): boolean
 	local a = Value.raw(left)
 	local b = Value.raw(right)

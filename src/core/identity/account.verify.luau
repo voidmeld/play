@@ -5,7 +5,7 @@ local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Creation = require("./creation")
 local Deletion = require("./deletion")
 local Policy = require("../../test-scene/identity")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 type Extra = { token: string, completed: number }

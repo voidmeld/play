@@ -5,6 +5,12 @@
 Import one core family entry or an individual Roblox adapter. Each page describes state,
 operations, host obligations and executable examples. The [generated API](api.md) carries exact declarations.
 
+## Kernel
+
+[Value](kernel/value.md) owns record admission, bounded scalar validation and explicit field copies.
+It has no host operations or mutable state. Other kernel primitives follow the migration order in
+the [architecture](architecture.md).
+
 ## Core
 
 | System | Purpose |

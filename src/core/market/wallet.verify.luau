@@ -13,7 +13,7 @@ local settings: Wallets.Config = {
 }
 local Wallet = Wallets.wallet(settings)
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 type State = Wallets.State

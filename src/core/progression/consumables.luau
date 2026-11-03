@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Buff = { read slot: "food" | "elixir", read durationSec: number, read stats: { [string]: number } }
 export type Item = {

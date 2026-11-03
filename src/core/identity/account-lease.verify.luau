@@ -2,7 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Lease = require("./account-lease")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 

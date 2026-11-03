@@ -2,7 +2,7 @@
 
 local Books = require("../core/market/book")
 local SettlementHost = require("./market-settlement")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 local Wallets = require("../core/market/wallet")
 
 type Outcome = SettlementHost.Outcome

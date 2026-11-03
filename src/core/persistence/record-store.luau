@@ -1,7 +1,7 @@
 --!strict
 
 local StoreHost = require("./store-host")
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 
 export type StoreOutcome = StoreHost.Outcome
 export type Store = { get: (string) -> StoreOutcome, updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }

@@ -3,7 +3,7 @@
 local Fellowship = require("../core/social/fellowship")
 local Formation = require("../core/social/formation")
 local Notes = require("../core/social/notes")
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 local Warband = require("../core/social/warband")
 
 local SocialRecords = {}

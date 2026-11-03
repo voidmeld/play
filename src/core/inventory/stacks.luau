@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../value")
+local Value = require("../../kernel/value")
 local Vault = require("../bank/vault")
 
 export type Inventory = { [string]: number }

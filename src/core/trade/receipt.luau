@@ -1,7 +1,7 @@
 --!strict
 
 local Exchange = require("./exchange")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Record<K> = {
 	tradeId: string,

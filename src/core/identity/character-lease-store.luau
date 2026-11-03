@@ -2,7 +2,7 @@
 
 local CharacterLease = require("./character-lease")
 local StoreHost = require("../persistence/store-host")
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 
 type Lease = CharacterLease.Record
 

@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../value")
+local Value = require("../../kernel/value")
 type Raw = Value.Raw
 
 export type Package = {

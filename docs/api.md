@@ -713,7 +713,7 @@ Exported value; see its declaration in [source](../src/core/control.luau).
 [Source](../src/core/craft/recipes.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.craft.recipes.MaterialStack`
@@ -946,7 +946,7 @@ Exported value; see its declaration in [source](../src/core/effects.luau).
 [Source](../src/core/events/catalog.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.events.catalog.Flag`
@@ -1381,7 +1381,7 @@ Exported value; see its declaration in [source](../src/core/events.luau).
 [Source](../src/core/identity/account-lease.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.account-lease.Lease`
@@ -1516,7 +1516,7 @@ local Deletion = require("./deletion")
 ```
 
 ```luau
-local HasMetatable = require("./value")
+local HasMetatable = require("../../kernel/value")
 ```
 
 ```luau
@@ -1622,7 +1622,7 @@ local StoreHost = require("../persistence/store-host")
 ```
 
 ```luau
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.character-lease-store.StoreOutcome`
@@ -1758,7 +1758,7 @@ local Shape = require("../internal/shape")
 ```
 
 ```luau
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.character-lease.Record`
@@ -1901,7 +1901,7 @@ local Creation = require("./creation")
 ```
 
 ```luau
-local HasMetatable = require("./value")
+local HasMetatable = require("../../kernel/value")
 ```
 
 ```luau
@@ -1913,7 +1913,7 @@ local Roster = require("./roster")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.creation-record.Seed`
@@ -1990,7 +1990,7 @@ local Roster = require("./roster")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.creation.Completion`
@@ -2150,7 +2150,7 @@ local Roster = require("./roster")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.deletion.Phase`
@@ -2258,7 +2258,7 @@ local Policy = require("./policy")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.name-claims.Claim`
@@ -2320,7 +2320,7 @@ local Registry = require("./name-claims")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.name-record.Record`
@@ -2394,7 +2394,7 @@ local Shape = require("../internal/shape")
 ```
 
 ```luau
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.retirement.Deletion`
@@ -2472,7 +2472,7 @@ local Policy = require("./policy")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.roster.CharacterIdentity`
@@ -2759,22 +2759,6 @@ decide = function Routing.decide(policy: unknown, request: unknown): Decision
 accept = function Routing.accept(policy: unknown, arrival: unknown): Decision
 boundPlaceIds = function Routing.boundPlaceIds(policy: unknown): { number }
 ```
-
-## `core.identity.value`
-
-[Source](../src/core/identity/value.luau)
-
-```luau
-local Internal = require("../internal/identity-value")
-```
-
-### `core.identity.value.check`
-
-Exported value; see its declaration in [source](../src/core/identity/value.luau).
-
-### `core.identity.value.fields`
-
-Exported value; see its declaration in [source](../src/core/identity/value.luau).
 
 ## `core.identity`
 
@@ -3329,7 +3313,7 @@ Exported value; see its declaration in [source](../src/core/identity.luau).
 [Source](../src/core/inventory/cargo.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.inventory.cargo.Status`
@@ -3507,7 +3491,7 @@ openDrops = function Claims.openDrops(stateValue: unknown, nowSecValue: unknown)
 [Source](../src/core/inventory/equipment.luau)
 
 ```luau
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.inventory.equipment.Requirements`
@@ -3687,7 +3671,7 @@ planUnequip = function planUnequip(bag: Inventory, slots: Equipment, slot: strin
 [Source](../src/core/inventory/stacks.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ```luau
@@ -3953,6 +3937,10 @@ Exported value; see its declaration in [source](../src/core/inventory.luau).
 
 [Source](../src/core/ledger/ledger.luau)
 
+```luau
+local Value = require("../../kernel/value")
+```
+
 ### `core.ledger.ledger.EventKind`
 
 ```luau
@@ -4192,7 +4180,7 @@ settle = function settle(decision: Decision, now: number): (Decision?, Refusal?)
 [Source](../src/core/loot/roll.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.loot.roll.Roll`
@@ -4556,7 +4544,7 @@ Exported value; see its declaration in [source](../src/core/mail.luau).
 [Source](../src/core/map/coordinates.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.map.coordinates.Bounds`
@@ -4605,7 +4593,7 @@ function ZoneMapProjectionCore.worldToMap(boundsValue: unknown, worldValue: unkn
 [Source](../src/core/map/exploration.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.map.exploration.Record`
@@ -4812,7 +4800,7 @@ local UpdateTypes = require("./updates")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.map.renderer.PreferredInput`
@@ -4880,7 +4868,7 @@ compose = function MinimapRenderCore.compose(input: unknown): Result?
 [Source](../src/core/map/updates.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.map.updates.NormalizedPoint`
@@ -4967,7 +4955,7 @@ transition = function MinimapUpdateCore.transition(previous: unknown, nextSample
 [Source](../src/core/map/viewport.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ```luau
@@ -5338,7 +5326,7 @@ Exported value; see its declaration in [source](../src/core/map.luau).
 [Source](../src/core/market/book.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.market.book.Listing`
@@ -5502,7 +5490,7 @@ local Book = require("./book")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ```luau
@@ -5548,7 +5536,7 @@ audit = function Audit.audit(walletValues: unknown, bookValues: unknown, expecte
 [Source](../src/core/market/goods.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.market.goods.ItemFacts`
@@ -5625,7 +5613,7 @@ matches = function catalog.matches(def: ItemFacts, value: unknown): boolean
 [Source](../src/core/market/wallet.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.market.wallet.Pending`
@@ -6369,7 +6357,7 @@ local StoreHost = require("./store-host")
 ```
 
 ```luau
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.persistence.record-store.StoreOutcome`
@@ -6494,7 +6482,7 @@ Exported value; see its declaration in [source](../src/core/persistence/session-
 [Source](../src/core/persistence/store-host.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.persistence.store-host.Outcome`
@@ -6882,7 +6870,7 @@ Exported value; see its declaration in [source](../src/core/persistence.luau).
 [Source](../src/core/professions/crafting.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ```luau
@@ -6970,7 +6958,7 @@ craft = function Crafting.craft(
 [Source](../src/core/professions/fishing.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ```luau
@@ -7055,7 +7043,7 @@ reel = function Fishing.reel(state: State, zoneId: string, rng: () -> number): C
 [Source](../src/core/professions/gathering.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.professions.gathering.RealmId`
@@ -7169,7 +7157,7 @@ step = function GatheringCore.step(
 [Source](../src/core/professions/harvest.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ```luau
@@ -7234,7 +7222,7 @@ skinCorpse = function Gather.skinCorpse(state: State, skinRow: SkinRow, rng: () 
 [Source](../src/core/professions/session.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.professions.session.Kind`
@@ -7289,7 +7277,7 @@ check = function Session.check(session: Session, sample: Sample): (string, strin
 [Source](../src/core/professions/skills.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ```luau
@@ -7392,7 +7380,7 @@ freezeState = function Core.freezeState(state: State): State
 [Source](../src/core/professions/types.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.professions.types.Sustain`
@@ -7913,7 +7901,7 @@ layerEntries = function layerEntries(
 [Source](../src/core/progression/consumables.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.progression.consumables.Buff`
@@ -8197,7 +8185,7 @@ arrived = function Core.arrived(state: unknown): State
 [Source](../src/core/progression/levels.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.progression.levels.CurveRow`
@@ -8366,7 +8354,7 @@ anchorPosition = function anchorPosition<Travel>(current: Position<Travel>, deat
 [Source](../src/core/progression/reputation.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.progression.reputation.EventKind`
@@ -8585,7 +8573,7 @@ local Run = require("../quest/run")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.progression.settlement.RewardReceipt`
@@ -8900,7 +8888,7 @@ function stateProblem(spec: Spec, bucket: Bucket, points: number): string?
 [Source](../src/core/progression/talents.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.progression.talents.State`
@@ -9012,7 +9000,7 @@ roles = { [state.classId] = { ranks = table.clone(state.ranks), respecCount = st
 [Source](../src/core/progression/tracking.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.progression.tracking.Config`
@@ -9038,7 +9026,7 @@ canTrack = function canTrack(progress: unknown): boolean
 [Source](../src/core/progression/transactions.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.progression.transactions.CollectionSet`
@@ -9729,7 +9717,7 @@ local Run = require("./run")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.quest.claims.Invitation`
@@ -9939,7 +9927,7 @@ byTarget = function byTarget(event: string, field: string): { [string]: { Target
 [Source](../src/core/quest/journal.luau)
 
 ```luau
-local Tables = require("../internal/value")
+local Tables = require("../../kernel/value")
 ```
 
 ### `core.quest.journal.QuestProgress`
@@ -10040,7 +10028,7 @@ local Objectives = require("./objectives")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.quest.lifecycle.Objective`
@@ -10462,7 +10450,7 @@ claimableObjective = function Quest.claimableObjective(content: C?, quest: Q, pr
 [Source](../src/core/quest/run.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.quest.run.Package`
@@ -11966,7 +11954,7 @@ canWithdraw = function GuildBankLedgerCore.canWithdraw(profile: T): boolean
 [Source](../src/core/social/membership.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.social.membership.LootMode`
@@ -13689,7 +13677,7 @@ Exported value; see its declaration in [source](../src/core/threat.luau).
 [Source](../src/core/trade/exchange.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.trade.exchange.Stack`
@@ -13762,7 +13750,7 @@ local Exchange = require("./exchange")
 ```
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.trade.receipt.Record`
@@ -13915,62 +13903,12 @@ Exported value; see its declaration in [source](../src/core/trade.luau).
 
 Exported value; see its declaration in [source](../src/core/trade.luau).
 
-## `core.value`
-
-[Source](../src/core/value.luau)
-
-```luau
-local Internal = require("./internal/value")
-```
-
-### `core.value.Raw`
-
-```luau
-export type Raw = Internal.Raw
-```
-
-### `core.value.dense`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.finite`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.freezeDeep`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.identifier`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.nonempty`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.opaque`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.raw`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.record`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
-### `core.value.whole`
-
-Exported value; see its declaration in [source](../src/core/value.luau).
-
 ## `core.vendors.exchange`
 
 [Source](../src/core/vendors/exchange.luau)
 
 ```luau
-local Value = require("../value")
+local Value = require("../../kernel/value")
 ```
 
 ### `core.vendors.exchange.Inventory`
@@ -14171,6 +14109,99 @@ export type API = {
 
 Exported value; see its declaration in [source](../src/core/vendors.luau).
 
+## `kernel.value`
+
+[Source](../src/kernel/value.luau)
+
+### `kernel.value.Raw`
+
+```luau
+export type Raw = { [unknown]: unknown }
+```
+
+### `kernel.value.MetatableProbe`
+
+```luau
+export type MetatableProbe = typeof(setmetatable({}, {}))
+```
+
+### `kernel.value.API`
+
+```luau
+export type API = {
+	read raw: typeof(Value.raw),
+	read record: typeof(Value.record),
+	read finite: typeof(Value.finite),
+	read nonempty: typeof(Value.nonempty),
+	read whole: typeof(Value.whole),
+	read opaque: typeof(Value.opaque),
+	read identifier: typeof(Value.identifier),
+	read dense: typeof(Value.dense),
+	read freezeDeep: typeof(Value.freezeDeep),
+	read hasMetatable: typeof(Value.hasMetatable),
+}
+```
+
+### `kernel.value.dense`
+
+```luau
+function Value.dense(value: unknown, maximum: number, plain: boolean?): { unknown }?
+```
+
+### `kernel.value.finite`
+
+```luau
+function Value.finite(value: unknown): boolean
+```
+
+### `kernel.value.freezeDeep`
+
+```luau
+function Value.freezeDeep<T>(value: T): T
+```
+
+### `kernel.value.hasMetatable`
+
+```luau
+function Value.hasMetatable(value: unknown): boolean
+```
+
+### `kernel.value.identifier`
+
+```luau
+function Value.identifier(value: unknown, limit: number): string?
+```
+
+### `kernel.value.nonempty`
+
+```luau
+function Value.nonempty(value: unknown): boolean
+```
+
+### `kernel.value.opaque`
+
+```luau
+function Value.opaque(value: unknown, limit: number): string?
+```
+
+### `kernel.value.raw`
+
+```luau
+function Value.raw(value: unknown): Raw?
+```
+
+### `kernel.value.record`
+
+```luau
+function Value.record(value: unknown, fields: { [string]: boolean }, required: boolean?, plain: boolean?): Raw?
+```
+
+### `kernel.value.whole`
+
+```luau
+function Value.whole(value: unknown, low: number, high: number): number?
+```
+
 ## `roblox.bank`
 
 [Source](../src/roblox/bank.luau)
@@ -14184,7 +14215,7 @@ local Transfer = require("./profile-transfer")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.bank.Result`
@@ -14376,7 +14407,7 @@ local LedgerTypes = require("./material-ledger")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.cargo.State`
@@ -14569,7 +14600,7 @@ local Stores = require("../core/persistence/store-host")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.character-admission.Subject`
@@ -15354,7 +15385,7 @@ local Transfer = require("./profile-transfer")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.guild-bank.Bank`
@@ -15595,7 +15626,7 @@ function Contexts.mount(plan: { Template }, raw: Surfaces?, phases: { mounted: s
 [Source](../src/roblox/input-profile.luau)
 
 ```luau
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.input-profile.Device`
@@ -15761,7 +15792,7 @@ local Sessions = require("../core/persistence/profile-session")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.leased-record-session.Lease`
@@ -15918,7 +15949,7 @@ local Transfer = require("./profile-transfer")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.mail.Context`
@@ -16150,7 +16181,7 @@ local Records = require("./social-records")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ```luau
@@ -16260,7 +16291,7 @@ local SettlementHost = require("./market-settlement")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ```luau
@@ -16497,7 +16528,7 @@ local Shape = require("../core/social/shape")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.material-ledger.State`
@@ -16646,7 +16677,7 @@ subscribe = function subscribe(onNotice: (T) -> ()): (() -> ())
 [Source](../src/roblox/movement-intake.luau)
 
 ```luau
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.movement-intake.Point`
@@ -16797,7 +16828,7 @@ export type Payload = { read intent: Planar, read sequence: number, read sentAt:
 ```
 
 ```luau
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.movement-sender.Connection`
@@ -16913,7 +16944,7 @@ local Membership = require("../core/social/membership")
 ```
 
 ```luau
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.party.StoreOutcome`
@@ -17591,7 +17622,7 @@ local ProfileSessionTypes = require("../core/persistence/profile-session")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.quest-durability.Lease`
@@ -17934,7 +17965,7 @@ local SocialHost = require("./social-host")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ```luau
@@ -18085,7 +18116,7 @@ local Transfer = require("./profile-transfer")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ```luau
@@ -18391,7 +18422,7 @@ local Rally = require("../core/social/rally")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.social-party.Handle`
@@ -18636,7 +18667,7 @@ local Notes = require("../core/social/notes")
 ```
 
 ```luau
-local Value = require("../core/value")
+local Value = require("../kernel/value")
 ```
 
 ```luau
@@ -19311,7 +19342,7 @@ local Transfer = require("./profile-transfer")
 ```
 
 ```luau
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 ```
 
 ### `roblox.trade.Subject`

@@ -4,7 +4,7 @@ local BankTypes = require("../core/social/guildbank")
 local LedgerTypes = require("../core/social/guildledger")
 local Records = require("./social-records")
 local Transfer = require("./profile-transfer")
-local Value = require("../core/internal/value")
+local Value = require("../kernel/value")
 
 export type Bank = Records.Ledger<string, BankTypes.State, BankTypes.Receipt>
 export type BankResult = Records.Settled<BankTypes.State, BankTypes.Receipt>

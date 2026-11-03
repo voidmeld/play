@@ -1,4 +1,5 @@
 --!strict
+local Value = require("../../kernel/value")
 
 export type EventKind = "grant" | "craft_consume" | "craft_yield" | "trade_out" | "trade_in"
 
@@ -38,18 +39,8 @@ export type Config = {
 	maxGroupSize: number,
 }
 
-type Raw = { [unknown]: unknown }
-
-local function raw(value: unknown): Raw?
-	if type(value) ~= "table" then
-		return nil
-	end
-	local out: Raw = {}
-	for key, entry in value do
-		out[key] = entry
-	end
-	return out
-end
+type Raw = Value.Raw
+local raw = Value.raw
 
 local function frozen<T>(value: T): T
 	local probe: unknown = value
@@ -169,16 +160,7 @@ function Ledger.ledger(config: Config): Journal
 	end
 
 	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): Raw?
-		local source = raw(value)
-		if source == nil then
-			return nil
-		end
-		for key in source do
-			if type(key) ~= "string" or fields[key] ~= true then
-				return nil
-			end
-		end
-		return source
+		return Value.record(value, fields, false, false)
 	end
 
 	local function denseLength(value: Raw): number?

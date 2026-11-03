@@ -1,10 +1,10 @@
 --!strict
 
 local Creation = require("./creation")
-local HasMetatable = require("./value")
+local HasMetatable = require("../../kernel/value")
 local Policy = require("./policy")
 local Roster = require("./roster")
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 type RosterCharacter = Roster.CharacterIdentity
 export type Seed = {
@@ -198,7 +198,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	function Record.fromTransaction(raw: unknown): Seed?
-		if type(raw) ~= "table" or HasMetatable.check(raw) then
+		if type(raw) ~= "table" or HasMetatable.hasMetatable(raw) then
 			return nil
 		end
 		local state = creation.validate(raw)
@@ -264,7 +264,7 @@ local function create(policy: Policy.Policy)
 	end
 
 	function Record.receiptFromTransaction(raw: unknown): Receipt?
-		if type(raw) ~= "table" or HasMetatable.check(raw) then
+		if type(raw) ~= "table" or HasMetatable.hasMetatable(raw) then
 			return nil
 		end
 		local state = creation.validate(raw)

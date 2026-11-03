@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../internal/value")
+local Value = require("../../kernel/value")
 export type Requirements = {
 	read levelReq: number,
 	read classReq: { read [number]: string }?,

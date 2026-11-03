@@ -1,6 +1,6 @@
 --!strict
 
-local Value = require("../value")
+local Value = require("../../kernel/value")
 
 export type Stack = { itemId: string, count: number }
 export type Offer = { coin: number, items: { Stack } }

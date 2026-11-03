@@ -2,7 +2,7 @@
 
 type Raw = { [unknown]: unknown }
 
-local Tables = require("../internal/value")
+local Tables = require("../../kernel/value")
 export type QuestProgress = { status: string, step: number, counts: { [string]: number }? }
 
 export type Record = {

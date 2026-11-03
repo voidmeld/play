@@ -1,5 +1,5 @@
 --!strict
-local Value = require("../value")
+local Value = require("../../kernel/value")
 export type CurveRow = { level: number, totalXp: number }
 export type Curve = { id: string, maxLevel: number, rows: { CurveRow } }
 export type Config = { curve: unknown, curveId: string, maxLevel: number }
