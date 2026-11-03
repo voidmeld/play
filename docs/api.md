@@ -15722,6 +15722,299 @@ bottom = top + math.max(height, 0)
 function rectsOverlap(left: ScreenRect, right: ScreenRect): boolean
 ```
 
+## `roblox.social-fellowship`
+
+[Source](../src/roblox/social-fellowship.luau)
+
+```luau
+local FellowshipTypes = require("../core/social/fellowship")
+```
+
+```luau
+local GroupCoreTypes = require("../core/social/group")
+```
+
+```luau
+local Homes = require("../core/social/guildhome")
+```
+
+```luau
+local RecordsTypes = require("./social-records")
+```
+
+```luau
+local SocialHost = require("./social-host")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+```luau
+local Views = require("./internal/social-views")
+```
+
+### `roblox.social-fellowship.BankMembership`
+
+```luau
+export type BankMembership = { fellowshipId: string, role: "member" | "steward", memberIds: { number } }
+```
+
+### `roblox.social-fellowship.FellowshipMemberView`
+
+```luau
+export type FellowshipMemberView = Views.FellowshipMemberView
+```
+
+### `roblox.social-fellowship.StewardAuditView`
+
+```luau
+export type StewardAuditView = Views.StewardAuditView
+```
+
+### `roblox.social-fellowship.PendingFellowshipInviteView`
+
+```luau
+export type PendingFellowshipInviteView = Views.PendingFellowshipInviteView
+```
+
+### `roblox.social-fellowship.FellowshipView`
+
+```luau
+export type FellowshipView = Views.FellowshipView
+```
+
+### `roblox.social-fellowship.FellowshipResponse`
+
+```luau
+export type FellowshipResponse = {
+	read ok: boolean,
+	read state: FellowshipState?,
+	read replayed: boolean,
+	read reason: string?,
+}
+```
+
+### `roblox.social-fellowship.Dependencies`
+
+```luau
+export type Dependencies = {
+	read fellowshipRecords: RecordService?,
+	read realmFor: (number) -> string?,
+	read clock: () -> number,
+	read guildHomeCatalog: (() -> unknown)?,
+	read relationsFor: ((number, { number }, number) -> GroupCoreTypes.Relations?)?,
+}
+```
+
+### `roblox.social-fellowship.Service`
+
+```luau
+export type Service = {
+	read createFellowship: (number, string) -> FellowshipResponse,
+	read fellowshipInvite: (number, number) -> FellowshipResponse,
+	read pendingFellowshipInvite: (number) -> PendingFellowshipInviteView | false,
+	read answerFellowshipInvite: (number, boolean) -> FellowshipResponse,
+	read fellowshipMemberIntent: (number, string, number?, unknown?) -> FellowshipResponse,
+	read bankMembership: (number, boolean) -> (BankMembership?, string?),
+	read fellowshipProjection: (number) -> FellowshipView | false,
+	read fellowshipAudience: (number) -> { number },
+	read fellowshipNoticed: (string) -> { number },
+	read fellowshipSeen: (number) -> FellowshipResponse,
+	read fellowshipSettle: (number) -> string?,
+	read fellowshipEnsureSettled: (number) -> (),
+	read forgetPlayer: (number) -> (),
+}
+```
+
+### `roblox.social-fellowship.Config`
+
+```luau
+export type Config = {
+	read slots: (unknown) -> { Homes.Slot }?,
+	read slotFor: (unknown, unknown) -> Homes.Slot?,
+	read admit: (unknown, unknown, unknown, GroupCoreTypes.Authority?) -> GroupCoreTypes.Decision,
+	read visibleRoster: (unknown, unknown, unknown) -> { number }?,
+	read inviteTtlSec: number,
+	read stewardAbsenceSec: number,
+	read seenRefreshSec: number,
+	read fellowshipId: (string) -> string,
+	read memberFallback: (number) -> string,
+}
+```
+
+### `roblox.social-fellowship.API`
+
+```luau
+export type API = {
+	read create: (Dependencies, SocialHost.Host, (number) -> string?, () -> string, (string) -> ()) -> Service,
+}
+```
+
+### `roblox.social-fellowship.configure`
+
+```luau
+function configure(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function create(
+		deps: Dependencies,
+		host: SocialHost.Host,
+		memberNameFor: (number) -> string?,
+		newEventId: () -> string,
+		notifyFellowship: (string) -> ()
+	): Service
+```
+
+## `roblox.social-formation`
+
+[Source](../src/roblox/social-formation.luau)
+
+```luau
+local FellowshipFormationCoreTypes = require("../core/social/formation")
+```
+
+```luau
+local GroupCoreTypes = require("../core/social/group")
+```
+
+```luau
+local Homes = require("../core/social/guildhome")
+```
+
+```luau
+local RecordsTypes = require("./social-records")
+```
+
+```luau
+local SocialHost = require("./social-host")
+```
+
+```luau
+local Transfer = require("./profile-transfer")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+```luau
+local Views = require("./internal/social-views")
+```
+
+### `roblox.social-formation.FeePort`
+
+```luau
+export type FeePort = {
+	read hold: (number, string) -> Transfer.Result,
+	read commit: (number, string) -> Transfer.Result,
+	read refund: (number, string) -> Transfer.Result,
+}
+```
+
+### `roblox.social-formation.FormationInviteView`
+
+```luau
+export type FormationInviteView = Views.FormationInviteView
+```
+
+### `roblox.social-formation.FounderView`
+
+```luau
+export type FounderView = Views.FounderView
+```
+
+### `roblox.social-formation.ActiveFormationView`
+
+```luau
+export type ActiveFormationView = Views.ActiveFormationView
+```
+
+### `roblox.social-formation.FormationView`
+
+```luau
+export type FormationView = Views.FormationView
+```
+
+### `roblox.social-formation.FormationResponse`
+
+```luau
+export type FormationResponse = {
+	read ok: boolean,
+	read state: FormationState?,
+	read replayed: boolean,
+	read reason: string?,
+	read fellowshipId: string?,
+}
+```
+
+### `roblox.social-formation.Dependencies`
+
+```luau
+export type Dependencies = {
+	read fellowshipRecords: RecordService?,
+	read realmFor: (number) -> string?,
+	read clock: () -> number,
+	read guildHomeCatalog: (() -> unknown)?,
+	read relationsFor: ((number, { number }, number) -> GroupCoreTypes.Relations?)?,
+	read guildFee: FeePort?,
+}
+```
+
+### `roblox.social-formation.Service`
+
+```luau
+export type Service = {
+	read start: (number, string) -> FormationResponse,
+	read invite: (number, number) -> FormationResponse,
+	read answer: (number, string) -> FormationResponse,
+	read complete: (number) -> FormationResponse,
+	read projection: (number) -> FormationView | false,
+	read settle: (number) -> FormationResponse,
+}
+```
+
+### `roblox.social-formation.Config`
+
+```luau
+export type Config = {
+	read slotFor: (unknown, unknown) -> Homes.Slot?,
+	read admit: (unknown, unknown, unknown, GroupCoreTypes.Authority?) -> GroupCoreTypes.Decision,
+	read requiredFounders: number,
+	read fee: number,
+	read proposerFallback: string,
+}
+```
+
+### `roblox.social-formation.API`
+
+```luau
+export type API = {
+	read create: (Dependencies, SocialHost.Host, (number) -> string?, () -> string, (string) -> ()) -> Service,
+}
+```
+
+### `roblox.social-formation.configure`
+
+```luau
+function configure(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function create(
+		deps: Dependencies,
+		host: SocialHost.Host,
+		memberNameFor: (number) -> string?,
+		newEventId: () -> string,
+		notifyFellowship: (string) -> ()
+	): Service
+```
+
 ## `roblox.social-host`
 
 [Source](../src/roblox/social-host.luau)
@@ -17001,10 +17294,19 @@ local Warband = require("../core/social/warband")
 export type Counters = { writes: number, clock: number }
 ```
 
+### `test-scene.social.Options`
+
+```luau
+export type Options = { requiredFounders: number?, fee: number? }
+```
+
 ### `test-scene.social.rig`
 
 ```luau
-function Social.rig(readback: ((unknown) -> unknown)?): (Records.Service, { [string]: unknown }, Counters)
+function Social.rig(
+	readback: ((unknown) -> unknown)?,
+	options: Options?
+): (Records.Service, { [string]: unknown }, Counters)
 ```
 
 ## `test-scene.threat`
