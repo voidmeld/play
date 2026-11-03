@@ -10,6 +10,9 @@ item or ability catalogs, assets, credentials, deployment destinations or a runn
 Compose builds interfaces, Generate produces authored outputs, Execute runs workflows and Verify
 checks behavior; Play owns reusable gameplay systems.
 
+The [architecture](docs/architecture.md) defines the principles, target system shape, completeness
+bar and migration order. This README teaches the current adoption path.
+
 ## Layers
 
 | Layer | Responsibility | Deployment |
