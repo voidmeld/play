@@ -59,10 +59,10 @@ local function rig()
 	local control = { clock = 0, failures = 0, saves = 0, diverge = false, reenter = false }
 	local handle: Host.Handle? = nil
 	local store: Host.OutcomeStore = {
-		get = function(key: string): LeaseStores.StoreOutcome
+		read = function(key: string): LeaseStores.StoreOutcome
 			return { ok = true, value = raw[key] }
 		end,
-		updateOutcome = function(key: string, transform: (unknown) -> unknown): LeaseStores.StoreOutcome
+		update = function(key: string, transform: (unknown) -> unknown): LeaseStores.StoreOutcome
 			local value = transform(raw[key])
 			if value == nil then
 				return { ok = false, value = nil, reason = "callback_cancelled" }

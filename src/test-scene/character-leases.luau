@@ -1,5 +1,6 @@
 --!strict
 
+local AtomicStore = require("../roblox/persistence/store")
 local Clock = require("./clock")
 local Lease = require("../core/identity/character-lease")
 local Leases = require("../core/identity/character-lease-store")
@@ -55,7 +56,8 @@ local function new(config: Config, options: Options?)
 	return {
 		record = record,
 		repository = repository,
-		store = store,
+		store = AtomicStore.new(store),
+		seed = store.set,
 		clock = clock,
 		writes = function(): number
 			return writes

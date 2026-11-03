@@ -196,7 +196,7 @@ return function(suite: Verify.Harness)
 		it("honors live-session policy at and before expiry", function()
 			for _, now in { 100, 280 } do
 				local scene = Scene.new(config())
-				scene.store.set(keyFor("character"), owned())
+				scene.seed(keyFor("character"), owned())
 				local function live(): boolean
 					return true
 				end
@@ -238,7 +238,7 @@ return function(suite: Verify.Harness)
 			local scene = Scene.new(config())
 			local called = 0
 			local store: Atomic.Store = {
-				updateOutcome = function(_key: string, _transform: (unknown) -> unknown)
+				update = function(_key: string, _transform: (unknown) -> unknown)
 					called += 1
 					return { ok = true, value = owned(), reason = nil }
 				end,
@@ -254,7 +254,7 @@ return function(suite: Verify.Harness)
 			local first = assert((record.retire(nil, witness(3))))
 			local foreign = assert((record.retire(nil, witness(4, "other"))))
 			local store: Atomic.Store = {
-				updateOutcome = function(_key: string, transform: (unknown) -> unknown)
+				update = function(_key: string, transform: (unknown) -> unknown)
 					transform(first)
 					local final = transform(foreign)
 					return { ok = true, value = final, reason = nil }

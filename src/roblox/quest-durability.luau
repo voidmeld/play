@@ -1,4 +1,5 @@
 --!strict
+local Atomic = require("../kernel/store")
 local Journal = require("../core/quest/journal")
 local LeaseRecordTypes = require("../core/identity/character-lease")
 local LeaseStore = require("../core/identity/character-lease-store")
@@ -9,7 +10,7 @@ export type Lease = LeaseRecordTypes.Record
 export type SessionState = ProfileSessionTypes.State
 export type Quests = { [string]: Journal.QuestProgress }
 export type QuestRecord = Journal.Record
-export type OutcomeStore = LeaseStore.Store & { get: (string) -> LeaseStore.StoreOutcome }
+export type OutcomeStore = Atomic.Port
 export type SessionDependencies = {
 	store: OutcomeStore,
 	leaseKeyFor: (string) -> string,
@@ -158,7 +159,7 @@ local function configure<Z>(config: Config<Z>): API
 
 		local function adoptOwnedLease(characterId: string, entry: Entry<Z>): boolean
 			local captured: unknown = nil
-			local read = pcall(deps.store.updateOutcome, deps.leaseKeyFor(characterId), function(current): unknown
+			local read = pcall(deps.store.update, deps.leaseKeyFor(characterId), function(current): unknown
 				captured = current
 				return nil
 			end)

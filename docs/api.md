@@ -1614,11 +1614,15 @@ empty = function Aggregate.empty(userId: unknown): State?
 [Source](../src/core/identity/character-lease-store.luau)
 
 ```luau
+local Atomic = require("../../kernel/store")
+```
+
+```luau
 local CharacterLease = require("./character-lease")
 ```
 
 ```luau
-local StoreHost = require("../persistence/store-host")
+local Result = require("../../kernel/result")
 ```
 
 ```luau
@@ -1628,13 +1632,13 @@ local Value = require("../../kernel/value")
 ### `core.identity.character-lease-store.StoreOutcome`
 
 ```luau
-export type StoreOutcome = StoreHost.Outcome
+export type StoreOutcome = Result.Result<Atomic.Readback>
 ```
 
 ### `core.identity.character-lease-store.Store`
 
 ```luau
-export type Store = { updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+export type Store = Atomic.Writer
 ```
 
 ### `core.identity.character-lease-store.Accepted`
@@ -6353,7 +6357,11 @@ close = function M.close(s: State, now: number): Outcome
 [Source](../src/core/persistence/record-store.luau)
 
 ```luau
-local StoreHost = require("./store-host")
+local Atomic = require("../../kernel/store")
+```
+
+```luau
+local Result = require("../../kernel/result")
 ```
 
 ```luau
@@ -6363,13 +6371,13 @@ local Value = require("../../kernel/value")
 ### `core.persistence.record-store.StoreOutcome`
 
 ```luau
-export type StoreOutcome = StoreHost.Outcome
+export type StoreOutcome = Result.Result<Atomic.Readback>
 ```
 
 ### `core.persistence.record-store.Store`
 
 ```luau
-export type Store = { get: (string) -> StoreOutcome, updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+export type Store = Atomic.Port
 ```
 
 ### `core.persistence.record-store.Accepted`
@@ -17785,6 +17793,10 @@ function settle(
 [Source](../src/roblox/quest-durability.luau)
 
 ```luau
+local Atomic = require("../kernel/store")
+```
+
+```luau
 local Journal = require("../core/quest/journal")
 ```
 
@@ -17831,7 +17843,7 @@ export type QuestRecord = Journal.Record
 ### `roblox.quest-durability.OutcomeStore`
 
 ```luau
-export type OutcomeStore = LeaseStore.Store & { get: (string) -> LeaseStore.StoreOutcome }
+export type OutcomeStore = Atomic.Port
 ```
 
 ### `roblox.quest-durability.SessionDependencies`
@@ -19774,6 +19786,10 @@ fired = fired
 [Source](../src/test-scene/character-leases.luau)
 
 ```luau
+local AtomicStore = require("../roblox/persistence/store")
+```
+
+```luau
 local Clock = require("./clock")
 ```
 
@@ -19816,7 +19832,8 @@ Returned operations and values (declarations; unannotated results are inferred):
 ```luau
 record = record
 repository = repository
-store = store
+store = AtomicStore.new(store)
+seed = store.set
 clock = clock
 writes = function(): number
 ```
