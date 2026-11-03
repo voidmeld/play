@@ -14197,6 +14197,239 @@ Returned operations and values (declarations; unannotated results are inferred):
 create = function MarketSettlement.create(raw: Dependencies?): (Service?, string?)
 ```
 
+## `roblox.market`
+
+[Source](../src/roblox/market.luau)
+
+```luau
+local Books = require("../core/market/book")
+```
+
+```luau
+local SettlementHost = require("./market-settlement")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+```luau
+local Wallets = require("../core/market/wallet")
+```
+
+### `roblox.market.Wallet`
+
+```luau
+export type Wallet = {
+	read read: () -> Wallets.State?,
+	read write: (Wallets.State) -> boolean,
+	read room: (string) -> number,
+}
+```
+
+### `roblox.market.Item`
+
+```luau
+export type Item<R> = {
+	read id: string,
+	read name: string,
+	read rarity: R,
+	read slot: string?,
+	read levelReq: number?,
+	read weaponFamily: string?,
+	read armorFamily: string?,
+	read classReq: { string }?,
+	read sellValue: number?,
+}
+```
+
+### `roblox.market.Items`
+
+```luau
+export type Items<R> = { read get: (string) -> Item<R>? }
+```
+
+### `roblox.market.Material`
+
+```luau
+export type Material = { id: string, label: string, npcFloor: number, npcCeiling: number }
+```
+
+### `roblox.market.Catalog`
+
+```luau
+export type Catalog = {
+	materials: { Material },
+	maxQuantity: number,
+	maxUnitPrice: number,
+	maxItemQuantity: number?,
+	maxItemUnitPrice: number?,
+	visibleListings: number,
+	searchLimit: number,
+}
+```
+
+### `roblox.market.ItemRow`
+
+```luau
+export type ItemRow<R> = {
+	read listingId: string?,
+	read bookId: string,
+	read itemId: string,
+	read name: string,
+	read slot: string?,
+	read levelReq: number?,
+	read rarity: R,
+	read family: string?,
+	read count: number,
+	read unitPrice: number,
+	read own: boolean,
+	read expiresAtSec: number,
+}
+```
+
+### `roblox.market.ItemPage`
+
+```luau
+export type ItemPage<R> = {
+	read ok: boolean,
+	read reason: string?,
+	read rows: { ItemRow<R> },
+	read total: number,
+	read page: number,
+}
+```
+
+### `roblox.market.ListableItem`
+
+```luau
+export type ListableItem<R> = {
+	read itemId: string,
+	read name: string,
+	read slot: string?,
+	read levelReq: number?,
+	read rarity: R,
+	read count: number,
+	read suggestedPrice: number,
+}
+```
+
+### `roblox.market.Projection`
+
+```luau
+export type Projection = {
+	read available: boolean,
+	read realmId: string | false,
+	read feeBps: number,
+	read materials: { MaterialProjection },
+	read coin: number?,
+	read maxQuantity: number?,
+	read maxUnitPrice: number?,
+	read search: SearchProjection?,
+}
+```
+
+### `roblox.market.Dependencies`
+
+```luau
+export type Dependencies<R> = {
+	read book: BookService,
+	read catalog: Catalog,
+	read walletFor: (number) -> Wallet?,
+	read realmFor: (number) -> string?,
+	read clock: () -> number,
+	read newOpId: () -> string,
+	read tradingAllowed: (number) -> boolean,
+	read items: Items<R>?,
+}
+```
+
+### `roblox.market.Service`
+
+```luau
+export type Service<R> = {
+	read join: (number) -> Outcome,
+	read list: (number, unknown, unknown, unknown) -> Outcome,
+	read buy: (number, unknown, unknown, unknown) -> Outcome,
+	read cancel: (number, unknown, unknown) -> Outcome,
+	read refresh: (number) -> Outcome,
+	read npcSell: (number, unknown, unknown) -> Outcome,
+	read npcBuy: (number, unknown, unknown) -> Outcome,
+	read listItem: (number, unknown, unknown, unknown) -> Outcome,
+	read buyItem: (number, unknown, unknown, unknown) -> Outcome,
+	read searchItems: (number, unknown) -> ItemPage<R>,
+	read listable: (number) -> { ListableItem<R> },
+	read search: (number, unknown, unknown) -> Outcome,
+	read projection: (number) -> Projection,
+	read forget: (number) -> (),
+}
+```
+
+### `roblox.market.ItemFilters`
+
+```luau
+export type ItemFilters = {
+	read page: number?,
+	read ceilingUnitPrice: number?,
+	read minLevel: number?,
+	read maxLevel: number?,
+	read bookId: string?,
+	read itemId: string?,
+	read own: boolean?,
+	read slot: string?,
+	read rarity: string?,
+	read family: string?,
+	read classId: string?,
+}
+```
+
+### `roblox.market.GoodsOps`
+
+```luau
+export type GoodsOps = {
+	read bookIds: () -> { string },
+	read isCategoryBook: (unknown) -> boolean,
+	read bookFor: (unknown) -> (string?, string?),
+}
+```
+
+### `roblox.market.Config`
+
+```luau
+export type Config<R> = {
+	read items: Items<R>,
+	read goods: GoodsOps,
+	read matchesItem: (Item<R>, ItemFilters) -> boolean,
+	read settlement: SettlementHost.Host,
+	read search: (unknown, unknown, unknown) -> { Books.Listing }?,
+	read npcTrade: (unknown, unknown, unknown, unknown, unknown) -> Wallets.Result,
+	read feeBps: number,
+	read joinRetrySec: number,
+	read maxActiveListings: number,
+	read maxCatalogUnitPrice: number,
+	read maxSearchLimit: number,
+	read maxSearchPrice: number,
+}
+```
+
+### `roblox.market.Host`
+
+```luau
+export type Host<R> = { read mount: (Dependencies<R>) -> (Service<R>?, string?), read MAX_ACTIVE_LISTINGS: number }
+```
+
+### `roblox.market.configure`
+
+```luau
+function configure<R>(config: Config<R>): Host<R>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+mount = function MarketService.mount(raw: Dependencies<R>): (Service<R>?, string?)
+```
+
 ## `roblox.messaging`
 
 [Source](../src/roblox/messaging.luau)

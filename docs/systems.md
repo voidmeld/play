@@ -54,6 +54,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [input-profile](systems/roblox-input-profile.md) | Coordinate device reach, action coverage and rollback-safe sessions. |
 | [inventory](systems/roblox-inventory.md) | Coordinate authoritative profile inventory and receipt-backed rewards. |
 | [mail](systems/roblox-mail.md) | Coordinate durable attachment holds, delivery, returns and recovery. |
+| [market](systems/roblox-market.md) | Admit catalog-bound trades, merchant operations, item search and cached projections. |
 | [market-settlement](systems/roblox-market-settlement.md) | Settle wallets against order books with durable holds, fences and receipts. |
 | [messaging](systems/roblox-messaging.md) | Publish and receive typed notices over injected messaging. |
 | [movement-intake](systems/roblox-movement-intake.md) | Validate authoritative movement against body epochs, ordering and speed bounds. |

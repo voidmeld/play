@@ -92,6 +92,7 @@ return table.freeze {
 	"src/roblox/inventory.verify.luau",
 	"src/roblox/mail.verify.luau",
 	"src/roblox/market-settlement.verify.luau",
+	"src/roblox/market.verify.luau",
 	"src/roblox/messaging.verify.luau",
 	"src/roblox/movement-intake.verify.luau",
 	"src/roblox/movement-sender.verify.luau",
