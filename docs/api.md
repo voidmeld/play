@@ -14359,6 +14359,199 @@ fovTarget = function Camera.fovTarget(widen: number): number
 yields = function Camera.yields(cameraIsCustom: boolean, scriptedStateActive: boolean, classic: boolean): boolean
 ```
 
+## `roblox.cargo`
+
+[Source](../src/roblox/cargo.luau)
+
+```luau
+local CoreTypes = require("../core/inventory/cargo")
+```
+
+```luau
+local EqualData = require("../core/internal/equal-data")
+```
+
+```luau
+local LedgerTypes = require("./material-ledger")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.cargo.State`
+
+```luau
+export type State = CoreTypes.State
+```
+
+### `roblox.cargo.Intent`
+
+```luau
+export type Intent = CoreTypes.Intent
+```
+
+### `roblox.cargo.StoreOutcome`
+
+```luau
+export type StoreOutcome = LedgerTypes.StoreOutcome
+```
+
+### `roblox.cargo.Store`
+
+```luau
+export type Store = LedgerTypes.Store
+```
+
+### `roblox.cargo.Position`
+
+```luau
+export type Position = { x: number, y: number, z: number }
+```
+
+### `roblox.cargo.Camp`
+
+```luau
+export type Camp = {
+	read campId: string,
+	read realmId: string,
+	read center: Position,
+	read radiusStuds: number,
+}
+```
+
+### `roblox.cargo.Dependencies`
+
+```luau
+export type Dependencies = {
+	loadCamps: () -> unknown,
+	store: Store,
+	keyForHaul: (string) -> string,
+	keyForLedger: (string) -> string,
+}
+```
+
+### `roblox.cargo.Outcome`
+
+```luau
+export type Outcome = {
+	read ok: boolean,
+	read reason: string?,
+	read replayed: boolean,
+	read carriedCount: number,
+	read droppedCount: number,
+	read recoveredCount: number,
+	read expiredCount: number,
+	read bankedCount: number,
+	read ledgerReplayed: boolean,
+	read dropId: string?,
+	read extractionId: string?,
+	read intents: { Intent },
+	read boundary: string,
+}
+```
+
+### `roblox.cargo.ReadOutcome`
+
+```luau
+export type ReadOutcome = {
+	read ok: boolean,
+	read reason: string?,
+	read found: boolean,
+	read census: { CoreTypes.CensusRow },
+	read carried: { CoreTypes.Total },
+	read openDrops: { CoreTypes.Drop },
+	read boundary: string,
+}
+```
+
+### `roblox.cargo.Service`
+
+```luau
+export type Service = {
+	read campIds: { string },
+	read campFor: (campId: string) -> Camp?,
+	read emptyState: () -> State,
+	read admitsExtraction: (campId: string, realmId: string, position: unknown) -> (boolean, string?),
+	read carry: (request: unknown) -> Outcome,
+	read release: (request: unknown) -> Outcome,
+	read recover: (request: unknown) -> Outcome,
+	read expire: (request: unknown) -> Outcome,
+	read extract: (request: unknown) -> Outcome,
+	read read: (zoneId: string, actorId: string, nowSec: number) -> ReadOutcome,
+}
+```
+
+### `roblox.cargo.MountResult`
+
+```luau
+export type MountResult = {
+	read ok: boolean,
+	read service: Service?,
+	read reason: string?,
+}
+```
+
+### `roblox.cargo.CorePort`
+
+```luau
+export type CorePort = {
+	read emptyState: () -> State,
+	read projectState: (unknown) -> (State?, string?),
+	read step: (unknown, unknown, unknown) -> (CoreTypes.Result?, string?),
+	read carriedOf: (unknown, unknown) -> ({ CoreTypes.Total }?, string?),
+	read census: (unknown) -> ({ CoreTypes.CensusRow }?, string?),
+	read openDrops: (unknown, unknown) -> ({ CoreTypes.Drop }?, string?),
+}
+```
+
+### `roblox.cargo.Config`
+
+```luau
+export type Config = {
+	read core: CorePort,
+	read ledger: LedgerTypes.API,
+	read schemaVersion: number,
+	read maxText: number,
+	read maxAt: number,
+	read carriedSpaceKind: string,
+	read bankedSpaceKind: string,
+	read bankedSpaceReason: string,
+	read dropExpirySeconds: number,
+	read realms: { [string]: boolean },
+	read boundary: string,
+}
+```
+
+### `roblox.cargo.API`
+
+```luau
+export type API = {
+	read mount: (Dependencies?) -> MountResult,
+	read mountFromContent: (Dependencies?) -> MountResult,
+	read SCHEMA_VERSION: number,
+	read CARRIED_SPACE_KIND: string,
+	read BANKED_SPACE_KIND: string,
+	read DROP_EXPIRY_SECONDS: number,
+	read REALMS: { [string]: boolean },
+	read BOUNDARY: string,
+	read REASONS: { string },
+}
+```
+
+### `roblox.cargo.configure`
+
+```luau
+function configure(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+mount = function HaulService.mount(dependencies: Dependencies?): MountResult
+mountFromContent = function HaulService.mountFromContent(sources: Dependencies?): MountResult
+```
+
 ## `roblox.character-admission`
 
 [Source](../src/roblox/character-admission.luau)
@@ -16285,6 +16478,138 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 mount = function MarketService.mount(raw: Dependencies<R>): (Service<R>?, string?)
+```
+
+## `roblox.material-ledger`
+
+[Source](../src/roblox/material-ledger.luau)
+
+```luau
+local CoreTypes = require("../core/ledger/ledger")
+```
+
+```luau
+local EqualData = require("../core/internal/equal-data")
+```
+
+```luau
+local Shape = require("../core/social/shape")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.material-ledger.State`
+
+```luau
+export type State = CoreTypes.State
+```
+
+### `roblox.material-ledger.Event`
+
+```luau
+export type Event = CoreTypes.Event
+```
+
+### `roblox.material-ledger.AppendValue`
+
+```luau
+export type AppendValue = { replayed: boolean, settled: boolean, groupId: string? }
+```
+
+### `roblox.material-ledger.SnapshotValue`
+
+```luau
+export type SnapshotValue = {
+	found: boolean,
+	balances: { [string]: { [string]: number } },
+	tornGroups: { CoreTypes.TornGroup },
+	eventCount: number,
+	windowFloorAt: number,
+	boundary: string,
+}
+```
+
+### `roblox.material-ledger.Failure`
+
+```luau
+export type Failure = { ok: false, value: nil, reason: string? }
+```
+
+### `roblox.material-ledger.StoreOutcome`
+
+```luau
+export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
+```
+
+### `roblox.material-ledger.Store`
+
+```luau
+export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
+```
+
+### `roblox.material-ledger.Outcome`
+
+```luau
+export type Outcome<T> = Failure | { ok: true, value: T, reason: nil }
+```
+
+### `roblox.material-ledger.CorePort`
+
+```luau
+export type CorePort = {
+	read emptyState: () -> State,
+	read projectEvent: (unknown) -> (Event?, string?),
+	read projectState: (unknown) -> (State?, string?),
+	read apply: (unknown, unknown) -> (CoreTypes.ApplyResult?, string?),
+	read balances: (unknown) -> ({ [string]: { [string]: number } }?, string?),
+	read tornGroups: (unknown) -> ({ CoreTypes.TornGroup }?, string?),
+}
+```
+
+### `roblox.material-ledger.Config`
+
+```luau
+export type Config = {
+	read core: CorePort,
+	read schemaVersion: number,
+	read windowLimit: number,
+	read maxText: number,
+	read boundary: string,
+}
+```
+
+### `roblox.material-ledger.API`
+
+```luau
+export type API = {
+	read append: (Store, (string) -> string, string, unknown) -> Outcome<AppendValue>,
+	read snapshot: (Store, (string) -> string, string) -> Outcome<SnapshotValue>,
+	read SCHEMA_VERSION: number,
+	read WINDOW_LIMIT: number,
+	read NO_FLOOR: number,
+	read BOUNDARY: string,
+	read REASONS: { string },
+}
+```
+
+### `roblox.material-ledger.configure`
+
+```luau
+function configure(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+append = function Service.append(
+		store: Store,
+		keyForLedger: (string) -> string,
+		ledgerId: string,
+		eventValue: unknown
+	): Outcome<AppendValue>
+snapshot = function Service.snapshot(store: Store, keyForLedger: (string) -> string, ledgerId: string): Outcome<SnapshotValue>
 ```
 
 ## `roblox.messaging`
