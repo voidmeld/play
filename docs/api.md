@@ -16386,6 +16386,226 @@ function settle(
 ): Result
 ```
 
+## `roblox.quest-durability`
+
+[Source](../src/roblox/quest-durability.luau)
+
+```luau
+local Journal = require("../core/quest/journal")
+```
+
+```luau
+local LeaseRecordTypes = require("../core/identity/character-lease")
+```
+
+```luau
+local LeaseStore = require("../core/identity/character-lease-store")
+```
+
+```luau
+local ProfileSessionTypes = require("../core/persistence/profile-session")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.quest-durability.Lease`
+
+```luau
+export type Lease = LeaseRecordTypes.Record
+```
+
+### `roblox.quest-durability.SessionState`
+
+```luau
+export type SessionState = ProfileSessionTypes.State
+```
+
+### `roblox.quest-durability.Quests`
+
+```luau
+export type Quests = { [string]: Journal.QuestProgress }
+```
+
+### `roblox.quest-durability.QuestRecord`
+
+```luau
+export type QuestRecord = Journal.Record
+```
+
+### `roblox.quest-durability.OutcomeStore`
+
+```luau
+export type OutcomeStore = LeaseStore.Store & { get: (string) -> LeaseStore.StoreOutcome }
+```
+
+### `roblox.quest-durability.SessionDependencies`
+
+```luau
+export type SessionDependencies = {
+	store: OutcomeStore,
+	leaseKeyFor: (string) -> string,
+	zoneKeyFor: (string, string) -> string,
+	leaseZoneFamily: { string }?,
+	clock: () -> number,
+}
+```
+
+### `roblox.quest-durability.Deps`
+
+```luau
+export type Deps = SessionDependencies & {
+	schedule: (number, () -> ()) -> (),
+	scheduleLeaseRenewal: ((number, () -> ()) -> ())?,
+	saveDelaySeconds: number?,
+}
+```
+
+### `roblox.quest-durability.Acquired`
+
+```luau
+export type Acquired<Z> = { ok: true, reason: string?, session: SessionState, lease: Lease, zoneSnapshot: Z }
+```
+
+### `roblox.quest-durability.Refused`
+
+```luau
+export type Refused = { ok: false, reason: string?, session: nil, lease: nil, zoneSnapshot: nil }
+```
+
+### `roblox.quest-durability.Acquisition`
+
+```luau
+export type Acquisition<Z> = Acquired<Z> | Refused
+```
+
+### `roblox.quest-durability.Saved`
+
+```luau
+export type Saved<Z> = { ok: true, reason: string?, lease: Lease, zoneSnapshot: Z }
+```
+
+### `roblox.quest-durability.SaveRefused`
+
+```luau
+export type SaveRefused = { ok: false, reason: string?, lease: Lease?, zoneSnapshot: nil }
+```
+
+### `roblox.quest-durability.SaveOutcome`
+
+```luau
+export type SaveOutcome<Z> = Saved<Z> | SaveRefused
+```
+
+### `roblox.quest-durability.SessionPort`
+
+```luau
+export type SessionPort<Z> = {
+	read acquireAndHydrate: (SessionDependencies, string, string, string, string) -> Acquisition<Z>,
+	read saveZoneQuests: (SessionDependencies, SessionState, Lease, Z, Quests) -> SaveOutcome<Z>,
+}
+```
+
+### `roblox.quest-durability.SnapshotView`
+
+```luau
+export type SnapshotView = { read found: boolean, read revision: number, read quests: unknown }
+```
+
+### `roblox.quest-durability.Config`
+
+```luau
+export type Config<Z> = {
+	read journal: Journal.API,
+	read copyLease: index<LeaseRecordTypes.API, "copy">,
+	read renew: index<LeaseStore.API, "renew">,
+	read release: index<LeaseStore.API, "release">,
+	read session: SessionPort<Z>,
+	read snapshot: (Z) -> SnapshotView,
+	read leaseSeconds: number,
+	read renewSeconds: number,
+	read retrySeconds: number,
+	read defaultSaveDelay: number,
+	read maxConsecutiveSaveFailures: number,
+	read fenceLossReasons: { [string]: boolean },
+}
+```
+
+### `roblox.quest-durability.AttachAccepted`
+
+```luau
+export type AttachAccepted = {
+	ok: true,
+	reason: string?,
+	found: boolean?,
+	quests: Quests,
+	semanticEventIds: { [string]: boolean },
+	record: QuestRecord,
+}
+```
+
+### `roblox.quest-durability.AttachRefused`
+
+```luau
+export type AttachRefused = {
+	ok: false,
+	reason: string?,
+	found: nil?,
+	quests: nil?,
+	semanticEventIds: nil?,
+	record: nil?,
+}
+```
+
+### `roblox.quest-durability.AttachOutcome`
+
+```luau
+export type AttachOutcome = AttachAccepted | AttachRefused
+```
+
+### `roblox.quest-durability.Result`
+
+```luau
+export type Result = { ok: boolean, reason: string?, skipped: boolean? }
+```
+
+### `roblox.quest-durability.Handle`
+
+```luau
+export type Handle = {
+	read attach: (string, string, string, string) -> AttachOutcome,
+	read flush: (string) -> Result,
+	read markDirty: (string, unknown) -> boolean,
+	read markDirtyBatch: ({ unknown }) -> boolean,
+	read stopWrites: (string) -> boolean,
+	read overwriteRecord: (string, unknown) -> Result,
+	read detach: (string) -> { ok: boolean, reason: string? },
+	read drain: () -> { [string]: { ok: boolean, reason: string? } },
+	read isAttached: (string) -> boolean,
+	read canWrite: (string) -> boolean,
+	read phase: (string) -> string?,
+}
+```
+
+### `roblox.quest-durability.API`
+
+```luau
+export type API = { read new: (Deps) -> Handle }
+```
+
+### `roblox.quest-durability.configure`
+
+```luau
+function configure<Z>(config: Config<Z>): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+new = function new(deps: Deps): Handle
+```
+
 ## `roblox.remote-events`
 
 [Source](../src/roblox/remote-events.luau)

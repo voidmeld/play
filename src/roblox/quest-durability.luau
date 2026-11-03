@@ -140,6 +140,7 @@ local function configure<Z>(config: Config<Z>): API
 			clock = deps.clock,
 		}
 		local saveDelay = deps.saveDelaySeconds or config.defaultSaveDelay
+		assert(Value.finite(saveDelay) and saveDelay >= 0, "invalid quest save delay")
 		local entries: { [string]: Entry<Z> } = {}
 
 		local handle = {}
@@ -222,7 +223,9 @@ local function configure<Z>(config: Config<Z>): API
 			if not entry.flushScheduled then
 				entry.flushScheduled = true
 				deps.schedule(saveDelay, function()
-					handle.flush(characterId)
+					if entries[characterId] == entry then
+						handle.flush(characterId)
+					end
 				end)
 			end
 		end
@@ -400,6 +403,9 @@ local function configure<Z>(config: Config<Z>): API
 			if entry == nil or entry.phase ~= "active" or leaseLapsed(characterId, entry) then
 				return nil
 			end
+			if type(rawRecord) ~= "table" or getmetatable(rawRecord) ~= nil then
+				return nil
+			end
 			local decoded: QuestRecord? = nil
 			local record = Value.raw(rawRecord)
 			if record ~= nil then
@@ -431,7 +437,9 @@ local function configure<Z>(config: Config<Z>): API
 				prepared.entry.flushScheduled = true
 				local characterId = prepared.characterId
 				local scheduled = pcall(deps.schedule, saveDelay, function()
-					handle.flush(characterId)
+					if entries[characterId] == prepared.entry then
+						handle.flush(characterId)
+					end
 				end)
 				if not scheduled then
 					prepared.entry.flushScheduled = false
@@ -452,6 +460,9 @@ local function configure<Z>(config: Config<Z>): API
 			local prepared = {}
 			local seen: { [string]: boolean } = {}
 			for _, rawUpdate in updates do
+				if type(rawUpdate) ~= "table" or getmetatable(rawUpdate) ~= nil then
+					return false
+				end
 				local update = Value.raw(rawUpdate)
 				if update == nil then
 					return false
