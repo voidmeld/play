@@ -72,6 +72,8 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [social-host](systems/roblox-social-host.md) | Coordinate actor exclusion, social caches and membership settlement. |
 | [quest-durability](systems/roblox-quest-durability.md) | Coordinate leased journal hydration, dirty admission, retry/renewal and draining. |
 | [character-admission](systems/roblox-character-admission.md) | Coordinate staged character arrival, reverse owner cleanup, renewal and recovery. |
+| [cargo](systems/roblox-cargo.md) | Coordinate durable carried/drop custody and replayable extraction settlement. |
+| [material-ledger](systems/roblox-material-ledger.md) | Coordinate material journal writes, bounded replay and exact readbacks. |
 | [leased-record-session](systems/roblox-leased-record-session.md) | Coordinate lease acquisition, record hydration, takeover fencing and renewed saves. |
 | [social-fellowship](systems/roblox-social-fellowship.md) | Compose guild custody, privacy admission, invitations and member/steward projections. |
 | [social-formation](systems/roblox-social-formation.md) | Coordinate multi-founder charters, fee custody and interrupted creation recovery. |
