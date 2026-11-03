@@ -9806,6 +9806,172 @@ matches = function matches(event: Event, candidate: Binding): boolean
 bindingsFor = function(quests: { Quest }, event: Event): { Binding }
 ```
 
+## `core.quest.progress`
+
+[Source](../src/core/quest/progress.luau)
+
+```luau
+local Journal = require("./journal")
+```
+
+### `core.quest.progress.QuestProgress`
+
+```luau
+export type QuestProgress = Journal.QuestProgress
+```
+
+### `core.quest.progress.Rule`
+
+```luau
+export type Rule = { classId: string?, minLevel: number?, ordered: boolean? }
+```
+
+### `core.quest.progress.Branch`
+
+```luau
+export type Branch = { groupId: string, armId: string }
+```
+
+### `core.quest.progress.Statuses`
+
+```luau
+export type Statuses = {
+	inProgress: string,
+	completed: string,
+	turnedIn: string,
+	replayInProgress: string,
+	replayCompleted: string,
+	replayTurnedIn: string,
+}
+```
+
+### `core.quest.progress.ObjectiveView`
+
+```luau
+export type ObjectiveView = { read id: string, read mobId: string?, read target: number? }
+```
+
+### `core.quest.progress.QuestView`
+
+```luau
+export type QuestView<O> = {
+	read id: string,
+	read objectives: { O },
+	read realm: unknown,
+	read prereqQuestIds: { string }?,
+	read prereqAnyQuestIds: { string }?,
+	read exclusiveQuestGroupId: unknown,
+	read exclusiveQuestArmId: unknown,
+}
+```
+
+### `core.quest.progress.ActorView`
+
+```luau
+export type ActorView = {
+	read quests: { [string]: QuestProgress }?,
+	read classId: string?,
+	read level: number?,
+	read realm: unknown,
+}
+```
+
+### `core.quest.progress.ContentView`
+
+```luau
+export type ContentView<Q> = {
+	read quests: { Q }?,
+	read questRules: { [string]: Rule }?,
+	read exclusiveQuestBranches: { [string]: Branch }?,
+	read exclusiveQuestGroups: { [string]: { [string]: boolean } }?,
+}
+```
+
+### `core.quest.progress.Config`
+
+```luau
+export type Config<C, A, Q, O> = {
+	read content: (C) -> ContentView<Q>,
+	read quest: (Q) -> QuestView<O>,
+	read objective: (O) -> ObjectiveView,
+	read actor: (A) -> ActorView,
+	read canonicalRealm: (unknown) -> boolean,
+	read statuses: Statuses,
+}
+```
+
+### `core.quest.progress.API`
+
+```luau
+export type API<C, A, Q, O> = {
+	read questRows: (C?) -> { Q },
+	read questById: (C?, string) -> Q?,
+	read objectiveIndexForMob: (Q, string) -> number?,
+	read questForMob: (C?, string) -> (Q?, number),
+	read questForObjective: (C?, string) -> Q?,
+	read objectiveTarget: (O) -> number,
+	read progressFor: (A, string) -> QuestProgress?,
+	read seededQuests: ({ [string]: string }?) -> { [string]: QuestProgress }?,
+	read questInProgress: (string?) -> boolean,
+	read isReplayStatus: (string?) -> boolean,
+	read actorIsReplaying: (A) -> boolean,
+	read completedQuestStatus: (string?) -> string,
+	read questRule: (C?, string) -> Rule?,
+	read allowedClass: (C?, Q, A) -> boolean,
+	read allowedLevel: (C?, Q, A) -> boolean,
+	read canonicalRealm: (unknown) -> boolean,
+	read allowedRealm: (Q, A) -> boolean,
+	read isOrdered: (C?, string) -> boolean,
+	read objectiveComplete: (QuestProgress, O) -> boolean,
+	read completedCount: (Q, QuestProgress) -> number,
+	read prereqsMet: (Q, A) -> boolean,
+	read allowedExclusiveBranch: (C?, Q, A) -> boolean,
+	read canAcceptQuest: (C?, A?, Q?) -> boolean,
+	read completedPrefix: (Q, QuestProgress) -> number,
+	read reconcileOrdered: (C?, A) -> (),
+	read claimableObjective: (C?, Q, QuestProgress, string?) -> O?,
+	read EMPTY_QUESTS: { Q },
+	read NO_QUESTS: { [string]: QuestProgress },
+}
+```
+
+### `core.quest.progress.progress`
+
+```luau
+function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+questRows = function Quest.questRows(content: C?): { Q }
+questById = function Quest.questById(content: C?, questId: string): Q?
+objectiveIndexForMob = function Quest.objectiveIndexForMob(quest: Q, mobId: string): number?
+questForMob = function Quest.questForMob(content: C?, mobId: string): (Q?, number)
+questForObjective = function Quest.questForObjective(content: C?, objectiveId: string): Q?
+objectiveTarget = function Quest.objectiveTarget(objective: O): number
+progressFor = function Quest.progressFor(actor: A, questId: string): QuestProgress?
+seededQuests = function Quest.seededQuests(questStatus: { [string]: string }?): { [string]: QuestProgress }?
+questInProgress = function Quest.questInProgress(status: string?): boolean
+isReplayStatus = function Quest.isReplayStatus(status: string?): boolean
+actorIsReplaying = function Quest.actorIsReplaying(actor: A): boolean
+completedQuestStatus = function Quest.completedQuestStatus(status: string?): string
+questRule = function Quest.questRule(content: C?, questId: string): Rule?
+allowedClass = function Quest.allowedClass(content: C?, quest: Q, actor: A): boolean
+allowedLevel = function Quest.allowedLevel(content: C?, quest: Q, actor: A): boolean
+canonicalRealm = function Quest.canonicalRealm(realm: unknown): boolean
+allowedRealm = function Quest.allowedRealm(quest: Q, actor: A): boolean
+isOrdered = function Quest.isOrdered(content: C?, questId: string): boolean
+objectiveComplete = function Quest.objectiveComplete(progress: QuestProgress, objective: O): boolean
+completedCount = function Quest.completedCount(quest: Q, progress: QuestProgress): number
+prereqsMet = function Quest.prereqsMet(quest: Q, actor: A): boolean
+allowedExclusiveBranch = function Quest.allowedExclusiveBranch(content: C?, quest: Q, actor: A): boolean
+canAcceptQuest = function Quest.canAcceptQuest(content: C?, actor: A?, quest: Q?): boolean
+completedPrefix = function Quest.completedPrefix(quest: Q, progress: QuestProgress): number
+reconcileOrdered = function Quest.reconcileOrdered(content: C?, actor: A)
+claimableObjective = function Quest.claimableObjective(content: C?, quest: Q, progress: QuestProgress, objectiveId: string?): O?
+```
+
 ## `core.quest.run`
 
 [Source](../src/core/quest/run.luau)
@@ -10012,6 +10178,10 @@ local Markers = require("./quest/markers")
 
 ```luau
 local Objectives = require("./quest/objectives")
+```
+
+```luau
+local Progress = require("./quest/progress")
 ```
 
 ```luau
@@ -10240,6 +10410,66 @@ export type ObjectivesConfig = Objectives.Config
 export type ObjectivesCatalog = Objectives.Catalog
 ```
 
+### `core.quest.ProgressQuestProgress`
+
+```luau
+export type ProgressQuestProgress = Progress.QuestProgress
+```
+
+### `core.quest.ProgressRule`
+
+```luau
+export type ProgressRule = Progress.Rule
+```
+
+### `core.quest.ProgressBranch`
+
+```luau
+export type ProgressBranch = Progress.Branch
+```
+
+### `core.quest.ProgressStatuses`
+
+```luau
+export type ProgressStatuses = Progress.Statuses
+```
+
+### `core.quest.ProgressObjectiveView`
+
+```luau
+export type ProgressObjectiveView = Progress.ObjectiveView
+```
+
+### `core.quest.ProgressQuestView`
+
+```luau
+export type ProgressQuestView<O> = Progress.QuestView<O>
+```
+
+### `core.quest.ProgressActorView`
+
+```luau
+export type ProgressActorView = Progress.ActorView
+```
+
+### `core.quest.ProgressContentView`
+
+```luau
+export type ProgressContentView<Q> = Progress.ContentView<Q>
+```
+
+### `core.quest.ProgressConfig`
+
+```luau
+export type ProgressConfig<C, A, Q, O> = Progress.Config<C, A, Q, O>
+```
+
+### `core.quest.ProgressAPI`
+
+```luau
+export type ProgressAPI<C, A, Q, O> = Progress.API<C, A, Q, O>
+```
+
 ### `core.quest.RunPackage`
 
 ```luau
@@ -10341,6 +10571,7 @@ export type API = {
 	read lifecycle: typeof(Lifecycle),
 	read markers: typeof(Markers),
 	read objectives: typeof(Objectives),
+	read progress: typeof(Progress),
 	read run: typeof(Run),
 }
 ```
@@ -10370,6 +10601,10 @@ Exported value; see its declaration in [source](../src/core/quest.luau).
 Exported value; see its declaration in [source](../src/core/quest.luau).
 
 ### `core.quest.objectives`
+
+Exported value; see its declaration in [source](../src/core/quest.luau).
+
+### `core.quest.progress`
 
 Exported value; see its declaration in [source](../src/core/quest.luau).
 

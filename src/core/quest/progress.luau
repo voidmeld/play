@@ -11,26 +11,34 @@ export type Statuses = {
 	replayCompleted: string,
 	replayTurnedIn: string,
 }
+export type ObjectiveView = { read id: string, read mobId: string?, read target: number? }
+export type QuestView<O> = {
+	read id: string,
+	read objectives: { O },
+	read realm: unknown,
+	read prereqQuestIds: { string }?,
+	read prereqAnyQuestIds: { string }?,
+	read exclusiveQuestGroupId: unknown,
+	read exclusiveQuestArmId: unknown,
+}
+export type ActorView = {
+	read quests: { [string]: QuestProgress }?,
+	read classId: string?,
+	read level: number?,
+	read realm: unknown,
+}
+export type ContentView<Q> = {
+	read quests: { Q }?,
+	read questRules: { [string]: Rule }?,
+	read exclusiveQuestBranches: { [string]: Branch }?,
+	read exclusiveQuestGroups: { [string]: { [string]: boolean } }?,
+}
 export type Config<C, A, Q, O> = {
-	read questRows: (C) -> { Q }?,
-	read questId: (Q) -> string,
-	read objectives: (Q) -> { O },
-	read objectiveId: (O) -> string,
-	read objectiveMobId: (O) -> string?,
-	read objectiveTarget: (O) -> number?,
-	read progress: (A) -> { [string]: QuestProgress }?,
-	read classId: (A) -> string?,
-	read level: (A) -> number?,
-	read actorRealm: (A) -> unknown,
-	read questRealm: (Q) -> unknown,
+	read content: (C) -> ContentView<Q>,
+	read quest: (Q) -> QuestView<O>,
+	read objective: (O) -> ObjectiveView,
+	read actor: (A) -> ActorView,
 	read canonicalRealm: (unknown) -> boolean,
-	read prerequisites: (Q) -> { string }?,
-	read anyPrerequisites: (Q) -> { string }?,
-	read exclusiveGroupId: (Q) -> unknown,
-	read exclusiveArmId: (Q) -> unknown,
-	read rules: (C) -> { [string]: Rule }?,
-	read branches: (C) -> { [string]: Branch }?,
-	read groups: (C) -> { [string]: { [string]: boolean } }?,
 	read statuses: Statuses,
 }
 export type API<C, A, Q, O> = {
@@ -88,12 +96,12 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 		if content == nil then
 			return EMPTY_QUESTS
 		end
-		return config.questRows(content) or EMPTY_QUESTS
+		return config.content(content).quests or EMPTY_QUESTS
 	end
 
 	function Quest.questById(content: C?, questId: string): Q?
 		for _, quest in Quest.questRows(content) do
-			if config.questId(quest) == questId then
+			if config.quest(quest).id == questId then
 				return quest
 			end
 		end
@@ -101,8 +109,8 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 	end
 
 	function Quest.objectiveIndexForMob(quest: Q, mobId: string): number?
-		for index, objective in config.objectives(quest) do
-			if config.objectiveMobId(objective) == mobId then
+		for index, objective in config.quest(quest).objectives do
+			if config.objective(objective).mobId == mobId then
 				return index
 			end
 		end
@@ -121,8 +129,8 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 
 	function Quest.questForObjective(content: C?, objectiveId: string): Q?
 		for _, quest in Quest.questRows(content) do
-			for _, objective in config.objectives(quest) do
-				if config.objectiveId(objective) == objectiveId then
+			for _, objective in config.quest(quest).objectives do
+				if config.objective(objective).id == objectiveId then
 					return quest
 				end
 			end
@@ -131,14 +139,14 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 	end
 
 	function Quest.objectiveTarget(objective: O): number
-		local target = config.objectiveTarget(objective)
+		local target = config.objective(objective).target
 		return if type(target) == "number" and target >= 1 then math.floor(target) else 1
 	end
 
 	local NO_QUESTS: { [string]: QuestProgress } = {}
 
 	function Quest.progressFor(actor: A, questId: string): QuestProgress?
-		local quests = config.progress(actor)
+		local quests = config.actor(actor).quests
 		return if quests == nil then nil else quests[questId]
 	end
 
@@ -164,7 +172,7 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 	end
 
 	function Quest.actorIsReplaying(actor: A): boolean
-		for _, progress in config.progress(actor) or NO_QUESTS do
+		for _, progress in config.actor(actor).quests or NO_QUESTS do
 			if Quest.isReplayStatus(progress.status) then
 				return true
 			end
@@ -177,20 +185,20 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 	end
 
 	function Quest.questRule(content: C?, questId: string): Rule?
-		local rules: { [string]: Rule }? = if content == nil then nil else config.rules(content)
+		local rules: { [string]: Rule }? = if content == nil then nil else config.content(content).questRules
 		return if rules == nil then nil else rules[questId]
 	end
 
 	function Quest.allowedClass(content: C?, quest: Q, actor: A): boolean
-		local rule = Quest.questRule(content, config.questId(quest))
+		local rule = Quest.questRule(content, config.quest(quest).id)
 		local required = if rule == nil then nil else rule.classId
-		return required == nil or config.classId(actor) == required
+		return required == nil or config.actor(actor).classId == required
 	end
 
 	function Quest.allowedLevel(content: C?, quest: Q, actor: A): boolean
-		local rule = Quest.questRule(content, config.questId(quest))
+		local rule = Quest.questRule(content, config.quest(quest).id)
 		local required = if rule == nil then nil else rule.minLevel
-		local level = config.level(actor)
+		local level = config.actor(actor).level
 		return required == nil or (type(level) == "number" and level >= required)
 	end
 
@@ -199,9 +207,9 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 	end
 
 	function Quest.allowedRealm(quest: Q, actor: A): boolean
-		return Quest.canonicalRealm(config.questRealm(quest))
-			and Quest.canonicalRealm(config.actorRealm(actor))
-			and config.actorRealm(actor) == config.questRealm(quest)
+		return Quest.canonicalRealm(config.quest(quest).realm)
+			and Quest.canonicalRealm(config.actor(actor).realm)
+			and config.actor(actor).realm == config.quest(quest).realm
 	end
 
 	function Quest.isOrdered(content: C?, questId: string): boolean
@@ -211,13 +219,13 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 
 	function Quest.objectiveComplete(progress: QuestProgress, objective: O): boolean
 		local counts = progress.counts
-		local reached = if counts == nil then 0 else counts[config.objectiveId(objective)] or 0
+		local reached = if counts == nil then 0 else counts[config.objective(objective).id] or 0
 		return reached >= Quest.objectiveTarget(objective)
 	end
 
 	function Quest.completedCount(quest: Q, progress: QuestProgress): number
 		local done = 0
-		for _, objective in config.objectives(quest) do
+		for _, objective in config.quest(quest).objectives do
 			if Quest.objectiveComplete(progress, objective) then
 				done += 1
 			end
@@ -226,7 +234,7 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 	end
 
 	function Quest.prereqsMet(quest: Q, actor: A): boolean
-		local prereqIds: { string } = config.prerequisites(quest) or {}
+		local prereqIds: { string } = config.quest(quest).prereqQuestIds or {}
 		for _, prereqId in prereqIds do
 			local progress = Quest.progressFor(actor, prereqId)
 			if
@@ -236,7 +244,7 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 				return false
 			end
 		end
-		local alternatives = config.anyPrerequisites(quest)
+		local alternatives = config.quest(quest).prereqAnyQuestIds
 		if alternatives ~= nil then
 			local anyMet = false
 			for _, prereqId in alternatives do
@@ -257,8 +265,8 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 	end
 
 	function Quest.allowedExclusiveBranch(content: C?, quest: Q, actor: A): boolean
-		local authoredGroupId = config.exclusiveGroupId(quest)
-		local authoredArmId = config.exclusiveArmId(quest)
+		local authoredGroupId = config.quest(quest).exclusiveQuestGroupId
+		local authoredArmId = config.quest(quest).exclusiveQuestArmId
 		if (authoredGroupId == nil) ~= (authoredArmId == nil) then
 			return false
 		end
@@ -273,12 +281,16 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 		then
 			return false
 		end
-		local branches: { [string]: Branch }? = if content == nil then nil else config.branches(content)
-		local groups: { [string]: { [string]: boolean } }? = if content == nil then nil else config.groups(content)
+		local branches: { [string]: Branch }? = if content == nil
+			then nil
+			else config.content(content).exclusiveQuestBranches
+		local groups: { [string]: { [string]: boolean } }? = if content == nil
+			then nil
+			else config.content(content).exclusiveQuestGroups
 		if branches == nil or groups == nil then
 			return false
 		end
-		local selected = branches[config.questId(quest)]
+		local selected = branches[config.quest(quest).id]
 		local knownArms = groups[authoredGroupId]
 		if
 			selected == nil
@@ -289,7 +301,7 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 		then
 			return false
 		end
-		for acceptedQuestId in config.progress(actor) or NO_QUESTS do
+		for acceptedQuestId in config.actor(actor).quests or NO_QUESTS do
 			local accepted = branches[acceptedQuestId]
 			if accepted ~= nil and accepted.groupId == authoredGroupId and accepted.armId ~= authoredArmId then
 				return false
@@ -306,12 +318,12 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 			and Quest.allowedRealm(quest, actor)
 			and Quest.allowedExclusiveBranch(content, quest, actor)
 			and Quest.prereqsMet(quest, actor)
-			and Quest.progressFor(actor, config.questId(quest)) == nil
+			and Quest.progressFor(actor, config.quest(quest).id) == nil
 	end
 
 	function Quest.completedPrefix(quest: Q, progress: QuestProgress): number
 		local count = 0
-		for _, objective in config.objectives(quest) do
+		for _, objective in config.quest(quest).objectives do
 			if not Quest.objectiveComplete(progress, objective) then
 				break
 			end
@@ -322,15 +334,15 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 
 	function Quest.reconcileOrdered(content: C?, actor: A)
 		for _, quest in Quest.questRows(content) do
-			local progress = Quest.progressFor(actor, config.questId(quest))
+			local progress = Quest.progressFor(actor, config.quest(quest).id)
 			if
 				progress ~= nil
 				and progress.counts ~= nil
 				and Quest.questInProgress(progress.status)
-				and Quest.isOrdered(content, config.questId(quest))
+				and Quest.isOrdered(content, config.quest(quest).id)
 			then
 				progress.step = Quest.completedPrefix(quest, progress)
-				if progress.step == #config.objectives(quest) then
+				if progress.step == #config.quest(quest).objectives then
 					progress.status = Quest.completedQuestStatus(progress.status)
 				end
 			end
@@ -341,17 +353,17 @@ local function progress<C, A, Q, O>(config: Config<C, A, Q, O>): API<C, A, Q, O>
 		if not Quest.questInProgress(progress.status) then
 			return nil
 		end
-		if Quest.isOrdered(content, config.questId(quest)) then
-			local objective = config.objectives(quest)[progress.step + 1]
-			if objective == nil or (objectiveId ~= nil and config.objectiveId(objective) ~= objectiveId) then
+		if Quest.isOrdered(content, config.quest(quest).id) then
+			local objective = config.quest(quest).objectives[progress.step + 1]
+			if objective == nil or (objectiveId ~= nil and config.objective(objective).id ~= objectiveId) then
 				return nil
 			end
 			return objective
 		end
-		for _, objective in config.objectives(quest) do
+		for _, objective in config.quest(quest).objectives do
 			if
 				not Quest.objectiveComplete(progress, objective)
-				and (objectiveId == nil or config.objectiveId(objective) == objectiveId)
+				and (objectiveId == nil or config.objective(objective).id == objectiveId)
 			then
 				return objective
 			end

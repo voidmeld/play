@@ -7,6 +7,7 @@ local Journal = require("./quest/journal")
 local Lifecycle = require("./quest/lifecycle")
 local Markers = require("./quest/markers")
 local Objectives = require("./quest/objectives")
+local Progress = require("./quest/progress")
 local Run = require("./quest/run")
 
 export type ClaimsInvitation = Claims.Invitation
@@ -46,6 +47,16 @@ export type ObjectivesEventContract = Objectives.EventContract
 export type ObjectivesAliases = Objectives.Aliases
 export type ObjectivesConfig = Objectives.Config
 export type ObjectivesCatalog = Objectives.Catalog
+export type ProgressQuestProgress = Progress.QuestProgress
+export type ProgressRule = Progress.Rule
+export type ProgressBranch = Progress.Branch
+export type ProgressStatuses = Progress.Statuses
+export type ProgressObjectiveView = Progress.ObjectiveView
+export type ProgressQuestView<O> = Progress.QuestView<O>
+export type ProgressActorView = Progress.ActorView
+export type ProgressContentView<Q> = Progress.ContentView<Q>
+export type ProgressConfig<C, A, Q, O> = Progress.Config<C, A, Q, O>
+export type ProgressAPI<C, A, Q, O> = Progress.API<C, A, Q, O>
 export type RunPackage = Run.Package
 export type RunRunStatus = Run.RunStatus
 export type RunMember = Run.Member
@@ -70,6 +81,7 @@ export type API = {
 	read lifecycle: typeof(Lifecycle),
 	read markers: typeof(Markers),
 	read objectives: typeof(Objectives),
+	read progress: typeof(Progress),
 	read run: typeof(Run),
 }
 
@@ -81,6 +93,7 @@ local api: API = {
 	lifecycle = Lifecycle,
 	markers = Markers,
 	objectives = Objectives,
+	progress = Progress,
 	run = Run,
 }
 

@@ -15,7 +15,8 @@ the game changes; this library change does not claim a completed production cuto
 | `shared/world/MobLootRoll.luau` and `ZonePartyLoot.luau` | `loot.roll`, `loot.decision` | Receipt namespace, actor identity and world grant integration. |
 | `roblox/shared/services/InventoryRules.luau` | `inventory.stacks` | Item definitions, permanent items, bag sizes and stack limits. |
 | `roblox/shared/services/EquipmentRules.luau` | `inventory.equipment` | Eligibility/slot policy, class/proficiency rules, stack/capacity configuration, item definitions and profile currency installation. Wear, copy transfers, repair plans and inventory exchanges delegate to Play. |
-| `roblox/shared/quests/QuestFramework.luau` | `quest.objectives`, `quest.lifecycle` | Game objective shape/metadata. `ZoneStoreQuest.luau` still combines actor progress with realm admission and content-row lookup (367 lines). |
+| `roblox/shared/quests/QuestFramework.luau` | `quest.objectives`, `quest.lifecycle` | Game objective shape/metadata. |
+| `shared/world/ZoneStoreQuest.luau` | `quest.progress` | Four typed model projections, known realms/status vocabulary and local spatial/combat-row lookups. Generic admission, prerequisites, exclusive paths, ordered counts and replay status delegate to Play. |
 | `shared/progression/ZoneQuestRecord.luau` | `quest.journal` | Saved version, numeric/identity bounds, status vocabulary, semantic receipt namespace and known quest catalog. Generic validation/copying and journal storage conversion delegate to Play. |
 | `shared/progression/ProfileProgression.luau` | `progression.levels` | Authored XP curve, level cap, rewards and early-level death policy. `DerivedStats.luau` retains class/equipment formulas (415 lines). |
 | `shared/economy/trade/TradeCore.luau` and `TradeReceipt.luau` | `trade.exchange`, `trade.receipt` | Numeric bounds and durable account wiring. |

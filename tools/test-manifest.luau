@@ -59,6 +59,7 @@ return table.freeze {
 	"src/core/quest/lifecycle.verify.luau",
 	"src/core/quest/markers.verify.luau",
 	"src/core/quest/objectives.verify.luau",
+	"src/core/quest/progress.verify.luau",
 	"src/core/quest/run.verify.luau",
 	"src/core/social/allies.verify.luau",
 	"src/core/social/chronicle.verify.luau",
