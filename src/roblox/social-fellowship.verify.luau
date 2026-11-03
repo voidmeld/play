@@ -47,6 +47,7 @@ local function rig(rejectFormation: boolean?)
 	local blocked: { [number]: { number } } = {}
 	local commitFails = false
 	local holdUncertain, refundFails = false, false
+	local refundFailureReason = "save_failed"
 	local function clock(): number
 		return counters.clock
 	end
@@ -121,7 +122,7 @@ local function rig(rejectFormation: boolean?)
 		end,
 		refund = function(id: number, key: string): Transfer.Result
 			if refundFails then
-				return { ok = false, outcome = "not_durable", reason = "save_failed" }
+				return { ok = false, outcome = "not_durable", reason = refundFailureReason }
 			end
 			if refunded[key] then
 				return { ok = true, outcome = "replayed" }
@@ -165,8 +166,9 @@ local function rig(rejectFormation: boolean?)
 		uncertainHold = function(value: boolean)
 			holdUncertain = value
 		end,
-		failRefund = function(value: boolean)
+		failRefund = function(value: boolean, reason: string?)
 			refundFails = value
+			refundFailureReason = reason or "save_failed"
 		end,
 	}
 end
@@ -211,6 +213,32 @@ return function(suite: Verify.Harness)
 		end)
 	end)
 	describe("formation host", function()
+		it("keeps an uncertain fee absence closed until the refund is confirmed", function()
+			local scene = rig()
+			scene.uncertainHold(true)
+			expect(scene.formations.start(1, "group_a").ok):toBe(false)
+			scene.uncertainHold(false)
+			scene.failRefund(true, "fee_not_held")
+			expect(scene.formations.start(1, "group_a").ok):toBe(false)
+			expect(scene.records.readProposerFormation(1).formationId ~= nil):toBe(true)
+			expect(scene.balances[1]):toBe(43)
+			scene.failRefund(false)
+			expect(scene.formations.start(1, "group_a").ok):toBe(true)
+			expect(scene.balances[1]):toBe(43)
+		end)
+		it("refunds an orphaned uncertain hold before accepting an immediate retry", function()
+			local scene = rig()
+			scene.uncertainHold(true)
+			expect(scene.formations.start(1, "group_a").ok):toBe(false)
+			expect(scene.balances[1]):toBe(43)
+			scene.uncertainHold(false)
+			local retried = scene.formations.start(1, "group_a")
+			expect(retried.ok):toBe(true)
+			expect(scene.balances[1]):toBe(43)
+			local projected = scene.formations.projection(1)
+			assert(projected ~= false)
+			expect(projected.active):toBe(true)
+		end)
 		it("completes a two-founder charter with the configured fee exactly once", function()
 			local scene = rig()
 			expect(scene.formations.start(1, "group_a").ok):toBe(true)

@@ -93,6 +93,9 @@ local function configure(config: Config): API
 			return assert(deps.fellowshipRecords).readFormation(formationId)
 		end
 
+		local function refundSettled(result: Transfer.Result): boolean
+			return result.ok or (result.outcome == "rejected" and result.reason == "fee_not_held")
+		end
 		local function settleFormationFee(formationId: string, state: FormationState): boolean
 			local fee = assert(deps.guildFee)
 			local proposerId = state.initiatorId
@@ -107,7 +110,7 @@ local function configure(config: Config): API
 				return true
 			end
 			local refunded = fee.refund(proposerId, formationId)
-			if not refunded.ok and refunded.reason ~= "fee_not_held" then
+			if not refundSettled(refunded) then
 				return false
 			end
 			if state.feeState == "held" then
@@ -133,9 +136,14 @@ local function configure(config: Config): API
 				if read.reason == "formation_unknown" then
 					local fee = assert(deps.guildFee)
 					local refunded = fee.refund(proposerId, formationId)
-					if refunded.ok or refunded.reason == "fee_not_held" then
-						assert(deps.fellowshipRecords).clearProposerFormation(proposerId, formationId)
+					if not refundSettled(refunded) then
+						return formationRefusal(refunded.reason or "fee_unavailable")
 					end
+					local cleared = assert(deps.fellowshipRecords).clearProposerFormation(proposerId, formationId)
+					if not cleared.ok then
+						return formationRefusal(cleared.reason or "formation_unavailable")
+					end
+					return { ok = true, state = nil, replayed = false, reason = nil }
 				end
 				return read
 			end
@@ -217,7 +225,7 @@ local function configure(config: Config): API
 				})
 				if not started.ok then
 					local refunded = fee.refund(actorUserId, formationId)
-					if refunded.ok or refunded.reason == "fee_not_held" then
+					if refundSettled(refunded) then
 						records.clearProposerFormation(actorUserId, formationId)
 					end
 					return started

@@ -34,6 +34,9 @@ across uncertain holds, fee commits, refunds and an unreadable charter-write res
 
 ## Invariants
 
+An orphaned fee hold is refunded and its proposer pointer is durably cleared before an immediate
+retry can create a fresh charter. Uncertain refunds or pointer-clear failures keep admission closed.
+
 - A durable proposer pointer precedes the fee hold and charter write.
 - Uncertain holds and refunds retain their proposer pointer for reconciliation.
 - Privacy admission and current membership precede founder consent.
