@@ -73,6 +73,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [social-fellowship](systems/roblox-social-fellowship.md) | Compose guild custody, privacy admission, invitations and member/steward projections. |
 | [social-formation](systems/roblox-social-formation.md) | Coordinate multi-founder charters, fee custody and interrupted creation recovery. |
 | [social-party](systems/roblox-social-party.md) | Compose invitations, projections, succession, reconnect and rally admission over durable parties. |
+| [social-warband](systems/roblox-social-warband.md) | Coordinate durable whole-party enrollment, command, invitations and rally requests. |
 | [social-records](systems/roblox-social-records.md) | Coordinate ordered durable records, ledgers, inboxes and indexes. |
 | [target-selection](systems/roblox-target-selection.md) | Cycle ordered candidates, select pointer hits and release distant targets. |
 | [thumbstick](systems/roblox-thumbstick.md) | Convert touch displacement into dead-zone movement and a bounded knob. |

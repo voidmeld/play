@@ -156,6 +156,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [social-fellowship](docs/systems/roblox-social-fellowship.md) | Guild custody, privacy admission, invitations, steward activity and member projections. |
 | [social-formation](docs/systems/roblox-social-formation.md) | Multi-founder charters with durable fee custody and recovery pointers. |
 | [social-party](docs/systems/roblox-social-party.md) | Party invitations, member projections, succession, reconnect and rally admission. |
+| [social-warband](docs/systems/roblox-social-warband.md) | Coordinate intact parties, durable warband membership, command and rally requests. |
 | [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes. |
 | [target-selection](docs/systems/roblox-target-selection.md) | Cycling, pointer selection and range release. |
 | [thumbstick](docs/systems/roblox-thumbstick.md) | Dead-zone movement and knob displacement. |

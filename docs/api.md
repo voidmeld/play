@@ -16845,6 +16845,128 @@ read = function read(subject: Subject): Settled<State, Receipt>
 apply = function apply(subject: Subject, command: unknown): Settled<State, Receipt>
 ```
 
+## `roblox.social-warband`
+
+[Source](../src/roblox/social-warband.luau)
+
+```luau
+local Core = require("../core/social/warband")
+```
+
+```luau
+local PartyTypes = require("../core/social/membership")
+```
+
+```luau
+local RecordTypes = require("./social-records")
+```
+
+### `roblox.social-warband.PartyResult`
+
+```luau
+export type PartyResult = { read ok: boolean, read found: boolean?, read party: Party?, read reason: string? }
+```
+
+### `roblox.social-warband.Dependencies`
+
+```luau
+export type Dependencies = {
+	records: Records?,
+	membership: (string) -> unknown,
+	readParty: (string) -> PartyResult,
+	clock: () -> number,
+	nameFor: (number) -> string?,
+	objectiveAllowed: (number, string, string) -> boolean,
+	inviteAllowed: (number, number) -> boolean,
+}
+```
+
+### `roblox.social-warband.Summary`
+
+```luau
+export type Summary = {
+	partyId: string,
+	leaderUserId: number,
+	leaderName: string,
+	connected: boolean,
+	members: number,
+	commander: boolean,
+	assistant: boolean,
+}
+```
+
+### `roblox.social-warband.Projection`
+
+```luau
+export type Projection = {
+	rallyHosts: { { leaderUserId: number, leaderName: string, objectiveId: string } },
+	requests: { { leaderUserId: number, leaderName: string, objectiveId: string } },
+	available: boolean,
+	revision: number,
+	warbandId: string?,
+	units: { Summary },
+	isLeader: boolean,
+	isCommander: boolean,
+	canCommand: boolean,
+	canAccept: boolean,
+	canAcceptTransfer: boolean,
+	order: Core.Order?,
+	rallyObjectiveId: string?,
+	targetObjectiveId: string?,
+	rallyByActorId: string?,
+	targetByActorId: string?,
+	refusal: string?,
+}
+```
+
+### `roblox.social-warband.Result`
+
+```luau
+export type Result = { ok: boolean, reason: string?, audience: { number } }
+```
+
+### `roblox.social-warband.Handle`
+
+```luau
+export type Handle = {
+	read act: (number, string, number, number, string, string) -> Result,
+	read project: (number, boolean?) -> Projection,
+	read refresh: () -> { number },
+}
+```
+
+### `roblox.social-warband.Config`
+
+```luau
+export type Config = {
+	read unitOf: (State, string) -> Core.Unit?,
+	read command: (State, string) -> boolean,
+	read maxParties: number,
+	read requestTtlSec: number,
+	read rallyZone: string,
+	read warbandId: (string, number, number) -> string,
+	read memberFallback: (number) -> string,
+}
+```
+
+### `roblox.social-warband.API`
+
+```luau
+export type API = { read create: (Dependencies) -> Handle }
+```
+
+### `roblox.social-warband.configure`
+
+```luau
+function configure(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function WarbandSocial.create(deps: Dependencies): Handle
+```
+
 ## `roblox.target-selection`
 
 [Source](../src/roblox/target-selection.luau)

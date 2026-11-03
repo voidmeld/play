@@ -173,3 +173,9 @@ crowded-ledger fixture clone its frozen nested ledger before editing it. Keep th
 in the consumer cutover. Neutral cases additionally verify final-transform retry acceptance,
 missing callbacks and missing bank state. Keep guild bank/ledger/transport and social integration
 specifications on repin; namespaces, current role lookup and profile save authority stay in Realms.
+
+Replace `WarbandSocial.luau` with `roblox/social-warband.configure`, supplying existing warband rules,
+request bounds, location, identity construction and labels. All ten original warband-host cases pass
+through the prepared binding. Keep those cases and the social/record suites during repin. Location
+and objective catalogs, native notices and party loot remain game-owned; the library fixture uses
+a different request lifetime and a neutral location to prove the policy seam.
