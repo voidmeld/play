@@ -69,6 +69,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [remote-events](systems/roblox-remote-events.md) | Share one dispatcher per channel and release native handlers safely. |
 | [screen-labels](systems/roblox-screen-labels.md) | Admit anchored labels around reserved screen rectangles. |
 | [social-host](systems/roblox-social-host.md) | Coordinate actor exclusion, social caches and membership settlement. |
+| [social-party](systems/roblox-social-party.md) | Compose invitations, projections, succession, reconnect and rally admission over durable parties. |
 | [social-records](systems/roblox-social-records.md) | Coordinate ordered durable records, ledgers, inboxes and indexes. |
 | [target-selection](systems/roblox-target-selection.md) | Cycle ordered candidates, select pointer hits and release distant targets. |
 | [thumbstick](systems/roblox-thumbstick.md) | Convert touch displacement into dead-zone movement and a bounded knob. |

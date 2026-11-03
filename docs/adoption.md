@@ -24,6 +24,7 @@ the game changes; this library change does not claim a completed production cuto
 | `roblox/shared/services/MarketService.luau` | `roblox/market.configure` | Item facts/rarity, category and class matching policy, configured transitions, numeric bounds and native UI. The admission/search/projection coordinator can be removed. |
 | `roblox/shared/services/MarketProfileWallet.luau` | `roblox/market-profile-wallet.configure` | Profile projections, catalog/tradeability policy, item rules and save authority. The paired-delta coordinator can be removed. |
 | `roblox/shared/services/BankService.luau` | `roblox/bank.configure` | Configured vault rules, profile transaction commit, namespace, bounds and banker/item policy. The transfer admission coordinator can be removed. |
+| `roblox/shared/services/SocialParty.luau` | `roblox/social-party.configure` | Configured TTL/loot/rally policy, grouping-domain and character lookup, party namespaces, labels and projection reporting. The invitation/projection coordinator can be removed. |
 
 The already-delegating modules above are game bindings rather than duplicated rule implementations.
 The character lease block is the largest self-contained remaining extraction selected in this pass:
@@ -145,3 +146,13 @@ cases pass through this binding. Keep those cases with market settlement and pro
 `BankService.luau` binds `src/roblox/bank` to existing vault and profile transaction APIs. Its neutral
 library fixture covers actor identity, distance, rate admission, receipt replay and uncertain saves;
 retain the consumer bank-hub and vault checks during repin. Banker positions and item policy stay local.
+
+## Social party cutover
+
+Replace `SocialParty.luau` with a configured `roblox/social-party` binding using the existing party
+and rally APIs, TTLs, loot policy, identity construction and labels. Update the single SocialService
+metric reference from `partyDomain.__pendingInviteCount` to `partyDomain.pendingInviteCount` in the
+same cutover. Keep the game's existing test/diagnostic surface and native subscriptions local.
+All 85 original SocialService cases pass with the extracted party coordinator, including party
+lifecycles, privacy admission, notices and native fake-host composition. Keep that consumer suite,
+party core/host and module-import checks for the actual pin cutover.
