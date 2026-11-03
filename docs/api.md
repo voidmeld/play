@@ -14181,6 +14181,68 @@ function reason<T>(result: Result<T>): string?
 function unwrap<T>(result: Result<T>): T
 ```
 
+## `kernel.store`
+
+[Source](../src/kernel/store.luau)
+
+```luau
+local Result = require("./result")
+```
+
+### `kernel.store.Readback`
+
+```luau
+export type Readback = unknown
+```
+
+### `kernel.store.Transform`
+
+```luau
+export type Transform = (unknown) -> unknown
+```
+
+### `kernel.store.Reader`
+
+```luau
+export type Reader = { read read: (string) -> Result.Result<Readback> }
+```
+
+### `kernel.store.Writer`
+
+```luau
+export type Writer = { read update: (string, Transform) -> Result.Result<Readback> }
+```
+
+### `kernel.store.Port`
+
+```luau
+export type Port = Reader & Writer
+```
+
+### `kernel.store.Codec`
+
+```luau
+export type Codec<T> = { read copy: (unknown) -> (T?, string?), read equal: (T, T) -> boolean }
+```
+
+### `kernel.store.API`
+
+```luau
+export type API = { read compareAndSwap: typeof(compareAndSwap), read committed: typeof(committed) }
+```
+
+### `kernel.store.committed`
+
+```luau
+function committed<T>(readback: Readback, expected: T, codec: Codec<T>): Result.Result<T>
+```
+
+### `kernel.store.compareAndSwap`
+
+```luau
+function compareAndSwap<T>(found: boolean, expected: T, desired: T, codec: Codec<T>): Transform
+```
+
 ## `kernel.value`
 
 [Source](../src/kernel/value.luau)
@@ -17105,6 +17167,47 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 mount = function PartyService.mount(dependencies: Dependencies?): MountResult
+```
+
+## `roblox.persistence.store`
+
+[Source](../src/roblox/persistence/store.luau)
+
+```luau
+local Host = require("../../core/persistence/store-host")
+```
+
+```luau
+local Result = require("../../kernel/result")
+```
+
+```luau
+local Store = require("../../kernel/store")
+```
+
+### `roblox.persistence.store.Port`
+
+```luau
+export type Port = Store.Port
+```
+
+### `roblox.persistence.store.API`
+
+```luau
+export type API = { read new: typeof(new) }
+```
+
+### `roblox.persistence.store.new`
+
+```luau
+function new(host: Host.Store): Port
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+read = function read(key: string): Result.Result<Store.Readback>
+update = function update(key: string, transform: Store.Transform): Result.Result<Store.Readback>
 ```
 
 ## `roblox.professions`

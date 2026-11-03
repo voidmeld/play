@@ -1,0 +1,36 @@
+--!strict
+
+local Result = require("./result")
+
+export type Readback = unknown
+export type Transform = (unknown) -> unknown
+export type Reader = { read read: (string) -> Result.Result<Readback> }
+export type Writer = { read update: (string, Transform) -> Result.Result<Readback> }
+export type Port = Reader & Writer
+export type Codec<T> = { read copy: (unknown) -> (T?, string?), read equal: (T, T) -> boolean }
+
+local function compareAndSwap<T>(found: boolean, expected: T, desired: T, codec: Codec<T>): Transform
+	return function(current: unknown): unknown
+		if found then
+			local prior = codec.copy(current)
+			if prior == nil or not codec.equal(prior, expected) then
+				return nil
+			end
+		elseif current ~= nil then
+			return nil
+		end
+		return (codec.copy(desired))
+	end
+end
+
+local function committed<T>(readback: Readback, expected: T, codec: Codec<T>): Result.Result<T>
+	local value = codec.copy(readback)
+	if value == nil or not codec.equal(value, expected) then
+		return Result.fail("readback_conflict")
+	end
+	return Result.ok(value)
+end
+
+export type API = { read compareAndSwap: typeof(compareAndSwap), read committed: typeof(committed) }
+local api: API = { compareAndSwap = compareAndSwap, committed = committed }
+return table.freeze(api)
