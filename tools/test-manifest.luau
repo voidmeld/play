@@ -21,6 +21,7 @@ return table.freeze {
 	"src/core/identity/retirement.verify.luau",
 	"src/core/identity/roster.verify.luau",
 	"src/core/inventory/cargo.verify.luau",
+	"src/core/inventory/equipment.verify.luau",
 	"src/core/inventory/stacks.verify.luau",
 	"src/core/ledger/ledger.verify.luau",
 	"src/core/loot/decision.verify.luau",

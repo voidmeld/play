@@ -3167,6 +3167,186 @@ census = function Claims.census(stateValue: unknown): ({ CensusRow }?, string?)
 openDrops = function Claims.openDrops(stateValue: unknown, nowSecValue: unknown): ({ Drop }?, string?)
 ```
 
+## `core.inventory.equipment`
+
+[Source](../src/core/inventory/equipment.luau)
+
+```luau
+local Value = require("../internal/value")
+```
+
+### `core.inventory.equipment.Requirements`
+
+```luau
+export type Requirements = {
+	read levelReq: number,
+	read classReq: { read [number]: string }?,
+	read armorFamily: string?,
+	read weaponFamily: string?,
+	read handTopology: string?,
+}
+```
+
+### `core.inventory.equipment.ItemDef`
+
+```luau
+export type ItemDef = Requirements & {
+	read slot: string?,
+	read bagSlots: number?,
+	read durability: {
+		read maximum: number,
+		read contactWear: number,
+		read damageWear: number,
+		read repairCopper: number,
+	}?,
+}
+```
+
+### `core.inventory.equipment.ItemLookup`
+
+```luau
+export type ItemLookup = (string) -> ItemDef?
+```
+
+### `core.inventory.equipment.Equipment`
+
+```luau
+export type Equipment = { [string]: string }
+```
+
+### `core.inventory.equipment.Inventory`
+
+```luau
+export type Inventory = { [string]: number }
+```
+
+### `core.inventory.equipment.Wear`
+
+```luau
+export type Wear = { equipped: { [string]: number }, bag: { [string]: { number } }, bank: { [string]: { number } } }
+```
+
+### `core.inventory.equipment.Decision`
+
+```luau
+export type Decision = { equip: true, slot: string, reason: nil } | { equip: false, slot: nil, reason: string }
+```
+
+### `core.inventory.equipment.InventoryPort`
+
+```luau
+export type InventoryPort = {
+	read removeFromBag: (Inventory, string, number) -> (Inventory, boolean),
+	read addToBag: (Inventory, string, number) -> Inventory,
+	read entries: (Inventory) -> number,
+	read capacity: (string?) -> number,
+	read fits: (Inventory, Inventory, number) -> boolean,
+}
+```
+
+### `core.inventory.equipment.Config`
+
+```luau
+export type Config = {
+	read inventory: InventoryPort,
+	read maxStack: number,
+	read decide: (ItemDef, number, string, Equipment, unknown) -> Decision,
+	read resolveSlot: (string, Equipment) -> string?,
+	read equipDenial: (Requirements, number, string, unknown) -> string?,
+}
+```
+
+### `core.inventory.equipment.Plan`
+
+```luau
+export type Plan = {
+	ok: boolean,
+	reason: string?,
+	bag: Inventory,
+	slots: Equipment,
+	slot: string?,
+	displaced: string?,
+	bagItem: string?,
+}
+```
+
+### `core.inventory.equipment.API`
+
+```luau
+export type API = {
+	read defaultWear: () -> Wear,
+	read normalizeWear: (unknown, Equipment, Inventory, { read [string]: number? }, ItemLookup) -> Wear?,
+	read copyWear: (Wear) -> Wear,
+	read equipWear: (Wear, Equipment, string, string) -> Wear,
+	read unequipWear: (Wear, Equipment, string) -> Wear,
+	read reconcileWear: (Wear, Equipment, Equipment) -> Wear,
+	read transferWear: (Wear, string, number, "deposit" | "withdraw") -> Wear,
+	read discardWear: (Wear, string, number) -> Wear,
+	read applyWear: (Wear, Equipment, "contact" | "damage", ItemLookup, number?) -> Wear,
+	read activeEquipment: (Wear, Equipment, ItemLookup) -> Equipment,
+	read repairQuote: (Wear, Equipment, ItemLookup) -> number,
+	read repairWear: (Wear, Equipment, number, number, ItemLookup) -> (Wear?, number, string?),
+	read resolveSlot: (string, Equipment) -> string?,
+	read equipDenial: (Requirements, number, string, unknown) -> string?,
+	read planEquip: (Inventory, Equipment, string, number, string, ItemLookup, unknown, string?) -> Plan,
+	read planUnequip: (Inventory, Equipment, string, string?) -> Plan,
+}
+```
+
+### `core.inventory.equipment.equipment`
+
+```luau
+function equipment(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+defaultWear = function defaultWear(): Wear
+normalizeWear = function normalizeWear(
+		raw: unknown,
+		slots: Equipment,
+		bag: Inventory,
+		bank: { read [string]: number? },
+		getDef: ItemLookup
+	): Wear?
+copyWear = function copyWear(wear: Wear): Wear
+equipWear = function equipWear(wear: Wear, slots: Equipment, slot: string, itemId: string): Wear
+unequipWear = function unequipWear(wear: Wear, slots: Equipment, slot: string): Wear
+reconcileWear = function reconcileWear(wear: Wear, before: Equipment, after: Equipment): Wear
+transferWear = function transferWear(wear: Wear, itemId: string, count: number, kind: "deposit" | "withdraw"): Wear
+discardWear = function discardWear(wear: Wear, itemId: string, count: number): Wear
+applyWear = function applyWear(
+		wear: Wear,
+		slots: Equipment,
+		kind: "contact" | "damage",
+		getDef: ItemLookup,
+		count: number?
+	): Wear
+activeEquipment = function activeEquipment(wear: Wear, slots: Equipment, getDef: ItemLookup): Equipment
+repairQuote = function repairQuote(wear: Wear, slots: Equipment, getDef: ItemLookup): number
+repairWear = function repairWear(
+		wear: Wear,
+		slots: Equipment,
+		funds: number,
+		quoted: number,
+		getDef: ItemLookup
+	): (Wear?, number, string?)
+resolveSlot = config.resolveSlot
+equipDenial = config.equipDenial
+planEquip = function planEquip(
+		bag: Inventory,
+		slots: Equipment,
+		itemId: string,
+		level: number,
+		class: string,
+		getDef: ItemLookup,
+		learnedWeapons: unknown,
+		bagItem: string?
+	): Plan
+planUnequip = function planUnequip(bag: Inventory, slots: Equipment, slot: string, bagItem: string?): Plan
+```
+
 ## `core.inventory.stacks`
 
 [Source](../src/core/inventory/stacks.luau)
@@ -3240,6 +3420,10 @@ unboundCount = function unboundCount(profile: Holdings, itemId: string): number
 
 ```luau
 local Cargo = require("./inventory/cargo")
+```
+
+```luau
+local Equipment = require("./inventory/equipment")
 ```
 
 ```luau
@@ -3342,16 +3526,87 @@ export type StacksHoldings = Stacks.Holdings
 export type StacksConfig = Stacks.Config
 ```
 
+### `core.inventory.EquipmentRequirements`
+
+```luau
+export type EquipmentRequirements = Equipment.Requirements
+```
+
+### `core.inventory.EquipmentItemDef`
+
+```luau
+export type EquipmentItemDef = Equipment.ItemDef
+```
+
+### `core.inventory.EquipmentItemLookup`
+
+```luau
+export type EquipmentItemLookup = Equipment.ItemLookup
+```
+
+### `core.inventory.EquipmentEquipment`
+
+```luau
+export type EquipmentEquipment = Equipment.Equipment
+```
+
+### `core.inventory.EquipmentInventory`
+
+```luau
+export type EquipmentInventory = Equipment.Inventory
+```
+
+### `core.inventory.EquipmentWear`
+
+```luau
+export type EquipmentWear = Equipment.Wear
+```
+
+### `core.inventory.EquipmentDecision`
+
+```luau
+export type EquipmentDecision = Equipment.Decision
+```
+
+### `core.inventory.EquipmentInventoryPort`
+
+```luau
+export type EquipmentInventoryPort = Equipment.InventoryPort
+```
+
+### `core.inventory.EquipmentConfig`
+
+```luau
+export type EquipmentConfig = Equipment.Config
+```
+
+### `core.inventory.EquipmentPlan`
+
+```luau
+export type EquipmentPlan = Equipment.Plan
+```
+
+### `core.inventory.EquipmentAPI`
+
+```luau
+export type EquipmentAPI = Equipment.API
+```
+
 ### `core.inventory.API`
 
 ```luau
 export type API = {
 	read cargo: typeof(Cargo),
+	read equipment: typeof(Equipment),
 	read stacks: typeof(Stacks),
 }
 ```
 
 ### `core.inventory.cargo`
+
+Exported value; see its declaration in [source](../src/core/inventory.luau).
+
+### `core.inventory.equipment`
 
 Exported value; see its declaration in [source](../src/core/inventory.luau).
 
