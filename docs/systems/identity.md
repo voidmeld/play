@@ -30,12 +30,16 @@ Types and configuration are exported from [src/core/identity.luau](../../src/cor
 | [policy](../../src/core/identity/policy.luau) |  | `Policy` |
 | [retirement](../../src/core/identity/retirement.luau) | `create`, `view`, `decide` | `Config`, `API`, `View`, `Decision`, `Deletion`, `Retirement` |
 | [roster](../../src/core/identity/roster.luau) | `add`, `create`, `markDeparted`, `markLevel`, `markPlayed`, `realmCards`, `remove`, `removeStored`, `validate`, `validateStored` | `CharacterIdentity`, `Roster` |
+| [routing](../../src/core/identity/routing.luau) | `create`, `projectPolicy`, `decide`, `refuse`, `accept`, `boundPlaceIds` | `Config`, `API`, `Policy`, `Binding`, `PlaceBinding`, `Budget`, `Handoff`, `DestinationProjection`, `RefusalRow`, `Session`, `Character`, `Request`, `Route`, `Refusal`, `Decision`, `Arrival` |
 
 The linked components declare their factories and operations; see the [API reference](../api.md).
 
 ## Required host operations
 
 Supply `policy.Policy`, pure extension projectors and identity/key/destination validation. Apply transaction plans through ordered durable operations and return actual readbacks.
+
+[Route admission](route-admission.md) covers configured destination bindings, request/held-session
+fencing, attempt/deadline budgets and arrival source checks. It has no native service dependency.
 
 Use the [host-operation contract](../../README.md#host-operation-contract) when installing state,
 handling uncertain writes and releasing resources.

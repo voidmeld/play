@@ -2530,6 +2530,236 @@ NEVER_DEPARTED = NEVER_DEPARTED
 REALMS = REALMS
 ```
 
+## `core.identity.routing`
+
+[Source](../src/core/identity/routing.luau)
+
+```luau
+local Shape = require("../social/shape")
+```
+
+### `core.identity.routing.DestinationProjection`
+
+```luau
+export type DestinationProjection = {
+	read id: string,
+	read zoneId: string,
+	read realm: string,
+	read isStarter: boolean,
+	read requiresUnlock: boolean,
+	read unlockId: string,
+	read minLevel: number,
+}
+```
+
+### `core.identity.routing.PlaceBinding`
+
+```luau
+export type PlaceBinding = {
+	read destinationId: string,
+	read placeId: number,
+}
+```
+
+### `core.identity.routing.Binding`
+
+```luau
+export type Binding = {
+	read channel: string,
+	read universeId: number,
+	read sourcePlaceId: number,
+	read places: { PlaceBinding },
+}
+```
+
+### `core.identity.routing.Budget`
+
+```luau
+export type Budget = {
+	read targetSeconds: number,
+	read maxAttemptsPerSession: number,
+}
+```
+
+### `core.identity.routing.RefusalRow`
+
+```luau
+export type RefusalRow = {
+	read id: string,
+	read recoverable: boolean,
+	read retryable: boolean,
+	read holdsAtDoor: boolean,
+	read line: string,
+}
+```
+
+### `core.identity.routing.Handoff`
+
+```luau
+export type Handoff = {
+	read freshnessSeconds: number,
+}
+```
+
+### `core.identity.routing.Policy`
+
+```luau
+export type Policy = {
+	read binding: Binding,
+	read budget: Budget,
+	read handoff: Handoff,
+	read refusals: { [string]: RefusalRow },
+	read destinations: { [string]: DestinationProjection },
+	read placeByDestinationId: { [string]: number },
+}
+```
+
+### `core.identity.routing.Session`
+
+```luau
+export type Session = {
+	read sessionId: string,
+	read acquisitionId: string,
+	read leaseRevision: number,
+}
+```
+
+### `core.identity.routing.Character`
+
+```luau
+export type Character = {
+	read characterId: string,
+	read realmId: string,
+	read level: number,
+}
+```
+
+### `core.identity.routing.Request`
+
+```luau
+export type Request = {
+	read channel: string,
+	read universeId: number,
+	read sourcePlaceId: number,
+	read requestId: string,
+	read destinationId: string,
+	read character: Character,
+	read requestSession: Session,
+	read heldSession: Session,
+	read selectionAtUnix: number,
+	read issuedAtUnix: number,
+	read nowUnix: number,
+	read attempt: number,
+	read resolution: unknown,
+}
+```
+
+### `core.identity.routing.Route`
+
+```luau
+export type Route = {
+	read requestId: string,
+	read destinationId: string,
+	read zoneId: string,
+	read realm: string,
+	read characterId: string,
+	read realmId: string,
+	read universeId: number,
+	read sourcePlaceId: number,
+	read destinationPlaceId: number,
+	read sessionId: string,
+	read acquisitionId: string,
+	read issuedAtUnix: number,
+	read deadlineAtUnix: number,
+	read carrierExpiresAtUnix: number,
+	read attempt: number,
+}
+```
+
+### `core.identity.routing.Refusal`
+
+```luau
+export type Refusal = {
+	read requestId: string,
+	read reason: string,
+	read recoverable: boolean,
+	read retryable: boolean,
+	read holdsAtDoor: boolean,
+	read attempt: number,
+	read line: string,
+}
+```
+
+### `core.identity.routing.Decision`
+
+```luau
+export type Decision = {
+	read outcome: string,
+	read route: Route?,
+	read refusal: Refusal?,
+}
+```
+
+### `core.identity.routing.Arrival`
+
+```luau
+export type Arrival = {
+	read channel: string,
+	read universeId: number,
+	read placeId: number,
+	read sourceUniverseId: number,
+	read sourcePlaceId: number,
+	read destinationId: string,
+	read characterId: string,
+}
+```
+
+### `core.identity.routing.Config`
+
+```luau
+export type Config = {
+	read realms: { [string]: string },
+	read structuralId: (unknown) -> string?,
+	read namespacedId: (unknown) -> string?,
+	read idLimit: number,
+	read refusalLineLimit: number,
+	read unroutedStatusLimit: number,
+	read unroutedReasonLimit: number,
+	read unknownRequestId: string,
+	read invalidBinding: RefusalRow,
+}
+```
+
+### `core.identity.routing.API`
+
+```luau
+export type API = {
+	read projectPolicy: (unknown) -> Policy?,
+	read refuse: (unknown, unknown, unknown, unknown) -> Decision,
+	read decide: (unknown, unknown) -> Decision,
+	read accept: (unknown, unknown) -> Decision,
+	read boundPlaceIds: (unknown) -> { number },
+	read REASON_IDS: { string },
+	read REALMS: { [string]: string },
+}
+```
+
+### `core.identity.routing.create`
+
+```luau
+function create(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+projectPolicy = function Routing.projectPolicy(source: unknown): Policy?
+refuse = function Routing.refuse(policy: unknown, requestId: unknown, reason: unknown, attempt: unknown): Decision
+decide = function Routing.decide(policy: unknown, request: unknown): Decision
+accept = function Routing.accept(policy: unknown, arrival: unknown): Decision
+boundPlaceIds = function Routing.boundPlaceIds(policy: unknown): { number }
+```
+
 ## `core.identity.value`
 
 [Source](../src/core/identity/value.luau)
@@ -2596,6 +2826,10 @@ local Retirement = require("./identity/retirement")
 
 ```luau
 local Roster = require("./identity/roster")
+```
+
+```luau
+local Routing = require("./identity/routing")
 ```
 
 ### `core.identity.AccountLeaseLease`
@@ -2922,6 +3156,102 @@ export type RosterCharacterIdentity = Roster.CharacterIdentity
 export type RosterRoster = Roster.Roster
 ```
 
+### `core.identity.RoutingDestinationProjection`
+
+```luau
+export type RoutingDestinationProjection = Routing.DestinationProjection
+```
+
+### `core.identity.RoutingPlaceBinding`
+
+```luau
+export type RoutingPlaceBinding = Routing.PlaceBinding
+```
+
+### `core.identity.RoutingBinding`
+
+```luau
+export type RoutingBinding = Routing.Binding
+```
+
+### `core.identity.RoutingBudget`
+
+```luau
+export type RoutingBudget = Routing.Budget
+```
+
+### `core.identity.RoutingRefusalRow`
+
+```luau
+export type RoutingRefusalRow = Routing.RefusalRow
+```
+
+### `core.identity.RoutingHandoff`
+
+```luau
+export type RoutingHandoff = Routing.Handoff
+```
+
+### `core.identity.RoutingPolicy`
+
+```luau
+export type RoutingPolicy = Routing.Policy
+```
+
+### `core.identity.RoutingSession`
+
+```luau
+export type RoutingSession = Routing.Session
+```
+
+### `core.identity.RoutingCharacter`
+
+```luau
+export type RoutingCharacter = Routing.Character
+```
+
+### `core.identity.RoutingRequest`
+
+```luau
+export type RoutingRequest = Routing.Request
+```
+
+### `core.identity.RoutingRoute`
+
+```luau
+export type RoutingRoute = Routing.Route
+```
+
+### `core.identity.RoutingRefusal`
+
+```luau
+export type RoutingRefusal = Routing.Refusal
+```
+
+### `core.identity.RoutingDecision`
+
+```luau
+export type RoutingDecision = Routing.Decision
+```
+
+### `core.identity.RoutingArrival`
+
+```luau
+export type RoutingArrival = Routing.Arrival
+```
+
+### `core.identity.RoutingConfig`
+
+```luau
+export type RoutingConfig = Routing.Config
+```
+
+### `core.identity.RoutingAPI`
+
+```luau
+export type RoutingAPI = Routing.API
+```
+
 ### `core.identity.API`
 
 ```luau
@@ -2938,6 +3268,7 @@ export type API = {
 	read policy: typeof(Policy),
 	read retirement: typeof(Retirement),
 	read roster: typeof(Roster),
+	read routing: typeof(Routing),
 }
 ```
 
@@ -2986,6 +3317,10 @@ Exported value; see its declaration in [source](../src/core/identity.luau).
 Exported value; see its declaration in [source](../src/core/identity.luau).
 
 ### `core.identity.roster`
+
+Exported value; see its declaration in [source](../src/core/identity.luau).
+
+### `core.identity.routing`
 
 Exported value; see its declaration in [source](../src/core/identity.luau).
 

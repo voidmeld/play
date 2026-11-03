@@ -12,6 +12,7 @@ local NameRecord = require("./identity/name-record")
 local Policy = require("./identity/policy")
 local Retirement = require("./identity/retirement")
 local Roster = require("./identity/roster")
+local Routing = require("./identity/routing")
 
 export type AccountLeaseLease = AccountLease.Lease
 export type AccountDeletionState = Account.DeletionState
@@ -67,6 +68,22 @@ export type RetirementConfig = Retirement.Config
 export type RetirementAPI = Retirement.API
 export type RosterCharacterIdentity = Roster.CharacterIdentity
 export type RosterRoster = Roster.Roster
+export type RoutingDestinationProjection = Routing.DestinationProjection
+export type RoutingPlaceBinding = Routing.PlaceBinding
+export type RoutingBinding = Routing.Binding
+export type RoutingBudget = Routing.Budget
+export type RoutingRefusalRow = Routing.RefusalRow
+export type RoutingHandoff = Routing.Handoff
+export type RoutingPolicy = Routing.Policy
+export type RoutingSession = Routing.Session
+export type RoutingCharacter = Routing.Character
+export type RoutingRequest = Routing.Request
+export type RoutingRoute = Routing.Route
+export type RoutingRefusal = Routing.Refusal
+export type RoutingDecision = Routing.Decision
+export type RoutingArrival = Routing.Arrival
+export type RoutingConfig = Routing.Config
+export type RoutingAPI = Routing.API
 
 export type API = {
 	read account_lease: typeof(AccountLease),
@@ -81,6 +98,7 @@ export type API = {
 	read policy: typeof(Policy),
 	read retirement: typeof(Retirement),
 	read roster: typeof(Roster),
+	read routing: typeof(Routing),
 }
 
 local api: API = {
@@ -96,6 +114,7 @@ local api: API = {
 	policy = Policy,
 	retirement = Retirement,
 	roster = Roster,
+	routing = Routing,
 }
 
 return table.freeze(api)
