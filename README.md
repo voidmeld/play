@@ -152,6 +152,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [remote-events](docs/systems/roblox-remote-events.md) | Shared channel dispatch and handler release. |
 | [screen-labels](docs/systems/roblox-screen-labels.md) | Priority labels and reserved-screen avoidance. |
 | [social-host](docs/systems/roblox-social-host.md) | Actor exclusion, caches and membership settlement. |
+| [social-party](docs/systems/roblox-social-party.md) | Party invitations, member projections, succession, reconnect and rally admission. |
 | [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes. |
 | [target-selection](docs/systems/roblox-target-selection.md) | Cycling, pointer selection and range release. |
 | [thumbstick](docs/systems/roblox-thumbstick.md) | Dead-zone movement and knob displacement. |

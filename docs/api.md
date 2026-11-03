@@ -15776,6 +15776,217 @@ export type Host = {
 function SocialHost.fellowships(source: Records.Service?): Host
 ```
 
+## `roblox.social-party`
+
+[Source](../src/roblox/social-party.luau)
+
+```luau
+local PartyHost = require("./party")
+```
+
+```luau
+local PartyTypes = require("../core/social/membership")
+```
+
+```luau
+local Rally = require("../core/social/rally")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.social-party.Handle`
+
+```luau
+export type Handle = {
+	read open: (unknown) -> PartyOutcome,
+	read invite: (unknown) -> PartyOutcome,
+	read accept: (unknown) -> PartyOutcome,
+	read decline: (unknown) -> PartyOutcome,
+	read leave: (unknown) -> PartyOutcome,
+	read kick: (unknown) -> PartyOutcome,
+	read transferLeader: (unknown) -> PartyOutcome,
+	read acceptLeaderTransfer: (unknown) -> PartyOutcome,
+	read disband: (unknown) -> PartyOutcome,
+	read setLootMode: (unknown) -> PartyOutcome,
+	read markAbsent: (unknown) -> PartyOutcome,
+	read markPresent: (unknown) -> PartyOutcome,
+	read sweep: (unknown) -> PartyOutcome,
+	read read: (unknown) -> PartyOutcome,
+}
+```
+
+### `roblox.social-party.RallyJoinResult`
+
+```luau
+export type RallyJoinResult = { ok: false, reason: string } | { ok: true, objectiveId: string, replayed: boolean }
+```
+
+### `roblox.social-party.Dependencies`
+
+```luau
+export type Dependencies = {
+	read projectPartyMembership: (string, string?) -> string?,
+	read projectPartySnapshot: ((PartyTypes.State) -> string?)?,
+	read partyMembership: (string) -> unknown,
+	read candidateRows: (number) -> unknown,
+	read realmFor: (number) -> string?,
+	read characterFor: (number) -> string?,
+	read displayNameFor: (number) -> string?,
+	read clock: () -> number,
+	read projectRallyJoin: (number, string?) -> (),
+	read objectiveRows: () -> unknown,
+}
+```
+
+### `roblox.social-party.PartyResponse`
+
+```luau
+export type PartyResponse = {
+	read ok: boolean,
+	read reason: string?,
+	read party: PartyTypes.State?,
+	read replayed: boolean?,
+	read found: boolean?,
+	read boundary: string?,
+	read dissolved: boolean?,
+	read strandedUserIds: { number }?,
+}
+```
+
+### `roblox.social-party.CandidateView`
+
+```luau
+export type CandidateView = { read userId: number, read displayName: string, read source: "nearby" | "recent" }
+```
+
+### `roblox.social-party.PartyMemberView`
+
+```luau
+export type PartyMemberView = {
+	read userId: number,
+	read displayName: string,
+	read leader: boolean,
+	read present: boolean,
+	read canRemove: boolean,
+	read canPromote: boolean,
+}
+```
+
+### `roblox.social-party.PendingPartyInvite`
+
+```luau
+export type PendingPartyInvite = { read partyId: string, read inviterUserId: number?, read inviterName: string }
+```
+
+### `roblox.social-party.PartyLeaderTransferView`
+
+```luau
+export type PartyLeaderTransferView = {
+	read recipientUserId: number?,
+	read fromUserId: number?,
+	read expiresAtSec: number,
+	read canAccept: boolean,
+}
+```
+
+### `roblox.social-party.PartyView`
+
+```luau
+export type PartyView = {
+	read partyId: string,
+	read viewerUserId: number,
+	read leaderUserId: number?,
+	read members: { PartyMemberView },
+	read leaderTransfer: PartyLeaderTransferView | false,
+}
+```
+
+### `roblox.social-party.PartyProjection`
+
+```luau
+export type PartyProjection = {
+	read candidates: { CandidateView },
+	read incoming: PendingPartyInvite | false,
+	read party: PartyView | false,
+	read joinedRallyObjectiveId: string | false,
+}
+```
+
+### `roblox.social-party.ProjectionRefusal`
+
+```luau
+export type ProjectionRefusal = { accountId: string, reason: string }
+```
+
+### `roblox.social-party.Config`
+
+```luau
+export type Config = {
+	read lootMode: PartyTypes.LootMode,
+	read rally: (unknown, string, string, number) -> { Rally.Row }?,
+	read inviteTtlSec: number,
+	read leaderTransferTtlSec: number,
+	read maxProjectionRefusals: number,
+	read maxDisplayName: number,
+	read maxCandidates: number,
+	read partyId: (number, number, number) -> string,
+	read memberFallback: (string) -> string,
+	read inviterFallback: string,
+	read reportProjectionRefusal: (string, string) -> (),
+}
+```
+
+### `roblox.social-party.Service`
+
+```luau
+export type Service = {
+	read party: Handle,
+	read partyInvite: (number, number) -> PartyResponse,
+	read partyAccept: (number) -> PartyResponse,
+	read partyDecline: (number) -> PartyResponse,
+	read partyLeave: (number) -> PartyResponse,
+	read partyRemove: (number, number) -> PartyResponse,
+	read partyTransferLeader: (number, number) -> PartyResponse,
+	read partyAcceptLeaderTransfer: (number) -> PartyResponse,
+	read partyDisband: (number) -> PartyResponse,
+	read partyDisconnect: (number) -> PartyResponse,
+	read partyReconnect: (number) -> PartyResponse,
+	read partySweep: (string) -> PartyResponse,
+	read partyProjection: (number) -> PartyProjection,
+	read candidateProjection: (number) -> { CandidateView },
+	read candidateNamed: (number, number) -> boolean,
+	read partyAudience: (number) -> { number },
+	read pendingInviteCount: () -> number,
+	read rallyBoard: (string, string) -> { Rally.Row }?,
+	read joinRally: (number, string, string) -> RallyJoinResult,
+	read leaveRally: (number) -> { ok: boolean, replayed: boolean },
+}
+```
+
+### `roblox.social-party.Host`
+
+```luau
+export type Host = {
+	read create: (Dependencies, Handle) -> Service,
+	read projectionRefusals: () -> { ProjectionRefusal },
+}
+```
+
+### `roblox.social-party.configure`
+
+```luau
+function configure(config: Config): Host
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function create(deps: Dependencies, partySource: PartyHandle): Service
+projectionRefusals = function()
+```
+
 ## `roblox.social-records`
 
 [Source](../src/roblox/social-records.luau)

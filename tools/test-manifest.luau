@@ -105,6 +105,7 @@ return table.freeze {
 	"src/roblox/remote-events.verify.luau",
 	"src/roblox/screen-labels.verify.luau",
 	"src/roblox/social-host.verify.luau",
+	"src/roblox/social-party.verify.luau",
 	"src/roblox/social-records.verify.luau",
 	"src/roblox/target-selection.verify.luau",
 	"src/roblox/trade.verify.luau",

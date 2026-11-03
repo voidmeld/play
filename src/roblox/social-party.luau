@@ -82,6 +82,7 @@ export type PartyProjection = {
 
 export type ProjectionRefusal = { accountId: string, reason: string }
 export type Config = {
+	read lootMode: PartyTypes.LootMode,
 	read rally: (unknown, string, string, number) -> { Rally.Row }?,
 	read inviteTtlSec: number,
 	read leaderTransferTtlSec: number,
@@ -110,7 +111,7 @@ export type Service = {
 	read candidateProjection: (number) -> { CandidateView },
 	read candidateNamed: (number, number) -> boolean,
 	read partyAudience: (number) -> { number },
-	read __pendingInviteCount: () -> number,
+	read pendingInviteCount: () -> number,
 	read rallyBoard: (string, string) -> { Rally.Row }?,
 	read joinRally: (number, string, string) -> RallyJoinResult,
 	read leaveRally: (number) -> { ok: boolean, replayed: boolean },
@@ -452,7 +453,7 @@ local function configure(config: Config): Host
 				realmId = realmId,
 				founderId = tostring(actorUserId),
 				founderCharacterId = characterId,
-				lootMode = "need_greed",
+				lootMode = config.lootMode,
 				at = deps.clock(),
 			})
 			return if opened.ok then partyId else nil, opened
@@ -729,7 +730,7 @@ local function configure(config: Config): Host
 				end
 				return audience
 			end,
-			__pendingInviteCount = function(): number
+			pendingInviteCount = function(): number
 				return pendingInviteCount
 			end,
 			rallyBoard = function(zoneId: string, realmId: string): { Rally.Row }?
