@@ -12,7 +12,7 @@ export type Counters = { writes: number, clock: number }
 local REALMS = { realm_a = true, realm_b = true, realm_c = true }
 local NAME_IDS = { group_a = true, group_b = true, group_c = true }
 
-local fellowshipCore = Fellowship.fellowship({
+local fellowshipSettings: Fellowship.Config = {
 	inviteTtlSec = 300,
 	maxMembers = 300,
 	maxOfficers = 12,
@@ -39,9 +39,9 @@ local fellowshipCore = Fellowship.fellowship({
 	maxFingerprint = 512,
 	maxPursuits = 3,
 	requiredFounders = 5,
-})
+}
 
-local formationCore = Formation.formation({
+local formationSettings: Formation.Config = {
 	requiredFounders = 5,
 	fee = 1000,
 	formationTtlSec = 600,
@@ -55,7 +55,7 @@ local formationCore = Formation.formation({
 	maxId = 128,
 	maxRevision = 1000000000,
 	maxFingerprint = 512,
-})
+}
 
 local warbandCore = Warband.warband({
 	maxParties = 20,
@@ -69,7 +69,21 @@ local warbandCore = Warband.warband({
 	maxAssistants = 2,
 })
 
-function Social.rig(readback: ((unknown) -> unknown)?): (Records.Service, { [string]: unknown }, Counters)
+export type Options = { requiredFounders: number?, fee: number? }
+
+function Social.rig(
+	readback: ((unknown) -> unknown)?,
+	options: Options?
+): (Records.Service, { [string]: unknown }, Counters)
+	local guildPolicy = table.clone(fellowshipSettings)
+	local formationPolicy = table.clone(formationSettings)
+	if options ~= nil then
+		guildPolicy.requiredFounders = options.requiredFounders or guildPolicy.requiredFounders
+		formationPolicy.requiredFounders = guildPolicy.requiredFounders
+		formationPolicy.fee = options.fee or formationPolicy.fee
+	end
+	local fellowshipCore = Fellowship.fellowship(guildPolicy)
+	local formationCore = Formation.formation(formationPolicy)
 	local values: { [string]: unknown } = {}
 	local counters = { writes = 0, clock = 100 }
 	local service = Records.create({
