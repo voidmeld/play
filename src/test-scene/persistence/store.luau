@@ -43,7 +43,10 @@ local function new(clock: () -> number, options: Options?): Scene
 	end)
 	return table.freeze({
 		store = Atomic.new(backend),
-		seed = backend.set,
+		seed = function(key: string, value: unknown)
+			local outcome = backend.set(key, value)
+			assert(outcome.ok, outcome.reason)
+		end,
 		writes = function(): number
 			return writes
 		end,

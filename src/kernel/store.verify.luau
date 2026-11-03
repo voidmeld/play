@@ -78,8 +78,8 @@ return function(suite: Verify.Harness)
 			local desired: Record = { revision = 1, payload = "saved" }
 			scene.seed("record", desired)
 			local raw = Result.unwrap(scene.store.read("record"))
-			local detached = assert(Value.raw(raw))
-			detached.payload = "local"
+			assert(type(raw) == "table")
+			table.clear(raw)
 			expect(Result.unwrap(scene.store.read("record"))):toEqual(desired)
 			local mismatch = Store.committed({ revision = 1, payload = "different" }, desired, codec)
 			expect(Result.reason(mismatch)):toBe("readback_conflict")
