@@ -1,6 +1,7 @@
 --!strict
+local Result = require("../../kernel/result")
 local Value = require("../../kernel/value")
-export type Outcome = { ok: boolean, value: unknown, reason: string? }
+export type Outcome = Result.Result<unknown>
 export type DrainOutcome = { ok: boolean, flushed: number, remaining: number, reason: string? }
 export type Operation = "Get" | "Set" | "Update"
 export type Observation = {
@@ -188,13 +189,8 @@ function StoreHost.create(config: Config)
 		return true, result
 	end
 
-	local function success(value: unknown): Outcome
-		return { ok = true, value = value, reason = nil }
-	end
-
-	local function failure(reason: string): Outcome
-		return { ok = false, value = nil, reason = reason }
-	end
+	local success: (unknown) -> Result.Success<unknown> = Result.ok
+	local failure = Result.fail
 
 	local function noObserver(): Observer?
 		return nil

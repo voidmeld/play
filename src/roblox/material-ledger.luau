@@ -1,6 +1,7 @@
 --!strict
 local CoreTypes = require("../core/ledger/ledger")
 local EqualData = require("../core/internal/equal-data")
+local Result = require("../kernel/result")
 local Shape = require("../core/social/shape")
 local Value = require("../kernel/value")
 export type State = CoreTypes.State
@@ -17,10 +18,10 @@ export type SnapshotValue = {
 	windowFloorAt: number,
 	boundary: string,
 }
-export type Failure = { ok: false, value: nil, reason: string? }
-export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
+export type Failure = Result.Failure
+export type StoreOutcome = Result.Result<unknown>
 export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
-export type Outcome<T> = Failure | { ok: true, value: T, reason: nil }
+export type Outcome<T> = Result.Result<T>
 
 export type CorePort = {
 	read emptyState: () -> State,
@@ -76,9 +77,7 @@ local function configure(config: Config): API
 		windowFloorAt = true,
 	}
 
-	local function failed(reason: string): Failure
-		return { ok = false, value = nil, reason = reason }
-	end
+	local failed = Result.fail
 
 	local function text(value: unknown): boolean
 		return type(value) == "string" and #value > 0 and #value <= MAX_TEXT

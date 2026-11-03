@@ -3,12 +3,13 @@
 local Fellowship = require("../core/social/fellowship")
 local Formation = require("../core/social/formation")
 local Notes = require("../core/social/notes")
+local Result = require("../kernel/result")
 local Value = require("../kernel/value")
 local Warband = require("../core/social/warband")
 
 local SocialRecords = {}
 
-export type Outcome = { ok: boolean, value: unknown, reason: string? }
+export type Outcome = Result.Result<unknown>
 export type Store = {
 	getOutcome: (key: string) -> Outcome,
 	updateOutcome: (key: string, transform: (unknown) -> unknown) -> Outcome,
@@ -318,7 +319,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local function readRecord<S>(kind: Kind<S>, key: string, id: string): RecordResult<S>
 		local outcome = store.getOutcome(key)
 		if not outcome.ok then
-			return refused(outcome.reason)
+			return refused(Result.reason(outcome))
 		end
 		if outcome.value == nil then
 			return refused(kind.absent)
@@ -354,7 +355,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return result.state
 		end)
 		if not outcome.ok or created == nil then
-			return refused(refusal or outcome.reason)
+			return refused(refusal or Result.reason(outcome))
 		end
 		local record = recordState(kind, outcome.value, id)
 		if record == nil then
@@ -389,7 +390,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return accepted(replayedState, true)
 		end
 		if not outcome.ok then
-			return refused(refusal or outcome.reason)
+			return refused(refusal or Result.reason(outcome))
 		end
 		local state = recordState(kind, outcome.value, id)
 		if state == nil then
@@ -456,7 +457,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local function readProposerFormation(userId: number): ProposerResult
 		local outcome = store.getOutcome(formationKey("by:" .. tostring(userId)))
 		if not outcome.ok then
-			return { ok = false, formationId = nil, reason = outcome.reason or "not_durable" }
+			return { ok = false, formationId = nil, reason = Result.reason(outcome) or "not_durable" }
 		end
 		local value = outcome.value
 		if value == nil or value == false then
@@ -486,7 +487,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 		if refusal == "pointer_exists_same" then
 			return { ok = true, reason = nil }
 		end
-		return { ok = outcome.ok, reason = refusal or outcome.reason }
+		return { ok = outcome.ok, reason = refusal or Result.reason(outcome) }
 	end
 
 	local function clearProposerFormation(userId: number, formationId: string): Status
@@ -497,13 +498,13 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			end
 			return nil
 		end)
-		return { ok = outcome.ok, reason = outcome.reason }
+		return { ok = outcome.ok, reason = Result.reason(outcome) }
 	end
 
 	local function readMembership(userId: number): MembershipResult
 		local outcome = store.getOutcome(deps.memberKeyFor(userId))
 		if not outcome.ok then
-			return { ok = false, membership = nil, reason = outcome.reason or "not_durable" }
+			return { ok = false, membership = nil, reason = Result.reason(outcome) or "not_durable" }
 		end
 		local valid, membership = projectMembership(outcome.value)
 		if not valid then
@@ -541,7 +542,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return { ok = true, membership = kept, reason = nil }
 		end
 		if not outcome.ok then
-			return { ok = false, membership = nil, reason = refusal or outcome.reason or "not_durable" }
+			return { ok = false, membership = nil, reason = refusal or Result.reason(outcome) or "not_durable" }
 		end
 		local _, membership = projectMembership(outcome.value)
 		return { ok = true, membership = membership, reason = nil }
@@ -594,7 +595,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			value = current
 			return nil
 		end)
-		if not observed or (not outcome.ok and outcome.reason ~= "callback_cancelled") then
+		if not observed or (not outcome.ok and Result.reason(outcome) ~= "callback_cancelled") then
 			return outcome
 		end
 		return { ok = true, value = value }
@@ -603,7 +604,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local function readWarband(id: string): Warband.Result
 		local outcome = warbandRead(warbandKey("record", id))
 		if not outcome.ok then
-			return { ok = false, reason = outcome.reason or "not_durable" }
+			return { ok = false, reason = Result.reason(outcome) or "not_durable" }
 		end
 		local state = deps.warband.project(outcome.value)
 		if state == nil or state.warbandId ~= id then
@@ -623,7 +624,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return if result.ok then result.state else nil
 		end)
 		if not outcome.ok then
-			return { ok = false, reason = if result.ok then outcome.reason or "not_durable" else result.reason }
+			return { ok = false, reason = if result.ok then Result.reason(outcome) or "not_durable" else result.reason }
 		end
 		return readWarband(id)
 	end
@@ -644,11 +645,11 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			end
 			return if result.ok then result.state else nil
 		end)
-		if unchanged and outcome.reason == "callback_cancelled" then
+		if unchanged and Result.reason(outcome) == "callback_cancelled" then
 			return result
 		end
 		if not outcome.ok then
-			return { ok = false, reason = if result.ok then outcome.reason or "not_durable" else result.reason }
+			return { ok = false, reason = if result.ok then Result.reason(outcome) or "not_durable" else result.reason }
 		end
 		return readWarband(id)
 	end
@@ -656,7 +657,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local function readWarbandMembership(partyId: string): WarbandMembershipResult
 		local outcome = warbandRead(warbandKey("member", partyId))
 		if not outcome.ok then
-			return { ok = false, reason = outcome.reason or "not_durable" }
+			return { ok = false, reason = Result.reason(outcome) or "not_durable" }
 		end
 		local valid, membership = warbandMembership(outcome.value, partyId)
 		return if valid
@@ -708,7 +709,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return { ok = true, membership = kept }
 		end
 		if not outcome.ok then
-			return { ok = false, reason = refusal or outcome.reason or "not_durable" }
+			return { ok = false, reason = refusal or Result.reason(outcome) or "not_durable" }
 		end
 		return readWarbandMembership(partyId)
 	end
@@ -806,7 +807,7 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 	local function read(subject: Subject): Settled<State, Receipt>
 		local outcome = deps.store.getOutcome(deps.keyFor(subject))
 		if not outcome.ok then
-			return ledgerFailure(outcome.reason, true)
+			return ledgerFailure(Result.reason(outcome), true)
 		end
 		local state = load(subject, outcome.value)
 		if state == nil then
@@ -857,7 +858,7 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 			return ledgerFailure(verdict.reason, produced)
 		end
 		if not outcome.ok or verdict == nil then
-			return ledgerFailure(outcome.reason, true)
+			return ledgerFailure(Result.reason(outcome), true)
 		end
 		local committed = core.project(outcome.value)
 		if committed == nil then
@@ -928,7 +929,7 @@ function SocialRecords.inbox(dependencies: InboxDependencies): (Inbox?, string?)
 			return { ok = true, notes = kept.notes, reason = nil }
 		end
 		if not outcome.ok then
-			return inboxFailure(refusal or outcome.reason or "not_durable")
+			return inboxFailure(refusal or Result.reason(outcome) or "not_durable")
 		end
 		local state = core.projectState(outcome.value)
 		return if state == nil then inboxFailure(deps.invalid) else { ok = true, notes = state.notes, reason = nil }
@@ -937,7 +938,7 @@ function SocialRecords.inbox(dependencies: InboxDependencies): (Inbox?, string?)
 	local function inbox(userId: number): InboxResult
 		local outcome = deps.store.getOutcome(deps.keyFor(userId))
 		if not outcome.ok then
-			return inboxFailure(outcome.reason or "not_durable")
+			return inboxFailure(Result.reason(outcome) or "not_durable")
 		end
 		local state = stateOf(outcome.value, userId)
 		return if state == nil then inboxFailure(deps.invalid) else { ok = true, notes = state.notes, reason = nil }
@@ -986,13 +987,13 @@ function SocialRecords.keyed<Item>(dependencies: KeyedDependencies<Item>): (Keye
 
 	local function decode(raw: Outcome, id: string): KeyedOutcome<Item>
 		if not raw.ok or raw.value == nil then
-			return { ok = raw.ok, value = nil, reason = raw.reason }
+			return { ok = raw.ok, value = nil, reason = Result.reason(raw) }
 		end
 		local value = deps.project(raw.value)
 		if value == nil or deps.prefix .. deps.idOf(value) ~= id then
 			return { ok = false, value = nil, reason = deps.invalid }
 		end
-		return { ok = true, value = value, reason = raw.reason }
+		return { ok = true, value = value, reason = Result.reason(raw) }
 	end
 
 	local function getOutcome(id: string): KeyedOutcome<Item>

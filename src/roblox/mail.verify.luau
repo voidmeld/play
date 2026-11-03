@@ -138,17 +138,17 @@ local function rig()
 		profiles = profiles,
 		envelopes = {
 			getOutcome = function(key: string): Mail.Outcome
-				return { ok = not blocked, value = store[key] }
+				return if blocked then { ok = false, reason = "store_failure" } else { ok = true, value = store[key] }
 			end,
 			updateOutcome = function(key: string, apply: (Mail.Envelope?) -> Mail.Envelope?): Mail.Outcome
 				local envelope = apply(store[key])
 				if envelope == nil then
-					return { ok = false, value = nil }
+					return { ok = false, reason = "callback_cancelled" }
 				end
 				store[key] = envelope
 				if ambiguous then
 					ambiguous = false
-					return { ok = false, value = nil }
+					return { ok = false, reason = "store_failure" }
 				end
 				return { ok = true, value = envelope }
 			end,

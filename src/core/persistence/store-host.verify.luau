@@ -1,6 +1,7 @@
 --!strict
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local DataStore = require("../../roblox/data-store")
+local Result = require("../../kernel/result")
 local StoreHost = require("./store-host")
 local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
@@ -144,17 +145,19 @@ return function(suite: Verify.Harness)
 				invoked += 1
 				return 4
 			end)
-			expect(outcome.reason):toBe("retry_exhausted")
+			expect(Result.reason(outcome)):toBe("retry_exhausted")
 			expect(store.hasPendingWrite("a")):toBe(false)
 			state.fail, state.now = false, 10
 			store.flushQueuedWrites()
 			expect(invoked):toBe(0)
-			expect(store.updateOutcome("a", function()
+			expect(Result.reason(store.updateOutcome("a", function()
 				return nil
-			end).reason):toBe("callback_cancelled")
-			expect(store.updateOutcome("a", function()
+			end))):toBe("callback_cancelled")
+			local written = store.updateOutcome("a", function()
 				return 4
-			end).value):toBe(4)
+			end)
+			assert(written.ok)
+			expect(written.value):toBe(4)
 		end)
 		it("copies memory transaction inputs and readback and rejects cyclic values", function()
 			local values: { [string]: unknown } = { a = { count = 3 } }
@@ -177,22 +180,27 @@ return function(suite: Verify.Harness)
 			local store = host.memory(memory, nil, function()
 				return nil
 			end)
+			local missing = store.getOutcome("missing")
+			assert(missing.ok)
+			expect(missing.value):toBeNil()
 			local result = store.updateOutcome("a", function(value)
 				assert(type(value) == "table")
 				table.clear(value)
 				return nil
 			end)
-			expect(result.reason):toBe("callback_cancelled")
+			expect(Result.reason(result)):toBe("callback_cancelled")
 			expect(assert(Value.raw(values.a)).count):toBe(3)
-			local got = store.getOutcome("a").value
+			local read = store.getOutcome("a")
+			assert(read.ok)
+			local got = read.value
 			assert(type(got) == "table")
 			table.clear(got)
 			expect(assert(Value.raw(values.a)).count):toBe(3)
 			local cyclic: { [string]: unknown } = {}
 			cyclic.self = cyclic
-			expect(store.updateOutcome("a", function()
+			expect(Result.reason(store.updateOutcome("a", function()
 				return cyclic
-			end).reason):toBe("value_invalid")
+			end))):toBe("value_invalid")
 		end)
 		it("drains until completion or the supplied deadline without declaring pending writes durable", function()
 			local now, pending = 0, 2

@@ -1,4 +1,5 @@
 --!strict
+local Result = require("../kernel/result")
 
 local Exchange = require("../core/trade/exchange")
 local ReceiptTypes = require("../core/trade/receipt")
@@ -14,7 +15,7 @@ export type Account = {
 	pending: { [string]: ReceiptTypes.Pointer }?,
 }
 export type State = Exchange.State & { sessions: { [number]: Context }?, characters: { [number]: string }? }
-export type ReceiptOutcome = { read ok: boolean, read value: unknown, read reason: string? }
+export type ReceiptOutcome = Result.Result<unknown>
 export type Dependencies<P, Surface> = {
 	read profiles: Surface,
 	read receipts: {
@@ -337,7 +338,7 @@ local function configure<P, Surface>(config: Config<P, Surface>): Host<P, Surfac
 		if not ok or result.ok ~= true then
 			return nil,
 				false,
-				if ok and result.reason == "receipt_invalid" then "receipt_invalid" else "receipt_unavailable"
+				if ok and Result.reason(result) == "receipt_invalid" then "receipt_invalid" else "receipt_unavailable"
 		end
 		local receipt = Receipt.project(result.value)
 		if result.value ~= nil and receipt == nil then

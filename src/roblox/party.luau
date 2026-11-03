@@ -1,12 +1,13 @@
 --!strict
 local Membership = require("../core/social/membership")
+local Result = require("../kernel/result")
 local Value = require("../kernel/value")
 type CoreMember = Membership.Member
 type CoreInvite = Membership.Invite
 type CoreState = Membership.State
 type CoreResult = Membership.Result
 
-export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
+export type StoreOutcome = Result.Result<unknown>
 export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
 
 export type Dependencies = {

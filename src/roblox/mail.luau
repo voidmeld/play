@@ -1,4 +1,5 @@
 --!strict
+local Result = require("../kernel/result")
 
 local Mail = require("../core/mail/mailbox")
 local Transfer = require("./profile-transfer")
@@ -14,7 +15,7 @@ export type Result = {
 	envelope: Envelope?,
 	outcomes: { [string]: Result }?,
 }
-export type Outcome = { read ok: boolean, read value: unknown, read reason: string? }
+export type Outcome = Result.Result<unknown>
 export type Effect<P> = (P) -> (P?, string?)
 export type Dependencies<P, Surface> = {
 	profiles: Surface,
