@@ -154,6 +154,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [screen-labels](docs/systems/roblox-screen-labels.md) | Priority labels and reserved-screen avoidance. |
 | [social-host](docs/systems/roblox-social-host.md) | Actor exclusion, caches and membership settlement. |
 | [quest-durability](docs/systems/roblox-quest-durability.md) | Leased journal hydration, dirty batches, retry/renewal, fencing and close draining. |
+| [character-admission](docs/systems/roblox-character-admission.md) | Stage leased character arrival, reverse cleanup, renewal and interrupted-return recovery. |
 | [leased-record-session](docs/systems/roblox-leased-record-session.md) | Acquire/hydrate opaque records, fence takeovers and save through renewed leases. |
 | [social-fellowship](docs/systems/roblox-social-fellowship.md) | Guild custody, privacy admission, invitations, steward activity and member projections. |
 | [social-formation](docs/systems/roblox-social-formation.md) | Multi-founder charters with durable fee custody and recovery pointers. |

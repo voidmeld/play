@@ -147,8 +147,6 @@ export type Config<F> = {
 	read timingOperationLimit: number,
 	read timingReasonLimit: number,
 	read reclaimReason: string,
-	read reclaimAttempts: number,
-	read reclaimSeconds: number,
 	read actorRetryReasons: { [string]: boolean },
 	read cleanupSeconds: number,
 	read retrySeconds: number,
@@ -167,14 +165,6 @@ local function start<P, F>(config: Config<F>, deps: Dependencies<P, F>): Runtime
 	assert(
 		config.retrySeconds <= config.renewSeconds and config.renewSeconds < config.leaseSeconds,
 		"invalid admission renewal cadence"
-	)
-	assert(
-		Value.finite(config.reclaimSeconds)
-			and config.reclaimSeconds >= 0
-			and config.reclaimAttempts >= 0
-			and config.reclaimAttempts < math.huge
-			and config.reclaimAttempts % 1 == 0,
-		"invalid admission reclaim policy"
 	)
 	local CONTEXT_FIELDS = {
 		userId = true,
@@ -608,7 +598,9 @@ local function start<P, F>(config: Config<F>, deps: Dependencies<P, F>): Runtime
 			end
 			if entries[player] == entry and not stopped then
 				assert(deps.scheduleLeaseRenewal)(delay, function()
-					renew(player)
+					if entries[player] == entry then
+						renew(player)
+					end
 				end)
 			end
 		end
@@ -969,7 +961,9 @@ local function start<P, F>(config: Config<F>, deps: Dependencies<P, F>): Runtime
 			if type(deps.character.renew) == "function" and type(deps.scheduleLeaseRenewal) == "function" then
 				entry.leaseExpiresAt = nowUnix + config.leaseSeconds
 				deps.scheduleLeaseRenewal(config.renewSeconds, function()
-					renew(player)
+					if entries[player] == entry then
+						renew(player)
+					end
 				end)
 			end
 		end
