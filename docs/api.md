@@ -14359,6 +14359,215 @@ fovTarget = function Camera.fovTarget(widen: number): number
 yields = function Camera.yields(cameraIsCustom: boolean, scriptedStateActive: boolean, classic: boolean): boolean
 ```
 
+## `roblox.character-admission`
+
+[Source](../src/roblox/character-admission.luau)
+
+```luau
+local LeaseRepository = require("../core/identity/character-lease-store")
+```
+
+```luau
+local Routing = require("../core/identity/routing")
+```
+
+```luau
+local Stores = require("../core/persistence/store-host")
+```
+
+```luau
+local Value = require("../core/internal/value")
+```
+
+### `roblox.character-admission.Subject`
+
+```luau
+export type Subject = { read Character: unknown, read UserId: number, read Name: string? }
+```
+
+### `roblox.character-admission.Context`
+
+```luau
+export type Context = {
+	read userId: number,
+	read characterId: string,
+	read key: string,
+	read sessionId: string,
+	read acquisitionId: string,
+	read leaseRevision: number,
+}
+```
+
+### `roblox.character-admission.ProfileFacts`
+
+```luau
+export type ProfileFacts = { read userId: number, read characterId: string, read version: number }
+```
+
+### `roblox.character-admission.CharacterOutcome`
+
+```luau
+export type CharacterOutcome<F> = {
+	read ok: boolean,
+	read reason: string?,
+	read profile: F?,
+	read lease: { read revision: number }?,
+	read context: Context?,
+	read releaseReason: string?,
+}
+```
+
+### `roblox.character-admission.Route`
+
+```luau
+export type Route = {
+	read userId: number,
+	read characterId: string,
+	read destinationId: string,
+	read routeId: string,
+	read fence: number,
+	read sourcePlaceId: number?,
+}
+```
+
+### `roblox.character-admission.Snapshot`
+
+```luau
+export type Snapshot = {
+	read userId: number,
+	read characterId: string,
+	read destinationId: string?,
+	read routeId: string,
+	read fence: number,
+}
+```
+
+### `roblox.character-admission.Runtime`
+
+```luau
+export type Runtime<P> = {
+	read phase: "character_admission_started",
+	read dispose: () -> boolean,
+	read cleanup: (P, boolean?) -> boolean,
+	read isAdmitted: (P) -> boolean,
+	read previewDeparture: (P) -> { read userId: number, read characterId: string, read fence: number }?,
+	read prepareReturn: (P) -> (Snapshot?, Snapshot?),
+	read recover: (P, unknown) -> boolean,
+}
+```
+
+### `roblox.character-admission.Refused`
+
+```luau
+export type Refused = { read phase: "character_admission_refused", read reason: string? }
+```
+
+### `roblox.character-admission.Dependencies`
+
+```luau
+export type Dependencies<P, F> = NativePorts<P & Subject, F>
+```
+
+### `roblox.character-admission.NativePorts`
+
+```luau
+export type NativePorts<P, F> = {
+	zoneKey: string,
+	placeId: number,
+	localScenarioCapability: boolean?,
+	sessionId: string,
+	timing: {
+		clock: () -> number,
+		publish: (P, string) -> (),
+		storePrefix: string?,
+		observe: (((Stores.Observation) -> ()) -> () -> ())?,
+	}?,
+	stage: ((P, string) -> ())?,
+	routing: { projectPolicy: index<Routing.API, "projectPolicy">, accept: index<Routing.API, "accept"> },
+	routingContent: { binding: unknown, budget: unknown, handoff: unknown, refusals: unknown, unroutedChannels: unknown },
+	catalog: { destinations: unknown },
+	reclaim: { attempts: number, seconds: number, wait: (number) -> () }?,
+	clear: (P) -> boolean,
+	preflight: (P) -> boolean,
+	refuse: (P, string) -> boolean,
+	clock: () -> number,
+	identity: ((P) -> unknown)?,
+	acquisitionId: (number, number) -> string,
+	waitLeaseRenewal: (() -> ())?,
+	scheduleLeaseRenewal: ((number, () -> ()) -> ())?,
+	character: {
+		admit: (unknown) -> CharacterOutcome<F>,
+		release: (number, string, string, string, number) -> { read ok: boolean, read reason: string? },
+		renew: ((string, string, string, number) -> LeaseRepository.Outcome)?,
+	},
+	fence: (unknown) -> { read ok: boolean },
+	profile: { load: (Context?) -> F?, unload: (Context?) -> boolean, level: (Context?) -> number? },
+	session: { bind: (P, Context?) -> (boolean, string?), release: (P, Context?) -> boolean },
+	actor: { admitPlayer: (P, F) -> (boolean, string?), removePlayer: (P) -> boolean },
+	body: { admitPlayer: (P, string) -> (boolean, string?), removePlayer: (P) -> boolean },
+	movement: { admitPlayer: (P) -> (boolean, string?), removePlayer: (P) -> boolean },
+	players: {
+		present: (P) -> boolean,
+		getJoinData: (P) -> unknown,
+		getPlayers: () -> { P },
+		connectRemoving: ((P) -> boolean) -> () -> (),
+		connectAdded: ((P) -> ()) -> () -> (),
+	},
+	route: { arrive: (unknown, unknown) -> Route? },
+	roster: {
+		owns: (number, string) -> (boolean, unknown),
+		markDeparted: (number, string, string, unknown) -> (boolean, unknown),
+		markLevel: (number, string, number) -> boolean,
+		markPlayed: (number, string, number) -> boolean,
+	},
+	warAdmission: {
+		depart: (Route, boolean) -> boolean,
+		authority: () -> boolean,
+		reconnect: (number) -> Route?,
+		claim: (Route) -> (boolean, string?),
+		restoreDeparture: (Route) -> (boolean, string?),
+		refusalCodes: { [string]: boolean },
+	}?,
+	receipt: (
+		P,
+		{ read userId: number, read characterId: string, read profileVersion: number, read zoneKey: string }
+	) -> (boolean, string?),
+}
+```
+
+### `roblox.character-admission.Config`
+
+```luau
+export type Config<F> = {
+	read profileFacts: (F) -> ProfileFacts,
+	read projectProfile: (Subject, F, string?) -> (),
+	read sameIdentity: (unknown, unknown) -> boolean,
+	read leaseFailure: () -> (),
+	read idLimit: number,
+	read timingRecordLimit: number,
+	read timingOperationLimit: number,
+	read timingReasonLimit: number,
+	read reclaimReason: string,
+	read actorRetryReasons: { [string]: boolean },
+	read cleanupSeconds: number,
+	read retrySeconds: number,
+	read renewSeconds: number,
+	read leaseSeconds: number,
+}
+```
+
+### `roblox.character-admission.API`
+
+```luau
+export type API = { read start: typeof(start) }
+```
+
+### `roblox.character-admission.start`
+
+```luau
+function start<P, F>(config: Config<F>, deps: Dependencies<P, F>): Runtime<P & Subject> | Refused
+```
+
 ## `roblox.chat`
 
 [Source](../src/roblox/chat.luau)
