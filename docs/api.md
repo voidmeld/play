@@ -14109,6 +14109,78 @@ export type API = {
 
 Exported value; see its declaration in [source](../src/core/vendors.luau).
 
+## `kernel.result`
+
+[Source](../src/kernel/result.luau)
+
+### `kernel.result.Success`
+
+```luau
+export type Success<T> = { read ok: true, read value: T }
+```
+
+### `kernel.result.Failure`
+
+```luau
+export type Failure = { read ok: false, read reason: string, read detail: string? }
+```
+
+### `kernel.result.Result`
+
+```luau
+export type Result<T> = Success<T> | Failure
+```
+
+### `kernel.result.API`
+
+```luau
+export type API = {
+	read ok: typeof(ok),
+	read fail: typeof(fail),
+	read reason: typeof(reason),
+	read unwrap: typeof(unwrap),
+}
+```
+
+### `kernel.result.fail`
+
+```luau
+function fail(reason: string, detail: string?): Failure
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+ok = false
+reason = function reason<T>(result: Result<T>): string?
+detail = detail
+```
+
+### `kernel.result.ok`
+
+```luau
+function ok<T>(value: T): Success<T>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+ok = true
+value = value
+```
+
+### `kernel.result.reason`
+
+```luau
+function reason<T>(result: Result<T>): string?
+```
+
+### `kernel.result.unwrap`
+
+```luau
+function unwrap<T>(result: Result<T>): T
+```
+
 ## `kernel.value`
 
 [Source](../src/kernel/value.luau)
@@ -16524,6 +16596,10 @@ local EqualData = require("../core/internal/equal-data")
 ```
 
 ```luau
+local Result = require("../kernel/result")
+```
+
+```luau
 local Shape = require("../core/social/shape")
 ```
 
@@ -16565,7 +16641,7 @@ export type SnapshotValue = {
 ### `roblox.material-ledger.Failure`
 
 ```luau
-export type Failure = { ok: false, value: nil, reason: string? }
+export type Failure = Result.Failure
 ```
 
 ### `roblox.material-ledger.StoreOutcome`
@@ -16583,7 +16659,7 @@ export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
 ### `roblox.material-ledger.Outcome`
 
 ```luau
-export type Outcome<T> = Failure | { ok: true, value: T, reason: nil }
+export type Outcome<T> = Result.Result<T>
 ```
 
 ### `roblox.material-ledger.CorePort`
