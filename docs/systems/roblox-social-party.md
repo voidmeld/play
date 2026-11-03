@@ -20,6 +20,11 @@ disconnect/reconnect and expiry sweep. `partyProjection`, `candidateProjection` 
 derive server views. `rallyBoard`, `joinRally` and `leaveRally` bind authored objectives through the
 supplied rally decoder. `pendingInviteCount` and `projectionRefusals` expose host observations.
 
+`admission(readMembership, partyReadPort, soloId)` builds an authoritative numeric-subject roster
+query. Supply a committed membership outcome and party readback plus a game-owned solo identifier.
+Missing/failed membership reads refuse; a known ungrouped subject receives a solo roster. A grouped
+subject must still appear in the live party record, and every member identity must be a positive integer.
+
 Supply the atomic party port plus membership read/projection, optional full snapshot projection,
 candidate rows, grouping-domain lookup, current character identity, display names, clock and rally
 selection projection. Configure rally policy, loot mode, TTLs, bounded observations/candidates,
@@ -46,3 +51,4 @@ membership projection, pending-route cleanup, leadership succession, bounded ref
 - Reconnection uses current character identity and durable membership rules.
 - Leadership and invitation deadlines use the supplied clock and matching TTLs.
 - Refusal observations stay bounded, and expired objectives cannot admit a new rally selection.
+- Admission distinguishes a known solo subject from unavailable membership and refuses mismatched rosters.

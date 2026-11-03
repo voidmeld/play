@@ -16391,6 +16391,30 @@ export type Handle = {
 }
 ```
 
+### `roblox.social-party.Admission`
+
+```luau
+export type Admission = { read ok: true, read partyId: string, read members: { number }, read reason: nil }
+```
+
+### `roblox.social-party.AdmissionOutcome`
+
+```luau
+export type AdmissionOutcome = Admission | { read ok: false, read reason: string, read partyId: nil, read members: nil }
+```
+
+### `roblox.social-party.MembershipOutcome`
+
+```luau
+export type MembershipOutcome = { read ok: boolean, read partyId: unknown }
+```
+
+### `roblox.social-party.AdmissionParty`
+
+```luau
+export type AdmissionParty = { read read: (unknown) -> PartyOutcome }
+```
+
 ### `roblox.social-party.RallyJoinResult`
 
 ```luau
@@ -16546,6 +16570,16 @@ export type Host = {
 	read create: (Dependencies, Handle) -> Service,
 	read projectionRefusals: () -> { ProjectionRefusal },
 }
+```
+
+### `roblox.social-party.admission`
+
+```luau
+function admission(
+	readMembership: ((string) -> MembershipOutcome)?,
+	party: AdmissionParty,
+	soloId: (number) -> string
+): (number) -> AdmissionOutcome
 ```
 
 ### `roblox.social-party.configure`

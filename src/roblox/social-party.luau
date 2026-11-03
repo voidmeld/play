@@ -24,6 +24,48 @@ export type Handle = {
 }
 type PartyHandle = Handle
 
+export type Admission = { read ok: true, read partyId: string, read members: { number }, read reason: nil }
+export type AdmissionOutcome = Admission | { read ok: false, read reason: string, read partyId: nil, read members: nil }
+export type MembershipOutcome = { read ok: boolean, read partyId: unknown }
+export type AdmissionParty = { read read: (unknown) -> PartyOutcome }
+
+local function admission(
+	readMembership: ((string) -> MembershipOutcome)?,
+	party: AdmissionParty,
+	soloId: (number) -> string
+): (number) -> AdmissionOutcome
+	return function(userId: number): AdmissionOutcome
+		if type(userId) ~= "number" or userId < 1 or userId % 1 ~= 0 or readMembership == nil then
+			return { ok = false, reason = "membership_unavailable" }
+		end
+		local read, membership = pcall(assert(readMembership), tostring(userId))
+		if not read or type(membership) ~= "table" or membership.ok ~= true then
+			return { ok = false, reason = "membership_unavailable" }
+		end
+		if membership.partyId == nil then
+			return { ok = true, partyId = soloId(userId), members = { userId } }
+		end
+		local outcome = party.read(membership.partyId)
+		if not outcome.ok or not outcome.found or outcome.party == nil or outcome.party.disbandedAt ~= nil then
+			return { ok = false, reason = "party_unavailable" }
+		end
+		local members: { number } = {}
+		local included = false
+		for _, member in outcome.party.members do
+			local memberId = tonumber(member.accountId)
+			if memberId == nil or memberId < 1 or memberId % 1 ~= 0 then
+				return { ok = false, reason = "party_invalid" }
+			end
+			included = included or memberId == userId
+			table.insert(members, memberId)
+		end
+		if not included then
+			return { ok = false, reason = "membership_mismatch" }
+		end
+		return { ok = true, partyId = outcome.party.partyId, members = members }
+	end
+end
+
 export type RallyJoinResult = { ok: false, reason: string } | { ok: true, objectiveId: string, replayed: boolean }
 
 export type Dependencies = {
@@ -773,4 +815,4 @@ local function configure(config: Config): Host
 	})
 end
 
-return table.freeze({ configure = configure })
+return table.freeze({ configure = configure, admission = admission })

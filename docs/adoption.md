@@ -186,3 +186,7 @@ fallback and native filtering/communication authority remain game-owned. All 85 
 SocialService cases pass with the party/fellowship/formation and messaging hosts together.
 Whisper admission rechecks both subjects against the original realm after an asynchronous open;
 a stale successful channel is disposed. Keep consumer social/platform/native fake-host tests at repin.
+
+The `SocialService` authoritative party admission query uses `roblox/social-party.admission`.
+Only the solo identifier namespace remains local. A failed membership read must remain distinguishable
+from a known solo subject, and a current roster must contain its requesting subject.

@@ -141,6 +141,46 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("social party host", function()
+		it("admits known solo and current party rosters with an injected solo namespace", function()
+			local scene = rig()
+			local query = Social.admission(
+				function(id: string): Social.MembershipOutcome
+					return { ok = true, partyId = scene.membership[id] }
+				end,
+				scene.service.party,
+				function(id: number): string
+					return "individual:" .. tostring(id)
+				end
+			)
+			local solo = query(1)
+			assert(solo.ok)
+			expect(solo.partyId):toBe("individual:1")
+			expect(solo.members):toEqual({ 1 })
+			assert(scene.service.partyInvite(1, 2).ok)
+			assert(scene.service.partyAccept(2).ok)
+			local grouped = query(2)
+			assert(grouped.ok)
+			expect(grouped.members):toEqual({ 1, 2 })
+			expect(grouped.partyId):toBe(scene.membership["2"])
+			scene.membership["3"] = grouped.partyId
+			expect(query(3).reason):toBe("membership_mismatch")
+		end)
+		it("refuses missing failed or throwing membership reads instead of assuming solo", function()
+			local scene = rig()
+			local function solo(id: number): string
+				return tostring(id)
+			end
+			expect(Social.admission(nil, scene.service.party, solo)(1).reason):toBe("membership_unavailable")
+			expect(Social.admission(function(_id: string): Social.MembershipOutcome
+				return { ok = false, partyId = nil }
+			end, scene.service.party, solo)(1).reason):toBe("membership_unavailable")
+			expect(Social.admission(function(_id: string): Social.MembershipOutcome
+				error("unavailable")
+			end, scene.service.party, solo)(1).reason):toBe("membership_unavailable")
+			expect(Social.admission(function(_id: string): Social.MembershipOutcome
+				return { ok = true, partyId = "missing" }
+			end, scene.service.party, solo)(1).reason):toBe("party_unavailable")
+		end)
 		it("admits only visible same-domain candidates and projects durable membership", function()
 			local scene = rig()
 			expect(#scene.service.candidateProjection(1)):toBe(1)
