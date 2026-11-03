@@ -72,7 +72,9 @@ operations, host obligations and executable examples. The [generated API](api.md
 | [social-host](systems/roblox-social-host.md) | Coordinate actor exclusion, social caches and membership settlement. |
 | [social-fellowship](systems/roblox-social-fellowship.md) | Compose guild custody, privacy admission, invitations and member/steward projections. |
 | [social-formation](systems/roblox-social-formation.md) | Coordinate multi-founder charters, fee custody and interrupted creation recovery. |
+| [social-notes](systems/roblox-social-notes.md) | Compose preset inbox delivery, privacy, recipient admission and read projections. |
 | [social-party](systems/roblox-social-party.md) | Compose invitations, projections, succession, reconnect and rally admission over durable parties. |
+| [social-whispers](systems/roblox-social-whispers.md) | Coordinate platform direct-chat opens, pair exclusion, recipient views and disposal. |
 | [social-warband](systems/roblox-social-warband.md) | Coordinate durable whole-party enrollment, command, invitations and rally requests. |
 | [social-records](systems/roblox-social-records.md) | Coordinate ordered durable records, ledgers, inboxes and indexes. |
 | [target-selection](systems/roblox-target-selection.md) | Cycle ordered candidates, select pointer hits and release distant targets. |

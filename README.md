@@ -155,7 +155,9 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [social-host](docs/systems/roblox-social-host.md) | Actor exclusion, caches and membership settlement. |
 | [social-fellowship](docs/systems/roblox-social-fellowship.md) | Guild custody, privacy admission, invitations, steward activity and member projections. |
 | [social-formation](docs/systems/roblox-social-formation.md) | Multi-founder charters with durable fee custody and recovery pointers. |
+| [social-notes](docs/systems/roblox-social-notes.md) | Preset inbox delivery, contact/filter admission, privacy and session projections. |
 | [social-party](docs/systems/roblox-social-party.md) | Party invitations, member projections, succession, reconnect and rally admission. |
+| [social-whispers](docs/systems/roblox-social-whispers.md) | Pair exclusion, platform channel admission, recipient views and session disposal. |
 | [social-warband](docs/systems/roblox-social-warband.md) | Coordinate intact parties, durable warband membership, command and rally requests. |
 | [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes. |
 | [target-selection](docs/systems/roblox-target-selection.md) | Cycling, pointer selection and range release. |

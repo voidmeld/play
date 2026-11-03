@@ -179,3 +179,10 @@ request bounds, location, identity construction and labels. All ten original war
 through the prepared binding. Keep those cases and the social/record suites during repin. Location
 and objective catalogs, native notices and party loot remain game-owned; the library fixture uses
 a different request lifetime and a neutral location to prove the policy seam.
+
+`SocialNotes.luau` and `SocialWhispers.luau` become configured `roblox/social-notes` and
+`roblox/social-whispers` bindings. Phrase content, label, throttle, expiry, namespace, display
+fallback and native filtering/communication authority remain game-owned. All 85 original
+SocialService cases pass with the party/fellowship/formation and messaging hosts together.
+Whisper admission rechecks both subjects against the original realm after an asynchronous open;
+a stale successful channel is disposed. Keep consumer social/platform/native fake-host tests at repin.

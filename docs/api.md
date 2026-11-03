@@ -16232,6 +16232,124 @@ export type Host = {
 function SocialHost.fellowships(source: Records.Service?): Host
 ```
 
+## `roblox.social-notes`
+
+[Source](../src/roblox/social-notes.luau)
+
+```luau
+local PhraseNoteCore = require("../core/social/notes")
+```
+
+```luau
+local Records = require("./social-records")
+```
+
+### `roblox.social-notes.Response`
+
+```luau
+export type Response = { ok: boolean, reason: string? }
+```
+
+### `roblox.social-notes.Recipient`
+
+```luau
+export type Recipient = { read userId: number, read displayName: string, read source: "guild" | "nearby" | "recent" }
+```
+
+### `roblox.social-notes.Candidate`
+
+```luau
+export type Candidate = { read userId: number, read displayName: string, read source: "nearby" | "recent" }
+```
+
+### `roblox.social-notes.Projection`
+
+```luau
+export type Projection = {
+	read available: boolean,
+	read hidden: boolean,
+	read loaded: boolean,
+	read notes: { { read id: string, read fromName: string, read text: string, read read: boolean } },
+	read phrases: { PhraseNoteCore.Phrase },
+	read label: string?,
+}
+```
+
+### `roblox.social-notes.Dependencies`
+
+```luau
+export type Dependencies = {
+	read phraseNotes: Records.Inbox?,
+	read phraseCatalog: (() -> unknown)?,
+	read clock: () -> number,
+	read notePermitted: ((number, number) -> string?)?,
+	read filterPreset: ((number, string) -> string?)?,
+	read notifyNote: ((number) -> ())?,
+	read canReadNotes: ((number) -> boolean)?,
+}
+```
+
+### `roblox.social-notes.FellowshipView`
+
+```luau
+export type FellowshipView = { read members: { { read userId: number, read displayName: string } } }
+```
+
+### `roblox.social-notes.Service`
+
+```luau
+export type Service = {
+	read recipients: (number) -> { Recipient },
+	read projection: (number) -> Projection,
+	read send: (number, number, string) -> Response,
+	read refresh: (number) -> Response,
+	read markRead: (number, string) -> Response,
+	read noticed: (number) -> (),
+	read forget: (number) -> (),
+}
+```
+
+### `roblox.social-notes.Config`
+
+```luau
+export type Config = {
+	read phrases: (unknown) -> { PhraseNoteCore.Phrase }?,
+	read live: ({ PhraseNoteCore.Note }, number) -> { PhraseNoteCore.Note },
+	read presetLabel: string,
+	read sendIntervalSec: number,
+}
+```
+
+### `roblox.social-notes.API`
+
+```luau
+export type API = {
+	read create: (
+		Dependencies,
+		(number) -> FellowshipView | false,
+		(number) -> { Candidate },
+		(number) -> string?
+	) -> Service,
+}
+```
+
+### `roblox.social-notes.configure`
+
+```luau
+function configure(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function create(
+		deps: Dependencies,
+		fellowshipProjection: (number) -> FellowshipView | false,
+		candidateProjection: (number) -> { Candidate },
+		memberNameFor: (number) -> string?
+	): Service
+```
+
 ## `roblox.social-party`
 
 [Source](../src/roblox/social-party.luau)
@@ -16965,6 +17083,69 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 create = function WarbandSocial.create(deps: Dependencies): Handle
+```
+
+## `roblox.social-whispers`
+
+[Source](../src/roblox/social-whispers.luau)
+
+### `roblox.social-whispers.Response`
+
+```luau
+export type Response = { ok: boolean, reason: string?, channelName: string? }
+```
+
+### `roblox.social-whispers.View`
+
+```luau
+export type View = { read userId: number, read displayName: string, read channelName: string }
+```
+
+### `roblox.social-whispers.Dependencies`
+
+```luau
+export type Dependencies = {
+	read openWhisper: ((number, number) -> (string?, string?))?,
+	read closeWhisper: ((string) -> ())?,
+	read realmFor: (number) -> string?,
+}
+```
+
+### `roblox.social-whispers.Service`
+
+```luau
+export type Service = {
+	read open: (number, number) -> Response,
+	read projection: (number) -> { View },
+	read close: (number) -> { number },
+}
+```
+
+### `roblox.social-whispers.Config`
+
+```luau
+export type Config = {
+	read pairName: (number, number) -> string,
+	read memberFallback: (number) -> string,
+}
+```
+
+### `roblox.social-whispers.API`
+
+```luau
+export type API = { read create: (Dependencies, (number) -> string?) -> Service }
+```
+
+### `roblox.social-whispers.configure`
+
+```luau
+function configure(config: Config): API
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+create = function create(deps: Dependencies, memberNameFor: (number) -> string?): Service
 ```
 
 ## `roblox.target-selection`

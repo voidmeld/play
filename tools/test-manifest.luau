@@ -107,6 +107,7 @@ return table.freeze {
 	"src/roblox/screen-labels.verify.luau",
 	"src/roblox/social-fellowship.verify.luau",
 	"src/roblox/social-host.verify.luau",
+	"src/roblox/social-messaging.verify.luau",
 	"src/roblox/social-party.verify.luau",
 	"src/roblox/social-records.verify.luau",
 	"src/roblox/social-warband.verify.luau",
