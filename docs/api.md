@@ -14465,7 +14465,74 @@ export type Refused = { read phase: "character_admission_refused", read reason: 
 ### `roblox.character-admission.Dependencies`
 
 ```luau
-export type Dependencies<P, F> = Ports<P & Subject, F>
+export type Dependencies<P, F> = NativePorts<P & Subject, F>
+```
+
+### `roblox.character-admission.NativePorts`
+
+```luau
+export type NativePorts<P, F> = {
+	zoneKey: string,
+	placeId: number,
+	localScenarioCapability: boolean?,
+	sessionId: string,
+	timing: {
+		clock: () -> number,
+		publish: (P, string) -> (),
+		storePrefix: string?,
+		observe: (((Stores.Observation) -> ()) -> () -> ())?,
+	}?,
+	stage: ((P, string) -> ())?,
+	routing: { projectPolicy: index<Routing.API, "projectPolicy">, accept: index<Routing.API, "accept"> },
+	routingContent: { binding: unknown, budget: unknown, handoff: unknown, refusals: unknown, unroutedChannels: unknown },
+	catalog: { destinations: unknown },
+	reclaim: { attempts: number, seconds: number, wait: (number) -> () }?,
+	clear: (P) -> boolean,
+	preflight: (P) -> boolean,
+	refuse: (P, string) -> boolean,
+	clock: () -> number,
+	identity: ((P) -> unknown)?,
+	acquisitionId: (number, number) -> string,
+	waitLeaseRenewal: (() -> ())?,
+	scheduleLeaseRenewal: ((number, () -> ()) -> ())?,
+	character: {
+		admit: (unknown) -> CharacterOutcome<F>,
+		release: (number, string, string, string, number) -> { read ok: boolean, read reason: string? },
+		renew: ((string, string, string, number) -> LeaseRepository.Outcome)?,
+	},
+	fence: (unknown) -> { read ok: boolean },
+	profile: { load: (Context?) -> F?, unload: (Context?) -> boolean, level: (Context?) -> number? },
+	session: { bind: (P, Context?) -> (boolean, string?), release: (P, Context?) -> boolean },
+	actor: { admitPlayer: (P, F) -> (boolean, string?), removePlayer: (P) -> boolean },
+	body: { admitPlayer: (P, string) -> (boolean, string?), removePlayer: (P) -> boolean },
+	movement: { admitPlayer: (P) -> (boolean, string?), removePlayer: (P) -> boolean },
+	players: {
+		present: (P) -> boolean,
+		getJoinData: (P) -> unknown,
+		getPlayers: () -> { P },
+		connectRemoving: ((P) -> boolean) -> () -> (),
+		connectAdded: ((P) -> ()) -> () -> (),
+	},
+	route: { arrive: (unknown, unknown) -> Route? },
+	roster: {
+		owns: (number, string) -> (boolean, unknown),
+		markDeparted: (number, string, string, unknown) -> (boolean, unknown),
+		markLevel: (number, string, number) -> boolean,
+		markPlayed: (number, string, number) -> boolean,
+	},
+	warAdmission: {
+		depart: (Route, boolean) -> boolean,
+		authority: () -> boolean,
+		reconnect: (number) -> Route?,
+		claim: (Route) -> (boolean, string?),
+		restoreDeparture: (Route) -> (boolean, string?),
+		refusalCodes: { [string]: boolean },
+	}?,
+	receipt: (
+		P,
+		{ read userId: number, read characterId: string, read profileVersion: number, read zoneKey: string }
+	) -> (boolean, string?),
+}
 ```
 
 ### `roblox.character-admission.Config`

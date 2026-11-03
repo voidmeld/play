@@ -73,8 +73,8 @@ export type Runtime<P> = {
 	read recover: (P, unknown) -> boolean,
 }
 export type Refused = { read phase: "character_admission_refused", read reason: string? }
-export type Dependencies<P, F> = Ports<P & Subject, F>
-type Ports<P, F> = {
+export type Dependencies<P, F> = NativePorts<P & Subject, F>
+export type NativePorts<P, F> = {
 	zoneKey: string,
 	placeId: number,
 	localScenarioCapability: boolean?,
