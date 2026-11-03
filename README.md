@@ -103,7 +103,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [Effects](docs/systems/effects.md) | Timed stacks, periodic ticks and dispels. |
 | [Events](docs/systems/events.md) | Catalogs, schedules, participation and reward tickets. |
 | [Identity](docs/systems/identity.md) | Rosters, claims, account/character leases, arrival receipts and retirement recovery. |
-| [Inventory](docs/systems/inventory.md) | Stacks, bag capacity, cargo custody and delivery. |
+| [Inventory](docs/systems/inventory.md) | Stacks, bag capacity, equipment wear/exchanges, cargo custody and delivery. |
 | [Ledger](docs/systems/ledger.md) | Value events, balances, reservations and grouped operations. |
 | [Loot](docs/systems/loot.md) | Weighted draws and party need/greed/pass decisions. |
 | [Mail](docs/systems/mail.md) | Attachments, claims, returns, expiry and recovery. |
