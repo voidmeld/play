@@ -66,6 +66,33 @@ local function copyData(value: unknown): Result.Result<unknown>
 	return clone(value, {}, {})
 end
 
-export type API = { read versioned: typeof(versioned), read copyData: typeof(copyData) }
-local api: API = { versioned = versioned, copyData = copyData }
+local function equal(left: unknown, right: unknown): boolean
+	local a, b = Value.raw(left), Value.raw(right)
+	if a == nil or b == nil then
+		return left == right
+	end
+	for key, value in a do
+		if not equal(value, b[key]) then
+			return false
+		end
+	end
+	for key in b do
+		if a[key] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+local function equalData(left: unknown, right: unknown): boolean
+	local a, b = copyData(left), copyData(right)
+	return a.ok and b.ok and equal(a.value, b.value)
+end
+
+export type API = {
+	read versioned: typeof(versioned),
+	read copyData: typeof(copyData),
+	read equalData: typeof(equalData),
+}
+local api: API = { versioned = versioned, copyData = copyData, equalData = equalData }
 return table.freeze(api)

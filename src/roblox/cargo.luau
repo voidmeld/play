@@ -1,6 +1,6 @@
 --!strict
 local CoreTypes = require("../core/inventory/cargo")
-local EqualData = require("../core/internal/equal-data")
+local EqualData = require("../kernel/codec").equalData
 local LedgerTypes = require("./material-ledger")
 local Value = require("../kernel/value")
 export type State = CoreTypes.State

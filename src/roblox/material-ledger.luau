@@ -1,6 +1,6 @@
 --!strict
 local CoreTypes = require("../core/ledger/ledger")
-local EqualData = require("../core/internal/equal-data")
+local EqualData = require("../kernel/codec").equalData
 local Result = require("../kernel/result")
 local Shape = require("../core/social/shape")
 local Value = require("../kernel/value")
