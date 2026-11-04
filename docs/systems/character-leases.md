@@ -13,6 +13,8 @@ Each slot is either `false` or its typed receipt. A retirement receipt identifie
 fingerprint, fence and time; an arrival receipt identifies session, acquisition, fence and time.
 An unowned row has both owner fields absent and zero expiry. Returned rows are detached mutable
 values, allowing the game's atomic transform to compose them without changing its input.
+The owner, revision and expiry projection uses the [kernel lease rules](../kernel/lease.md).
+Retirement and arrival remain domain receipts, validated by the character record codec.
 
 ## Operations
 

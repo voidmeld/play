@@ -42,12 +42,6 @@ local function withState<T>(record: T & State, state: State): T & State
 	result.expiresAt = state.expiresAt
 	return result
 end
-local function same(left: State, right: State): boolean
-	return left.revision == right.revision
-		and left.sessionId == right.sessionId
-		and left.acquisitionId == right.acquisitionId
-		and left.expiresAt == right.expiresAt
-end
 local function nextState(revision: number, sessionId: string?, acquisitionId: string?, expiresAt: number): State
 	local state: State =
 		{ revision = revision, sessionId = sessionId, acquisitionId = acquisitionId, expiresAt = expiresAt }
@@ -196,6 +190,6 @@ local function configure(config: Config): Service
 	return table.freeze({ copy = copy, acquire = acquire, renew = renew, release = release })
 end
 
-export type API = { read configure: typeof(configure), read withState: typeof(withState), read same: typeof(same) }
-local api: API = { configure = configure, withState = withState, same = same }
+export type API = { read configure: typeof(configure), read withState: typeof(withState) }
+local api: API = { configure = configure, withState = withState }
 return table.freeze(api)

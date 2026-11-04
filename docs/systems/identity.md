@@ -7,6 +7,8 @@ Coordinate rosters, names, account snapshots, creation, deletion and fenced leas
 [Character leases and retirement](character-leases.md) covers the character store, arrival receipts,
 retirement planner and a standalone fake-host example. The [adoption guide](../adoption.md) identifies
 the displaced game implementations and their remaining policy/host bindings.
+Account and character leases share the [kernel lease rules](../kernel/lease.md); their stored schemas
+and domain fences remain in their record codecs.
 
 ## State shape
 

@@ -17,7 +17,7 @@ bar and migration order. This README teaches the current adoption path.
 
 | Layer | Responsibility | Deployment |
 | --- | --- | --- |
-| [kernel](docs/systems.md#kernel) | Shared value, result, codec and atomic store primitives, independent of domain and host layers. | Runtime wherever a system consumes them. |
+| [kernel](docs/systems.md#kernel) | Shared value, result, codec, lease and atomic store primitives, independent of domain and host layers. | Runtime wherever a system consumes them. |
 | [core](src/core) | Engine-independent rules, validators, state machines and injected host coordinators. Pure transitions perform no host work. | Runtime under the game's authority boundary. |
 | [roblox](src/roblox) | Typed adapters over injected native, storage, scheduling and observation operations. | Runtime beside the game's engine bindings. |
 | [test-scene](src/test-scene) | Fake clocks, signals, ownership and small hosts exercising real rules. | Lute verification only; exclude from shipped Roblox trees. |

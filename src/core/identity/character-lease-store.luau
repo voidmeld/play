@@ -261,16 +261,13 @@ local function create(config: Config): API
 			if prior.characterId ~= characterId then
 				return (Record.copy(prior))
 			end
-			local renewed = kernel.renew(
-				prior,
-				{
-					sessionId = sessionId,
-					acquisitionId = acquisitionId,
-					revision = expectedRevision,
-					now = now,
-					ttl = ttl,
-				}
-			)
+			local renewed = kernel.renew(prior, {
+				sessionId = sessionId,
+				acquisitionId = acquisitionId,
+				revision = expectedRevision,
+				now = now,
+				ttl = ttl,
+			})
 			if not renewed.ok then
 				return (Record.copy(prior))
 			end
