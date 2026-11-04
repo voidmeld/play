@@ -17354,7 +17354,6 @@ export type PartyOutcome = {
 	replayed: boolean,
 	found: boolean,
 	party: CoreState?,
-	boundary: string,
 }
 ```
 
@@ -17392,7 +17391,7 @@ export type MountResult = {
 ### `roblox.party.Config`
 
 ```luau
-export type Config = { core: Membership.Core, schemaVersion: number, boundary: string, maxText: number }
+export type Config = { core: Membership.Core, schemaVersion: number, maxText: number }
 ```
 
 ### `roblox.party.party`
@@ -18936,7 +18935,6 @@ export type PartyResponse = {
 	read party: PartyTypes.State?,
 	read replayed: boolean?,
 	read found: boolean?,
-	read boundary: string?,
 	read dissolved: boolean?,
 	read strandedUserIds: { number }?,
 }

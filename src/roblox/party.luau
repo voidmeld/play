@@ -22,7 +22,6 @@ export type PartyOutcome = {
 	replayed: boolean,
 	found: boolean,
 	party: CoreState?,
-	boundary: string,
 }
 
 export type Service = {
@@ -48,12 +47,11 @@ export type MountResult = {
 	reason: string?,
 }
 
-export type Config = { core: Membership.Core, schemaVersion: number, boundary: string, maxText: number }
+export type Config = { core: Membership.Core, schemaVersion: number, maxText: number }
 local System = {}
 function System.party(config: Config)
 	local Core = config.core
 	local SCHEMA_VERSION = config.schemaVersion
-	local BOUNDARY = config.boundary
 	local REASONS: { string } = {
 		"dependencies_malformed",
 		"request_shape_invalid",
@@ -165,7 +163,6 @@ function System.party(config: Config)
 			replayed = false,
 			found = false,
 			party = nil,
-			boundary = BOUNDARY,
 		})
 	end
 
@@ -288,7 +285,6 @@ function System.party(config: Config)
 				replayed = replayed,
 				found = true,
 				party = readback,
-				boundary = BOUNDARY,
 			})
 		end
 
@@ -349,7 +345,6 @@ function System.party(config: Config)
 				replayed = false,
 				found = true,
 				party = readback,
-				boundary = BOUNDARY,
 			})
 		end
 
@@ -497,7 +492,6 @@ function System.party(config: Config)
 					replayed = false,
 					found = false,
 					party = nil,
-					boundary = BOUNDARY,
 				})
 			end
 			local state, reason = readRecord(result.value, partyIdValue)
@@ -510,7 +504,6 @@ function System.party(config: Config)
 				replayed = false,
 				found = true,
 				party = state,
-				boundary = BOUNDARY,
 			})
 		end
 

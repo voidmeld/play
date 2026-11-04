@@ -20,8 +20,8 @@ The linked components declare their factories and operations; see the [API refer
 
 ## Required host operations
 
-Inject the [kernel store port](../kernel/store.md), key builder, membership reader,
-exact schema and boundary text. The port supplies fresh reads and atomic updates through
+Inject the [kernel store port](../kernel/store.md), key builder, membership reader and
+exact schema. The port supplies fresh reads and atomic updates through
 the kernel Result envelope. Reads do not invoke an update callback.
 
 Use the [host-operation contract](../../README.md#host-operation-contract) when installing state,

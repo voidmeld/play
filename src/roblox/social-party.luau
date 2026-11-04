@@ -87,7 +87,6 @@ export type PartyResponse = {
 	read party: PartyTypes.State?,
 	read replayed: boolean?,
 	read found: boolean?,
-	read boundary: string?,
 	read dissolved: boolean?,
 	read strandedUserIds: { number }?,
 }
@@ -189,7 +188,6 @@ local function configure(config: Config): Host
 			replayed = outcome.replayed,
 			found = outcome.found,
 			party = outcome.party,
-			boundary = outcome.boundary,
 			dissolved = dissolved,
 			strandedUserIds = stranded,
 		}
