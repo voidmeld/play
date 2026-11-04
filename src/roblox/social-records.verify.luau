@@ -271,6 +271,29 @@ return function(suite: Verify.Harness)
 	end)
 
 	describe("social records durable membership index", function()
+		for _, operation in { "membership", "formation pointer" } do
+			it("refuses tentative " .. operation .. " authority after a cancelled speculative retry", function()
+				local store: Records.Store = {
+					getOutcome = function(_key: string): Records.Outcome
+						return { ok = true, value = nil }
+					end,
+					updateOutcome = function(_key: string, transform: (unknown) -> unknown): Records.Outcome
+						local proposed = transform(nil)
+						assert(proposed ~= nil)
+						assert(transform(proposed) == nil)
+						return { ok = false, value = nil, reason = "callback_cancelled" }
+					end,
+				}
+				local service = Social.rig(nil, { store = store })
+				local outcome = if operation == "membership"
+					then service.claimMembership(7, "f1")
+					else service.setProposerFormation(7, "g1")
+				expect(outcome.ok):toBe(false)
+				expect(service.readMembership(7).membership):toBeNil()
+				expect(service.readProposerFormation(7).formationId):toBeNil()
+			end)
+		end
+
 		it("claims a pending membership, confirms it, and releases only its own guild", function()
 			local service = Social.rig()
 			local claimed = service.claimMembership(7, "f1")
