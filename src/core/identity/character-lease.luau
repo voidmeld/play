@@ -1,5 +1,6 @@
 --!strict
 
+local Codec = require("../../kernel/codec")
 local Shape = require("../internal/shape")
 local Value = require("../../kernel/value")
 
@@ -260,74 +261,76 @@ local function create(config: Config): API
 		return arrivalOf(record)
 	end
 
+	local copyRecord = Codec.versioned({
+		version = Record.SCHEMA_VERSION,
+		fields = RECORD_FIELDS,
+		migrate = config.migrate,
+		decode = function(source: Value.Raw): (CharacterLeaseRecord?, string?)
+			local revision = whole(source.revision, Record.MAX_REVISION)
+			local characterId = text(source.characterId, config.characterIdLimit)
+			if revision == nil or characterId == nil then
+				return nil, "record_invalid"
+			end
+			local sessionId = text(source.sessionId, config.sessionIdLimit)
+			if source.sessionId ~= nil and sessionId == nil then
+				return nil, "record_invalid"
+			end
+			local acquisitionId = text(source.acquisitionId, config.acquisitionIdLimit)
+			if source.acquisitionId ~= nil and acquisitionId == nil then
+				return nil, "record_invalid"
+			end
+			local zoneId = text(source.zoneId, config.zoneIdLimit)
+			if source.zoneId ~= nil and zoneId == nil then
+				return nil, "record_invalid"
+			end
+			local expiresAt = finiteTime(source.expiresAt)
+			if expiresAt == nil then
+				return nil, "record_invalid"
+			end
+			local unowned = sessionId == nil and acquisitionId == nil and expiresAt == 0
+			local owned = sessionId ~= nil and acquisitionId ~= nil and expiresAt > 0
+			if not unowned and not owned then
+				return nil, "lease_invalid"
+			end
+			if source.retirement == nil then
+				return nil, "retirement_absent"
+			end
+			local retirement: Retirement | false = false
+			if source.retirement ~= false then
+				local copied = copyRetirement(source.retirement)
+				if copied == nil then
+					return nil, "retirement_invalid"
+				end
+				retirement = copied
+			end
+			if source.arrival == nil then
+				return nil, "arrival_absent"
+			end
+			local arrival: Arrival | false = false
+			if source.arrival ~= false then
+				local copied = copyArrival(source.arrival)
+				if copied == nil then
+					return nil, "arrival_invalid"
+				end
+				arrival = copied
+			end
+			return {
+				schemaVersion = Record.SCHEMA_VERSION,
+				revision = revision,
+				characterId = characterId,
+				zoneId = zoneId,
+				sessionId = sessionId,
+				acquisitionId = acquisitionId,
+				expiresAt = expiresAt,
+				retirement = retirement,
+				arrival = arrival,
+			},
+				nil
+		end,
+	})
+
 	function Record.copy(stored: unknown): (CharacterLeaseRecord?, string?)
-		local source = exact(config.migrate(stored), RECORD_FIELDS)
-		if source == nil then
-			return nil, "record_invalid"
-		end
-		if source.schemaVersion ~= Record.SCHEMA_VERSION then
-			return nil, "schema_unsupported"
-		end
-		local revision = whole(source.revision, Record.MAX_REVISION)
-		local characterId = text(source.characterId, config.characterIdLimit)
-		if revision == nil or characterId == nil then
-			return nil, "record_invalid"
-		end
-		local sessionId = text(source.sessionId, config.sessionIdLimit)
-		if source.sessionId ~= nil and sessionId == nil then
-			return nil, "record_invalid"
-		end
-		local acquisitionId = text(source.acquisitionId, config.acquisitionIdLimit)
-		if source.acquisitionId ~= nil and acquisitionId == nil then
-			return nil, "record_invalid"
-		end
-		local zoneId = text(source.zoneId, config.zoneIdLimit)
-		if source.zoneId ~= nil and zoneId == nil then
-			return nil, "record_invalid"
-		end
-		local expiresAt = finiteTime(source.expiresAt)
-		if expiresAt == nil then
-			return nil, "record_invalid"
-		end
-		local unowned = sessionId == nil and acquisitionId == nil and expiresAt == 0
-		local owned = sessionId ~= nil and acquisitionId ~= nil and expiresAt > 0
-		if not unowned and not owned then
-			return nil, "lease_invalid"
-		end
-		if source.retirement == nil then
-			return nil, "retirement_absent"
-		end
-		local retirement: Retirement | false = false
-		if source.retirement ~= false then
-			local copied = copyRetirement(source.retirement)
-			if copied == nil then
-				return nil, "retirement_invalid"
-			end
-			retirement = copied
-		end
-		if source.arrival == nil then
-			return nil, "arrival_absent"
-		end
-		local arrival: Arrival | false = false
-		if source.arrival ~= false then
-			local copied = copyArrival(source.arrival)
-			if copied == nil then
-				return nil, "arrival_invalid"
-			end
-			arrival = copied
-		end
-		return {
-			schemaVersion = Record.SCHEMA_VERSION,
-			revision = revision,
-			characterId = characterId,
-			zoneId = zoneId,
-			sessionId = sessionId,
-			acquisitionId = acquisitionId,
-			expiresAt = expiresAt,
-			retirement = retirement,
-			arrival = arrival,
-		},
-			nil
+		return copyRecord(stored)
 	end
 
 	function Record.create(characterId: string): (CharacterLeaseRecord?, string?)

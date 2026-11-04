@@ -27,16 +27,18 @@ local function copy(raw: unknown): (Record?, string?)
 		nil
 end
 local records = Records.configure({
-	copy = copy,
+	codec = {
+		copy = copy,
+		equal = function(a: Record, b: Record): boolean
+			return a.bucket == b.bucket
+				and a.owner == b.owner
+				and a.generation == b.generation
+				and a.content == b.content
+				and a.tag == b.tag
+		end,
+	},
 	empty = function(bucket: string, owner: string): (Record?, string?)
 		return { bucket = bucket, owner = owner, generation = 0, content = 0, tag = "private" }, nil
-	end,
-	equal = function(a: Record, b: Record): boolean
-		return a.bucket == b.bucket
-			and a.owner == b.owner
-			and a.generation == b.generation
-			and a.content == b.content
-			and a.tag == b.tag
 	end,
 	view = function(record: Record): Records.View
 		return { partitionId = record.bucket, subjectId = record.owner, revision = record.generation }
