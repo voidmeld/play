@@ -1,6 +1,7 @@
 --!strict
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
+local Native = require("../roblox/persistence/store")
 local Result = require("./result")
 local Scene = require("../test-scene/persistence/store")
 local Store = require("./store")
@@ -33,6 +34,20 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("atomic store port", function()
+		it("refuses malformed backend envelopes at both boundaries", function()
+			local store = Native.new({
+				getUncachedOutcome = function()
+					return setmetatable({ ok = true, value = "untrusted" }, {})
+				end,
+				updateOutcome = function()
+					return setmetatable({ ok = true, value = "untrusted" }, {})
+				end,
+			})
+			expect(Result.reason(store.read("record"))):toBe("read_failed")
+			expect(Result.reason(store.update("record", function(): unknown
+				return nil
+			end))):toBe("store_failure")
+		end)
 		it("distinguishes missing reads and compares the complete expected record", function()
 			local scene = Scene.new(clock)
 			expect(Result.unwrap(scene.store.read("record"))):toBeNil()

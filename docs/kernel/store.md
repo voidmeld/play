@@ -20,7 +20,8 @@ record against the desired value, refusing valid but divergent readback.
 
 The [native binding](../../src/roblox/persistence/store.luau) wraps the existing
 budgeted storage backend's uncached read and atomic update operations. It exposes
-`read` and `update` through the kernel port and gives backend refusals a reason.
+`read` and `update` through the kernel port, refuses malformed backend envelopes and
+gives backend refusals a reason.
 An uncertain backend failure may follow a committed write; a caller must reconcile
 durable state rather than infer that nothing happened.
 
