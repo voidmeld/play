@@ -367,18 +367,19 @@ return function(suite: Verify.Harness)
 		end)
 	end)
 
-	type Counter = { n: number }
+	type Counter = { n: number, lastId: string? }
 	type Command = { kind: string, id: string }
 
 	local function counterCore(): Records.LedgerCore<string, Counter, string>
-		local applied: { [string]: boolean } = {}
 		return {
 			empty = function(_subject: string): Counter
 				return { n = 0 }
 			end,
 			project = function(value: unknown): Counter?
 				local raw = Value.raw(value)
-				return if raw ~= nil and type(raw.n) == "number" then { n = raw.n } else nil
+				return if raw ~= nil and type(raw.n) == "number"
+					then { n = raw.n, lastId = if type(raw.lastId) == "string" then raw.lastId else nil }
+					else nil
 			end,
 			apply = function(state: Counter, command: unknown, _nowSec: number): Records.LedgerOutcome<Counter, string>
 				local fields = Value.raw(command)
@@ -403,12 +404,12 @@ return function(suite: Verify.Harness)
 						fence = nil,
 					}
 				end
-				if applied[id] then
+				if state.lastId == id then
 					return { ok = true, state = state, replayed = true, reason = nil, receipts = nil, fence = "f" }
 				end
 				return {
 					ok = true,
-					state = { n = state.n + 1 },
+					state = { n = state.n + 1, lastId = id },
 					replayed = false,
 					reason = nil,
 					receipts = { id },
@@ -435,6 +436,10 @@ return function(suite: Verify.Harness)
 				end
 				local nextValue = transform(values[key])
 				if nextValue == nil then
+					return { ok = false, value = nil, reason = "callback_cancelled" }
+				end
+				if mode == "speculative_retry" then
+					assert(transform(nextValue) == nil)
 					return { ok = false, value = nil, reason = "callback_cancelled" }
 				end
 				counters.writes += 1
@@ -464,6 +469,15 @@ return function(suite: Verify.Harness)
 	end
 
 	describe("social records settled ledger", function()
+		it("refuses an uncommitted ledger replay from a speculative retry", function()
+			local ledger, values, counters = ledgerRig("speculative_retry")
+			local outcome = ledger.apply("a", { kind = "add", id = "c1" })
+			expect(outcome.ok):toBe(false)
+			expect(outcome.ambiguous):toBe(true)
+			expect(values["ledger/a"]):toBeNil()
+			expect(counters.writes):toBe(0)
+		end)
+
 		it("writes one command and reports a definitive refusal without writing", function()
 			local ledger, _values, counters = ledgerRig()
 			local first = ledger.apply("a", { kind = "add", id = "c1" })
@@ -577,6 +591,13 @@ return function(suite: Verify.Harness)
 
 	describe("social records inbox", function()
 		local PHRASE = "need_help"
+
+		it("refuses an uncommitted inbox replay from a speculative retry", function()
+			local inbox, counters = inboxRig("speculative_retry")
+			expect(inbox.deliver(5, "Bryn", 9, PHRASE).ok):toBe(false)
+			expect(#assert(inbox.inbox(9).notes)):toBe(0)
+			expect(counters.writes):toBe(0)
+		end)
 
 		it("delivers to the recipient key only and reads the note back", function()
 			local inbox = inboxRig()
