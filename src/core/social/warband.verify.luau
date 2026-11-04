@@ -46,7 +46,7 @@ return function(suite: Verify.Harness)
 				targetPartyId = target,
 				membershipRevision = 1,
 				orderKind = "Attack",
-				objectiveId = "oathfall",
+				objectiveId = "objective-a",
 			}, rows, now or 100)
 		end
 
@@ -90,7 +90,7 @@ return function(suite: Verify.Harness)
 			expect(step(state, "marker", "p2", nil).reason):toBe("warband_not_command")
 			local assistant = assert(step(state, "assistant", "p1", "p2").state)
 			local marked = assert(step(assistant, "marker", "p2", nil).state)
-			expect(marked.targetObjectiveId):toBe("oathfall")
+			expect(marked.targetObjectiveId):toBe("objective-a")
 			expect(marked.targetByActorId):toBe(parties().p2.leaderId)
 			expect(assistant.targetObjectiveId):toBe(nil)
 			expect((Core.project(marked))):toBe(marked)
