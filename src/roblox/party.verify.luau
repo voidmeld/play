@@ -16,7 +16,7 @@ local Core = Membership.membership({
 	realms = { realm = true },
 	defaultLootMode = "need_greed",
 })
-local Host = Party.party({ core = Core, schemaVersion = 2, boundary = "test atomic store", maxText = 128 })
+local Host = Party.party({ core = Core, schemaVersion = 2, maxText = 128 })
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect

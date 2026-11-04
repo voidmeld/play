@@ -19,7 +19,7 @@ local core = Membership.membership({
 	realms = { alpha = true, beta = true },
 	defaultLootMode = "need_greed",
 })
-local atomic = Party.party({ core = core, schemaVersion = 2, boundary = "neutral fixture", maxText = 64 })
+local atomic = Party.party({ core = core, schemaVersion = 2, maxText = 64 })
 local rally = Rally.rally({
 	maxRows = 4,
 	maxTime = 10000,
