@@ -40,7 +40,7 @@ return function(suite: Verify.Harness)
 
 	local function created(): Module.State
 		local result = Core.create({
-			fellowshipId = "fellowship:ash-vigil",
+			fellowshipId = "fellowship:sentry",
 			nameId = "sentry",
 			realmId = "north",
 			homeSlotId = "woodland.guild_banner.village_courtyard",

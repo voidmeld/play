@@ -12,6 +12,7 @@ checks behavior; Play owns reusable gameplay systems.
 
 The [architecture](docs/architecture.md) defines the principles, target system shape, completeness
 bar and migration order. This README teaches the current adoption path.
+The [adoption guide](docs/adoption.md) defines the boundary between reusable systems and game bindings.
 
 ## Layers
 
