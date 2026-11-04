@@ -25,8 +25,10 @@ An uncertain backend failure may follow a committed write; a caller must reconci
 durable state rather than infer that nothing happened.
 
 The [fake host](../../src/test-scene/persistence/store.luau) exposes the same port,
-with an injected clock, fixture seeding, write counts and the backend's retry/fault
-seams. Fixture seeding is outside the authoritative port.
+with an injected clock, optional initial records, fixture seeding, committed-write and
+update-attempt counts, and the backend's retry/fault seams. Its `values` map is a test
+control for inspecting or poisoning durable bytes; authoritative consumers use the port,
+which detaches readback from that map. Fixture controls are outside the authoritative port.
 
 Run the executable example and invariants:
 

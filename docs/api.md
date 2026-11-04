@@ -20031,7 +20031,13 @@ export type Options = Host.TestOptions
 ### `test-scene.persistence.store.Scene`
 
 ```luau
-export type Scene = { read store: Kernel.Port, read seed: (string, unknown) -> (), read writes: () -> number }
+export type Scene = {
+	read store: Kernel.Port,
+	read seed: (string, unknown) -> (),
+	read writes: () -> number,
+	read updates: () -> number,
+	read values: { [string]: unknown },
+}
 ```
 
 ### `test-scene.persistence.store.API`
@@ -20043,7 +20049,7 @@ export type API = { read new: typeof(new) }
 ### `test-scene.persistence.store.new`
 
 ```luau
-function new(clock: () -> number, options: Options?): Scene
+function new(clock: () -> number, options: Options?, initial: { [string]: unknown }?): Scene
 ```
 
 Returned operations and values (declarations; unannotated results are inferred):
@@ -20052,6 +20058,8 @@ Returned operations and values (declarations; unannotated results are inferred):
 store = Atomic.new(backend)
 seed = function(key: string, value: unknown)
 writes = function(): number
+updates = function(): number
+values = values
 ```
 
 ## `test-scene.signal`

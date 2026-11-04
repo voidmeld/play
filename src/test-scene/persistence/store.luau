@@ -6,9 +6,15 @@ local Kernel = require("../../kernel/store")
 local Retry = require("../../roblox/data-store")
 
 export type Options = Host.TestOptions
-export type Scene = { read store: Kernel.Port, read seed: (string, unknown) -> (), read writes: () -> number }
+export type Scene = {
+	read store: Kernel.Port,
+	read seed: (string, unknown) -> (),
+	read writes: () -> number,
+	read updates: () -> number,
+	read values: { [string]: unknown },
+}
 
-local function new(clock: () -> number, options: Options?): Scene
+local function new(clock: () -> number, options: Options?, initial: { [string]: unknown }?): Scene
 	local retry = Retry.retryPolicy({ attempts = 1, baseDelay = 0, maxDelay = 0 })
 	local host = Host.create({
 		clock = clock,
@@ -18,8 +24,9 @@ local function new(clock: () -> number, options: Options?): Scene
 		retry = retry.run,
 		warning = function() end,
 	})
-	local values: { [string]: unknown } = {}
+	local values: { [string]: unknown } = initial or {}
 	local writes = 0
+	local updates = 0
 	local function set(key: string, value: unknown)
 		values[key] = value
 		writes += 1
@@ -31,6 +38,7 @@ local function new(clock: () -> number, options: Options?): Scene
 		end,
 		set = set,
 		update = function(key: string, transform: (unknown) -> unknown): unknown
+			updates += 1
 			local value = transform(values[key])
 			if value ~= nil then
 				set(key, value)
@@ -50,6 +58,10 @@ local function new(clock: () -> number, options: Options?): Scene
 		writes = function(): number
 			return writes
 		end,
+		updates = function(): number
+			return updates
+		end,
+		values = values,
 	})
 end
 
