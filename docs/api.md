@@ -1642,7 +1642,7 @@ export type StoreOutcome = Result.Result<Atomic.Readback>
 ### `core.identity.character-lease-store.Store`
 
 ```luau
-export type Store = Atomic.Writer
+export type Store = Atomic.Port
 ```
 
 ### `core.identity.character-lease-store.Accepted`
