@@ -169,7 +169,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [social-party](docs/systems/roblox-social-party.md) | Party invitations, member projections, succession, reconnect and rally admission. |
 | [social-whispers](docs/systems/roblox-social-whispers.md) | Pair exclusion, platform channel admission, recipient views and session disposal. |
 | [social-warband](docs/systems/roblox-social-warband.md) | Coordinate intact parties, durable warband membership, command and rally requests. |
-| [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes. |
+| [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes with uncached social authority confirmation. |
 | [target-selection](docs/systems/roblox-target-selection.md) | Cycling, pointer selection and range release. |
 | [thumbstick](docs/systems/roblox-thumbstick.md) | Dead-zone movement and knob displacement. |
 | [trade](docs/systems/roblox-trade.md) | Revisioned two-profile exchange with durable holds, decisions and recovery. |

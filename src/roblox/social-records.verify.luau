@@ -271,27 +271,44 @@ return function(suite: Verify.Harness)
 	end)
 
 	describe("social records durable membership index", function()
-		for _, operation in { "membership", "formation pointer" } do
-			it("refuses tentative " .. operation .. " authority after a cancelled speculative retry", function()
-				local store: Records.Store = {
-					getOutcome = function(_key: string): Records.Outcome
-						return { ok = true, value = nil }
-					end,
-					updateOutcome = function(_key: string, transform: (unknown) -> unknown): Records.Outcome
-						local proposed = transform(nil)
-						assert(proposed ~= nil)
-						assert(transform(proposed) == nil)
-						return { ok = false, value = nil, reason = "callback_cancelled" }
-					end,
-				}
-				local service = Social.rig(nil, { store = store })
-				local outcome = if operation == "membership"
-					then service.claimMembership(7, "f1")
-					else service.setProposerFormation(7, "g1")
-				expect(outcome.ok):toBe(false)
-				expect(service.readMembership(7).membership):toBeNil()
-				expect(service.readProposerFormation(7).formationId):toBeNil()
-			end)
+		for _, operation in { "membership", "formation pointer", "warband membership" } do
+			for _, readback in { "absent", "different", "unavailable" } do
+				it("refuses tentative " .. operation .. " authority with " .. readback .. " readback", function()
+					local cached: unknown = nil
+					local actual: unknown = nil
+					local store: Records.Store & Records.UncachedStore = {
+						getOutcome = function(_key: string): Records.Outcome
+							return { ok = true, value = cached }
+						end,
+						getUncachedOutcome = function(_key: string): Records.Outcome
+							return if readback == "unavailable"
+								then { ok = false, value = nil, reason = "read_unavailable" }
+								else { ok = true, value = actual }
+						end,
+						updateOutcome = function(_key: string, transform: (unknown) -> unknown): Records.Outcome
+							local proposed = transform(nil)
+							assert(proposed ~= nil)
+							cached = proposed
+							if readback == "different" then
+								local different = assert(Value.raw(proposed))
+								different.uncommittedField = true
+								actual = different
+							end
+							assert(transform(proposed) == nil)
+							return { ok = false, value = nil, reason = "callback_cancelled" }
+						end,
+					}
+					local service = Social.rig(nil, { store = store })
+					local outcome = if operation == "membership"
+						then service.claimMembership(7, "f1")
+						elseif operation == "formation pointer" then service.setProposerFormation(7, "g1")
+						else service.claimWarbandMembership("p1", "w1")
+					expect(outcome.ok):toBe(false)
+					expect(outcome.reason):toBe(
+						if readback == "unavailable" then "read_unavailable" else "readback_mismatch"
+					)
+				end)
+			end
 		end
 
 		it("claims a pending membership, confirms it, and releases only its own guild", function()

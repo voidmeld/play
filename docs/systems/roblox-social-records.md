@@ -22,6 +22,11 @@ The linked components declare their factories and operations; see the [API refer
 
 Inject compare-and-swap/update/read operations, record projectors, clocks, keys and bounds.
 
+The social service requires `UncachedStore`. Reads must bypass host caches. A cancelled
+update callback can observe a speculative retry value; it does not prove a committed row.
+Membership, formation-pointer and record replays confirm the complete captured row through
+`getUncachedOutcome` before granting authority. Failed or different readback refuses.
+
 Use the [host-operation contract](../../README.md#host-operation-contract) when installing state,
 handling uncertain writes and releasing resources.
 

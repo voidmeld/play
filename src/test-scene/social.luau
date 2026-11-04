@@ -69,7 +69,7 @@ local warbandCore = Warband.warband({
 	maxAssistants = 2,
 })
 
-export type Options = { requiredFounders: number?, fee: number?, store: Records.Store? }
+export type Options = { requiredFounders: number?, fee: number?, store: Records.UncachedStore? }
 
 function Social.rig(
 	readback: ((unknown) -> unknown)?,
@@ -90,7 +90,7 @@ function Social.rig(
 		store = if options and options.store
 			then options.store
 			else {
-				getOutcome = function(key: string): Records.Outcome
+				getUncachedOutcome = function(key: string): Records.Outcome
 					return { ok = true, value = values[key], reason = nil }
 				end,
 				updateOutcome = function(key: string, transform: (unknown) -> unknown): Records.Outcome
