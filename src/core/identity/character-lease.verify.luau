@@ -412,6 +412,315 @@ return function(suite: Verify.Harness)
 	end)
 
 	describe("character lease atomic store", function()
+		it("replays an acquisition without a write and renews from its returned live revision", function()
+			local scene = Scene.new(config())
+			local repo, store = scene.repository, scene.store
+			local source = owned()
+			scene.seed(keyFor("character"), source)
+			local writes = scene.writes()
+			local replay = repo.acquire(store, keyFor, "character", "session", "acquisition", 120, 180)
+			assert(replay.ok)
+			expect(replay.value.revision):toBe(4)
+			expect(replay.value.expiresAt):toBe(280)
+			expect(scene.writes()):toBe(writes)
+			expect(repo.acquire(store, keyFor, "character", "session", "different", 120, 180).reason):toBe("lease_held")
+			local renewed =
+				repo.renew(store, keyFor, "character", "session", "acquisition", replay.value.revision, 130, 180)
+			assert(renewed.ok)
+			expect(renewed.value.revision):toBe(5)
+			expect(renewed.value.expiresAt):toBe(310)
+			renewed.value.revision = 99
+			expect(assert((scene.record.copy(Result.unwrap(store.read(keyFor("character")))))).revision):toBe(5)
+			expect(source.revision):toBe(4)
+		end)
+		it("refuses malformed acquisition and renewal requests before touching storage", function()
+			local scene = Scene.new(config())
+			local unavailable: Atomic.Store = {
+				read = unexpectedRead,
+				update = function()
+					error("invalid request reached storage")
+				end,
+			}
+			for _, times in
+				{
+					{ now = math.huge, ttl = 1 },
+					{ now = -math.huge, ttl = 1 },
+					{ now = math.nan, ttl = 1 },
+					{ now = -1, ttl = 1 },
+					{ now = 10001, ttl = 1 },
+					{ now = 10000, ttl = 1 },
+					{ now = 1, ttl = 0 },
+					{ now = 1, ttl = math.nan },
+					{ now = 1, ttl = math.huge },
+				}
+			do
+				expect(
+					scene.repository.acquire(
+						unavailable,
+						keyFor,
+						"character",
+						"session",
+						"acquisition",
+						times.now,
+						times.ttl
+					).reason
+				):toBe("time_invalid")
+				expect(
+					scene.repository.renew(
+						unavailable,
+						keyFor,
+						"character",
+						"session",
+						"acquisition",
+						4,
+						times.now,
+						times.ttl
+					).reason
+				):toBe("time_invalid")
+			end
+			for _, identity in
+				{
+					{ character = "", session = "session", acquisition = "acquisition" },
+					{ character = "character", session = "", acquisition = "acquisition" },
+					{ character = "character", session = "session", acquisition = "" },
+				}
+			do
+				expect(
+					scene.repository.acquire(
+						unavailable,
+						keyFor,
+						identity.character,
+						identity.session,
+						identity.acquisition,
+						1,
+						10
+					).reason
+				):toBe("identity_invalid")
+			end
+			expect(
+				scene.repository.acquire(
+					unavailable,
+					keyFor,
+					"character",
+					"session",
+					"acquisition",
+					1,
+					10,
+					nil,
+					nil,
+					string.rep("z", 17)
+				).reason
+			):toBe("zone_invalid")
+			for _, revision in { -1, 1.5, 101 } do
+				expect(
+					scene.repository.renew(unavailable, keyFor, "character", "session", "acquisition", revision, 1, 10).reason
+				):toBe("revision_invalid")
+				expect(
+					scene.repository.release(unavailable, keyFor, "character", "session", "acquisition", revision).reason
+				):toBe("revision_invalid")
+			end
+			expect(scene.repository.retire(unavailable, keyFor, { characterId = "character" }).reason):toBe(
+				"witness_invalid"
+			)
+			expect(scene.repository.arrive(unavailable, keyFor, { characterId = "character" }).reason):toBe(
+				"claim_invalid"
+			)
+		end)
+		it("cancels malformed records and preserves schema, identity and terminal-revision refusal", function()
+			local future, foreign, maximum = owned(), owned(), owned()
+			future.schemaVersion, foreign.characterId, maximum.revision = 8, "other", 100
+			maximum.sessionId, maximum.acquisitionId, maximum.expiresAt = nil, nil, 0
+			local cases: { { value: unknown, reason: string } } = {
+				{ value = false, reason = "record_invalid" },
+				{ value = "corrupt", reason = "record_invalid" },
+				{ value = { schemaVersion = 7 }, reason = "record_invalid" },
+				{ value = future, reason = "schema_unsupported" },
+				{ value = foreign, reason = "identity_mismatch" },
+				{ value = maximum, reason = "revision_max" },
+			}
+			for _, case in cases do
+				local scene = Scene.new(config())
+				scene.seed(keyFor("character"), case.value)
+				local result =
+					scene.repository.acquire(scene.store, keyFor, "character", "next", "next-acquisition", 100, 180)
+				expect(result.ok):toBe(false)
+				expect(result.reason):toBe(case.reason)
+				expect(Result.unwrap(scene.store.read(keyFor("character")))):toEqual(case.value)
+			end
+			for _, raw in { false, "corrupt", { schemaVersion = 6 } } do
+				local scene = Scene.new(config())
+				local store: Atomic.Store = {
+					read = unexpectedRead,
+					update = function(_key, transform)
+						expect(transform(raw)):toBeNil()
+						return Result.fail("callback_cancelled")
+					end,
+				}
+				expect(scene.repository.acquire(store, keyFor, "character", "session", "acquisition", 100, 180).ok):toBe(
+					false
+				)
+			end
+		end)
+		it("reuses only an unowned foreign identity and never replaces a foreign tombstone", function()
+			local scene = Scene.new(config())
+			local source = assert((scene.record.create("other")))
+			source.revision = 3
+			scene.seed(keyFor("character"), source)
+			local acquired =
+				scene.repository.acquire(scene.store, keyFor, "character", "session", "acquisition", 100, 180)
+			assert(acquired.ok)
+			expect(acquired.value.characterId):toBe("character")
+			expect(acquired.value.revision):toBe(4)
+			local foreignWitness = witness(3)
+			foreignWitness.characterId = "other"
+			local retired = assert((scene.record.retire(source, foreignWitness)))
+			scene.seed(keyFor("character"), retired)
+			expect(
+				scene.repository.acquire(scene.store, keyFor, "character", "session", "acquisition", 100, 180).reason
+			):toBe("character_retired")
+			expect(scene.repository.retire(scene.store, keyFor, witness(4)).reason):toBe("identity_mismatch")
+			expect(Result.unwrap(scene.store.read(keyFor("character")))):toEqual(retired)
+		end)
+		it("keeps absent and corrupt renewal and release records distinct", function()
+			local future = owned()
+			future.schemaVersion = 8
+			local scenarios: { { value: unknown, reason: string } } = {
+				{ reason = "lease_missing" },
+				{ value = { schemaVersion = 7 }, reason = "record_invalid" },
+				{ value = future, reason = "schema_unsupported" },
+			}
+			for _, scenario in scenarios do
+				local scene = Scene.new(config())
+				if scenario.value ~= nil then
+					scene.seed(keyFor("character"), scenario.value)
+				end
+				local writes = scene.writes()
+				expect(
+					scene.repository.renew(scene.store, keyFor, "character", "session", "acquisition", 4, 100, 180).reason
+				):toBe(scenario.reason)
+				expect(scene.repository.release(scene.store, keyFor, "character", "session", "acquisition", 4).reason):toBe(
+					scenario.reason
+				)
+				expect(scene.writes()):toBe(writes)
+				expect(Result.unwrap(scene.store.read(keyFor("character")))):toEqual(scenario.value)
+			end
+		end)
+		it("fences renewal identity, revision and expiry and reserves the final revision for release", function()
+			for _, case in
+				{
+					{ field = "sessionId", value = "foreign", expected = 4, reason = "lease_not_owned" },
+					{ field = "acquisitionId", value = "foreign", expected = 4, reason = "lease_not_owned" },
+					{ field = "revision", value = 3, expected = 4, reason = "lease_stale" },
+					{ field = "characterId", value = "other", expected = 4, reason = "identity_mismatch" },
+					{ field = "expiresAt", value = 100, expected = 4, reason = "lease_expired" },
+					{ field = "revision", value = 100, expected = 100, reason = "revision_max" },
+				}
+			do
+				local scene = Scene.new(config())
+				local raw = assert(Value.raw(owned()))
+				raw[case.field] = case.value
+				scene.seed(keyFor("character"), raw)
+				expect(
+					scene.repository.renew(
+						scene.store,
+						keyFor,
+						"character",
+						"session",
+						"acquisition",
+						case.expected,
+						100,
+						180
+					).reason
+				):toBe(case.reason)
+				expect(Result.unwrap(scene.store.read(keyFor("character")))):toEqual(raw)
+			end
+			local scene = Scene.new(config())
+			local terminal = owned()
+			terminal.revision = 99
+			scene.seed(keyFor("character"), terminal)
+			local writes = scene.writes()
+			expect(
+				scene.repository.renew(scene.store, keyFor, "character", "session", "acquisition", 99, 100, 180).reason
+			):toBe("revision_max")
+			expect(scene.writes()):toBe(writes)
+			local released = scene.repository.release(scene.store, keyFor, "character", "session", "acquisition", 99)
+			assert(released.ok)
+			expect(released.value.revision):toBe(100)
+			expect(released.value.sessionId):toBeNil()
+			expect(released.value.acquisitionId):toBeNil()
+			expect(released.value.expiresAt):toBe(0)
+		end)
+		it("denies retired owners renewal and acquisition while retaining their exact drain path", function()
+			local scene = Scene.new(config())
+			scene.seed(keyFor("character"), owned())
+			assert(scene.repository.retire(scene.store, keyFor, witness(3)).ok)
+			expect(
+				scene.repository.renew(scene.store, keyFor, "character", "session", "acquisition", 4, 100, 180).reason
+			):toBe("character_retired")
+			expect(
+				scene.repository.acquire(scene.store, keyFor, "character", "session", "acquisition", 100, 180).reason
+			):toBe("character_retired")
+			local released = scene.repository.release(scene.store, keyFor, "character", "session", "acquisition", 4)
+			assert(released.ok)
+			expect(released.value.sessionId):toBeNil()
+			expect(assert(scene.record.retirementOf(released.value)).fence):toBe(3)
+		end)
+		it("settles and replays durable retirement receipts without accepting forged restoration", function()
+			local scene = Scene.new(config())
+			local repo, store = scene.repository, scene.store
+			local retired = repo.retire(store, keyFor, witness(5))
+			assert(retired.ok)
+			expect(retired.value.revision):toBe(0)
+			expect(repo.acquire(store, keyFor, "character", "session", "acquisition", 100, 180).reason):toBe(
+				"character_retired"
+			)
+			local writes = scene.writes()
+			assert(repo.retire(store, keyFor, witness(5)).ok)
+			expect(scene.writes()):toBe(writes)
+			local forged = witness(5)
+			forged.fingerprint = "forged"
+			expect(repo.retire(store, keyFor, forged).reason):toBe("receipt_conflict")
+			expect(repo.retire(store, keyFor, witness(5, "other")).reason):toBe("stale_fence")
+			assert(repo.retire(store, keyFor, witness(6, "other")).ok)
+			expect(repo.restore(store, keyFor, witness(5)).reason):toBe("retirement_not_owned")
+			forged = witness(6, "other")
+			forged.fingerprint = "forged"
+			expect(repo.restore(store, keyFor, forged).reason):toBe("receipt_conflict")
+			expect(repo.restore(store, keyFor, witness(5, "other")).reason):toBe("stale_fence")
+			assert(repo.restore(store, keyFor, witness(6, "other")).ok)
+			writes = scene.writes()
+			assert(repo.restore(store, keyFor, witness(6, "other")).ok)
+			expect(scene.writes()):toBe(writes)
+			assert(repo.acquire(store, keyFor, "character", "session", "acquisition", 100, 180).ok)
+		end)
+		it("consumes departures across durable handoff and replays only the exact current holder", function()
+			local scene = Scene.new(config())
+			scene.seed(keyFor("character"), owned())
+			local repo, store = scene.repository, scene.store
+			expect(repo.arrive(store, keyFor, claim(4)).reason):toBe("fence_unacquired")
+			expect(repo.arrive(store, keyFor, claim(9)).reason):toBe("fence_unacquired")
+			assert(repo.arrive(store, keyFor, claim(3)).ok)
+			local writes = scene.writes()
+			assert(repo.arrive(store, keyFor, claim(3)).ok)
+			expect(scene.writes()):toBe(writes)
+			assert(repo.release(store, keyFor, "character", "session", "acquisition", 4).ok)
+			local acquired = repo.acquire(store, keyFor, "character", "next", "next-acquisition", 120, 180)
+			assert(acquired.ok)
+			local nextClaim = claim(3)
+			nextClaim.sessionId, nextClaim.acquisitionId, nextClaim.revision =
+				"next", "next-acquisition", acquired.value.revision
+			expect(repo.arrive(store, keyFor, nextClaim).reason):toBe("stale_fence")
+			nextClaim.fence = 4
+			local arrived = repo.arrive(store, keyFor, nextClaim)
+			assert(arrived.ok)
+			expect(assert(scene.record.arrivalOf(arrived.value)).fence):toBe(4)
+			expect(arrived.value.sessionId):toBe("next")
+			nextClaim.fence = 3
+			expect(repo.arrive(store, keyFor, nextClaim).reason):toBe("stale_fence")
+			expect(assert((scene.record.copy(Result.unwrap(store.read(keyFor("character")))))).revision):toBe(
+				acquired.value.revision
+			)
+		end)
 		it("acquires once, renews exactly and refuses stale release after takeover", function()
 			local scene = Scene.new(config())
 			local repo, store = scene.repository, scene.store
@@ -430,6 +739,7 @@ return function(suite: Verify.Harness)
 			assert(nextOwner.ok)
 			expect(nextOwner.value.revision):toBe(3)
 			expect(repo.release(store, keyFor, "character", "a", "one", 2).reason):toBe("lease_not_owned")
+			expect(repo.release(store, keyFor, "character", "b", "two", 2).reason):toBe("lease_stale")
 			local released = repo.release(store, keyFor, "character", "b", "two", 3)
 			assert(released.ok)
 			expect(released.value.sessionId):toBeNil()
