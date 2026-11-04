@@ -1,13 +1,14 @@
 --!strict
+local Codec = require("../kernel/codec")
 local Membership = require("../core/social/membership")
+local Result = require("../kernel/result")
+local Store = require("../kernel/store")
 local Value = require("../kernel/value")
-type CoreMember = Membership.Member
-type CoreInvite = Membership.Invite
 type CoreState = Membership.State
 type CoreResult = Membership.Result
 
-export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
-export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
+export type StoreOutcome = Result.Result<unknown>
+export type Store = Store.Port
 
 export type Dependencies = {
 	store: Store,
@@ -67,7 +68,6 @@ function System.party(config: Config)
 		"core_refused",
 		"store_failure",
 		"readback_mismatch",
-		"read_wrote",
 	}
 
 	local RECORD_FIELDS: { [string]: boolean } = {
@@ -145,15 +145,7 @@ function System.party(config: Config)
 	end
 
 	local function hasOnlyFields(value: unknown, fields: { [string]: boolean }): boolean
-		if type(value) ~= "table" then
-			return false
-		end
-		for key in value do
-			if type(key) ~= "string" or fields[key] ~= true then
-				return false
-			end
-		end
-		return true
+		return Value.record(value, fields, false) ~= nil
 	end
 
 	local function frozenOutcome(value: PartyOutcome): PartyOutcome
@@ -177,57 +169,12 @@ function System.party(config: Config)
 		})
 	end
 
-	local function plainMembers(state: CoreState): { CoreMember }
-		local rows: { CoreMember } = {}
-		for index, member in state.members do
-			rows[index] = {
-				accountId = member.accountId,
-				characterId = member.characterId,
-				joinedAt = member.joinedAt,
-				absentSince = member.absentSince,
-			}
+	local function buildRecord(state: CoreState): StoreOutcome
+		local projected, reason = Core.projectState(state)
+		if projected == nil then
+			return Result.fail(reason or "record_invalid")
 		end
-		return rows
-	end
-
-	local function plainInvites(state: CoreState): { CoreInvite }
-		local rows: { CoreInvite } = {}
-		for index, invite in state.invites do
-			rows[index] = {
-				accountId = invite.accountId,
-				invitedBy = invite.invitedBy,
-				at = invite.at,
-			}
-		end
-		return rows
-	end
-
-	type PartyRecord = { schemaVersion: number, partyId: string, party: CoreState }
-
-	local function buildRecord(state: CoreState): PartyRecord
-		return {
-			schemaVersion = SCHEMA_VERSION,
-			partyId = state.partyId,
-			party = {
-				partyId = state.partyId,
-				realmId = state.realmId,
-				leaderId = state.leaderId,
-				leaderTransfer = if state.leaderTransfer == nil
-					then nil
-					else {
-						accountId = state.leaderTransfer.accountId,
-						by = state.leaderTransfer.by,
-						at = state.leaderTransfer.at,
-					},
-				members = plainMembers(state),
-				invites = plainInvites(state),
-				lootMode = state.lootMode,
-				lootCursor = state.lootCursor,
-				createdAt = state.createdAt,
-				lastAt = state.lastAt,
-				disbandedAt = state.disbandedAt,
-			},
-		}
+		return Codec.copyData({ schemaVersion = SCHEMA_VERSION, partyId = state.partyId, party = projected })
 	end
 
 	local function readRecord(value: unknown, partyId: string): (CoreState?, string?)
@@ -235,13 +182,7 @@ function System.party(config: Config)
 			return nil, "record_invalid"
 		end
 		local raw = assert(Value.raw(value))
-		if
-			type(raw.schemaVersion) ~= "number"
-			or raw.schemaVersion ~= raw.schemaVersion
-			or raw.schemaVersion == math.huge
-			or raw.schemaVersion < 1
-			or raw.schemaVersion ~= math.floor(raw.schemaVersion)
-		then
+		if Value.whole(raw.schemaVersion, 1, math.huge) == nil then
 			return nil, "record_invalid"
 		end
 		if raw.schemaVersion ~= SCHEMA_VERSION then
@@ -267,6 +208,7 @@ function System.party(config: Config)
 			type(dependencies) ~= "table"
 			or type((dependencies).store) ~= "table"
 			or type(((dependencies).store).update) ~= "function"
+			or type(((dependencies).store).read) ~= "function"
 			or type((dependencies).keyForParty) ~= "function"
 			or type((dependencies).readMembership) ~= "function"
 		then
@@ -290,13 +232,13 @@ function System.party(config: Config)
 		end
 
 		local function commit(partyId: string, transform: (CoreState) -> (CoreState?, boolean, string?)): PartyOutcome
-			local captured: CoreState? = nil
 			local replayed = false
 			local transformFail: string? = nil
+			local expected: StoreOutcome = Result.fail("store_failure")
 			local result = deps.store.update(deps.keyForParty(partyId), function(current)
-				captured = nil
 				replayed = false
 				transformFail = nil
+				expected = Result.fail("store_failure")
 				if current == nil then
 					transformFail = "party_missing"
 					return nil
@@ -311,42 +253,39 @@ function System.party(config: Config)
 					transformFail = reason
 					return nil
 				end
-				captured = nextState
-				replayed = wasReplayed and nextState.lastAt == (state).lastAt
+				replayed = wasReplayed and nextState.lastAt == state.lastAt
 				if replayed then
+					expected = Codec.copyData(current)
 					return nil
 				end
-				return buildRecord(nextState)
+				local desired = buildRecord(nextState)
+				expected = if desired.ok then Codec.copyData(desired.value) else desired
+				return if desired.ok then desired.value else nil
 			end)
-
+			local observed = result
 			if not result.ok then
 				if result.reason ~= "callback_cancelled" then
-					return refused(result.reason or "store_failure")
+					return refused(result.reason)
 				end
-				if replayed and captured ~= nil then
-					return frozenOutcome({
-						ok = true,
-						reason = nil,
-						replayed = true,
-						found = true,
-						party = captured,
-						boundary = BOUNDARY,
-					})
+				if not replayed then
+					return refused(transformFail or "store_failure")
 				end
-				return refused(transformFail or "store_failure")
+				observed = Store.confirm(deps.store, deps.keyForParty(partyId), expected)
 			end
-
-			local readback, readbackReason = readRecord(result.value, partyId)
+			if not observed.ok then
+				return refused(observed.reason)
+			end
+			local readback, reason = readRecord(observed.value, partyId)
 			if readback == nil then
-				return refused(readbackReason or "readback_mismatch")
+				return refused(reason or "readback_mismatch")
 			end
-			if captured == nil or (readback).lastAt ~= (captured).lastAt then
+			if not expected.ok or not Codec.equalData(observed.value, expected.value) then
 				return refused("readback_mismatch")
 			end
 			return frozenOutcome({
 				ok = true,
 				reason = nil,
-				replayed = false,
+				replayed = replayed,
 				found = true,
 				party = readback,
 				boundary = BOUNDARY,
@@ -374,14 +313,22 @@ function System.party(config: Config)
 				return refused("core_refused: " .. tostring(reason))
 			end
 			local fresh = (result).state
+			local expected = buildRecord(fresh)
+			if not expected.ok then
+				return refused(expected.reason)
+			end
 			local transformFail: string? = nil
+			local produced = false
 			local outcome = deps.store.update(deps.keyForParty(partyId), function(current)
 				transformFail = nil
+				produced = false
 				if current ~= nil then
 					transformFail = "party_exists"
 					return nil
 				end
-				return buildRecord(fresh)
+				local desired = buildRecord(fresh)
+				produced = desired.ok
+				return if desired.ok then desired.value else nil
 			end)
 			if not outcome.ok then
 				if outcome.reason ~= "callback_cancelled" then
@@ -392,6 +339,9 @@ function System.party(config: Config)
 			local readback, readbackReason = readRecord(outcome.value, partyId)
 			if readback == nil then
 				return refused(readbackReason or "readback_mismatch")
+			end
+			if not produced or not Codec.equalData(outcome.value, expected.value) then
+				return refused("readback_mismatch")
 			end
 			return frozenOutcome({
 				ok = true,
@@ -536,33 +486,11 @@ function System.party(config: Config)
 			if not (type(partyIdValue) == "string" and text(partyIdValue)) then
 				return refused("party_id_invalid")
 			end
-			local partyId = partyIdValue
-			local captured: CoreState? = nil
-			local missing = false
-			local transformFail: string? = nil
-			local result = deps.store.update(deps.keyForParty(partyId), function(current)
-				captured = nil
-				missing = false
-				transformFail = nil
-				if current == nil then
-					missing = true
-					return nil
-				end
-				local state, migrateReason = readRecord(current, partyId)
-				if state == nil then
-					transformFail = migrateReason
-					return nil
-				end
-				captured = state
-				return nil
-			end)
-			if result.ok then
-				return refused("read_wrote")
+			local result = deps.store.read(deps.keyForParty(partyIdValue))
+			if not result.ok then
+				return refused(result.reason)
 			end
-			if result.reason ~= "callback_cancelled" then
-				return refused(result.reason or "store_failure")
-			end
-			if missing then
+			if result.value == nil then
 				return frozenOutcome({
 					ok = true,
 					reason = nil,
@@ -572,15 +500,16 @@ function System.party(config: Config)
 					boundary = BOUNDARY,
 				})
 			end
-			if captured == nil then
-				return refused(transformFail or "store_failure")
+			local state, reason = readRecord(result.value, partyIdValue)
+			if state == nil then
+				return refused(reason or "record_invalid")
 			end
 			return frozenOutcome({
 				ok = true,
 				reason = nil,
 				replayed = false,
 				found = true,
-				party = captured,
+				party = state,
 				boundary = BOUNDARY,
 			})
 		end

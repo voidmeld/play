@@ -20,7 +20,9 @@ The linked components declare their factories and operations; see the [API refer
 
 ## Required host operations
 
-Inject update store, key builder, membership reader, exact schema and boundary text.
+Inject the [kernel store port](../kernel/store.md), key builder, membership reader,
+exact schema and boundary text. The port supplies fresh reads and atomic updates through
+the kernel Result envelope. Reads do not invoke an update callback.
 
 Use the [host-operation contract](../../README.md#host-operation-contract) when installing state,
 handling uncertain writes and releasing resources.
@@ -40,4 +42,7 @@ This example exercises: retries pure transforms and refuses old schemas without 
 
 ## Invariants
 
-Retried transforms do not leak captured results. Foreign schema and mismatched readback refuse. Reads use cancelling transforms.
+Retried transforms do not leak captured results. Foreign schema and mismatched readback refuse.
+Creation and updates compare the complete detached record, including fields beyond its clock.
+No-write replays confirm that exact snapshot through the real reader before granting authority.
+Known absence comes from a successful fresh read; a speculative callback cannot prove it.

@@ -46,6 +46,9 @@ local function rig()
 		end,
 		readMembership = membershipFor,
 		store = {
+			read = function(key: string): Party.StoreOutcome
+				return { ok = true, value = values[key] }
+			end,
 			update = function(key: string, apply: (unknown) -> unknown): Party.StoreOutcome
 				apply(values[key])
 				local value = apply(values[key])
