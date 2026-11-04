@@ -1,7 +1,9 @@
 --!strict
 local CoreTypes = require("../core/inventory/cargo")
 local EqualData = require("../kernel/codec").equalData
+local Atomic = require("../kernel/store")
 local LedgerTypes = require("./material-ledger")
+local Result = require("../kernel/result")
 local Value = require("../kernel/value")
 export type State = CoreTypes.State
 type CoreResult = CoreTypes.Result
@@ -23,12 +25,6 @@ type Envelope = {
 	extractionId: unknown,
 }
 
-type ReadValue = {
-	found: boolean,
-	census: { CoreTypes.CensusRow },
-	carried: { CoreTypes.Total },
-	openDrops: { CoreTypes.Drop },
-}
 export type StoreOutcome = LedgerTypes.StoreOutcome
 export type Store = LedgerTypes.Store
 
@@ -174,7 +170,6 @@ local function configure(config: Config): API
 		"store_failure",
 		"ledger_refused",
 		"readback_mismatch",
-		"read_wrote",
 	}
 
 	local RECORD_FIELDS: { [string]: boolean } = {
@@ -371,6 +366,9 @@ local function configure(config: Config): API
 	local function stagedStore(seed: unknown): (Store, () -> unknown)
 		local staged = seed
 		local store: Store = {
+			read = function(): StoreOutcome
+				return Result.ok(staged)
+			end,
 			update = function(_key, transform): StoreOutcome
 				local nextValue = transform(staged)
 				if nextValue == nil then
@@ -446,6 +444,7 @@ local function configure(config: Config): API
 			or type(raw.loadCamps) ~= "function"
 			or type(raw.store) ~= "table"
 			or type((raw.store).update) ~= "function"
+			or type((raw.store).read) ~= "function"
 			or type(raw.keyForHaul) ~= "function"
 			or type(raw.keyForLedger) ~= "function"
 		then
@@ -563,6 +562,18 @@ local function configure(config: Config): API
 				if produced == nil then
 					return nil, "store_failure"
 				end
+				local confirmed = Atomic.confirm(
+					deps.store,
+					deps.keyForHaul(zoneId),
+					Result.ok({
+						schemaVersion = SCHEMA_VERSION,
+						zoneId = zoneId,
+						haul = produced.state,
+					})
+				)
+				if not confirmed.ok then
+					return nil, confirmed.reason
+				end
 				return produced, nil
 			end
 			local readback, readbackReason = readRecord(result.value, zoneId)
@@ -594,10 +605,10 @@ local function configure(config: Config): API
 						wroteAny = true
 					end
 				end
+				desired = readStaged()
 				if not wroteAny then
 					return nil
 				end
-				desired = readStaged()
 				return desired
 			end)
 			if not result.ok then
@@ -607,7 +618,8 @@ local function configure(config: Config): API
 				if transformFail ~= nil then
 					return false, transformFail
 				end
-				return false, nil
+				local confirmed = Atomic.confirm(deps.store, deps.keyForLedger(actorId), Result.ok(desired))
+				return false, if confirmed.ok then nil else confirmed.reason
 			end
 			if not wroteAny or desired == nil or not EqualData(result.value, desired) then
 				return false, "readback_mismatch"
@@ -736,46 +748,25 @@ local function configure(config: Config): API
 			if not finite(nowSec) or nowSec < 0 or nowSec > MAX_AT then
 				return refusedRead("clock_invalid")
 			end
-			local captured: ReadValue? = nil
-			local transformFail: string? = nil
-			local result = deps.store.update(deps.keyForHaul(zoneId), function(current)
-				captured = nil
-				transformFail = nil
-				if current == nil then
-					local empty = refusedRead("empty")
-					captured =
-						{ found = false, census = empty.census, carried = empty.carried, openDrops = empty.openDrops }
-					return nil
-				end
-				local state, recordReason = readRecord(current, zoneId)
-				if state == nil then
-					transformFail = recordReason
-					return nil
-				end
-				captured = {
-					found = true,
-					census = assert(Core.census(state)),
-					carried = assert(Core.carriedOf(state, actorId)),
-					openDrops = assert(Core.openDrops(state, nowSec)),
-				}
-				return nil
-			end)
-			if result.ok then
-				return refusedRead("read_wrote")
+			local result = deps.store.read(deps.keyForHaul(zoneId))
+			if not result.ok then
+				return refusedRead(result.reason)
 			end
-			if result.reason ~= "callback_cancelled" then
-				return refusedRead(result.reason or "store_failure")
-			end
-			if captured == nil then
-				return refusedRead(transformFail or "store_failure")
+			local state = Core.emptyState()
+			if result.value ~= nil then
+				local observed, reason = readRecord(result.value, zoneId)
+				if observed == nil then
+					return refusedRead(reason or "record_invalid")
+				end
+				state = observed
 			end
 			return table.freeze({
 				ok = true,
 				reason = nil,
-				found = captured.found,
-				census = captured.census,
-				carried = captured.carried,
-				openDrops = captured.openDrops,
+				found = result.value ~= nil,
+				census = assert(Core.census(state)),
+				carried = assert(Core.carriedOf(state, actorId)),
+				openDrops = assert(Core.openDrops(state, nowSec)),
 				boundary = BOUNDARY,
 			})
 		end

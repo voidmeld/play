@@ -8,7 +8,15 @@ local Result = require("../kernel/result")
 local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
-type Control = { failKey: string, replyKey: string, reply: unknown, retryKey: string }
+type Control = {
+	failKey: string,
+	replyKey: string,
+	reply: unknown,
+	retryKey: string,
+	readKey: string,
+	readFailure: boolean,
+	updates: number,
+}
 local ledger = Ledger.configure({
 	core = LedgerRules.ledger({ maxText = 32, maxCount = 100, maxAt = 1000, minGroupSize = 2, maxGroupSize = 4 }),
 	schemaVersion = 7,
@@ -42,9 +50,17 @@ local function keyForLedger(actor: string): string
 end
 local function rig()
 	local values: { [string]: unknown } = {}
-	local control: Control = { failKey = "", replyKey = "", reply = nil, retryKey = "" }
+	local control: Control =
+		{ failKey = "", replyKey = "", reply = nil, retryKey = "", readKey = "", readFailure = false, updates = 0 }
 	local store: Ledger.Store = {
+		read = function(key: string): Ledger.StoreOutcome
+			if key == control.readKey then
+				return if control.readFailure then Result.fail("read_offline") else Result.ok(nil)
+			end
+			return if key == control.failKey then Result.fail("offline") else Result.ok(values[key])
+		end,
 		update = function(key: string, transform: (unknown) -> unknown): Ledger.StoreOutcome
+			control.updates += 1
 			if key == control.failKey then
 				return { ok = false, value = nil, reason = "offline" }
 			end
@@ -237,5 +253,36 @@ return function(suite: Verify.Harness)
 			expect(read.found):toBe(false)
 			expect(Value.raw(r.values["cargo:sector"])):toBe(nil)
 		end)
+		it("reads ledger and cargo snapshots without submitting update callbacks", function()
+			local r = rig()
+			assert(r.carry("first", "ore", 3, 1).ok)
+			assert(r.extract("one", 2).ok)
+			local before = r.control.updates
+			assert(ledger.snapshot(r.store, keyForLedger, "one").ok)
+			assert(r.service.read("sector", "one", 2).ok)
+			expect(r.control.updates):toBe(before)
+		end)
+		for _, unavailable in { false, true } do
+			for _, operation in { "cargo", "ledger", "settlement" } do
+				it("refuses unconfirmed " .. operation .. " replay authority " .. tostring(unavailable), function()
+					local r = rig()
+					assert(r.carry("first", "ore", 3, 1).ok)
+					if operation ~= "cargo" then
+						assert(r.extract("one", 2).ok)
+					end
+					r.control.readFailure = unavailable
+					r.control.readKey = if operation == "cargo" then "cargo:sector" else "ledger:one"
+					if operation == "cargo" then
+						expect(r.carry("first", "ore", 3, 1).ok):toBe(false)
+					elseif operation == "ledger" then
+						local replay = ledger.append(r.store, keyForLedger, "one", event("check", 1, 3))
+						assert(replay.ok)
+						expect(ledger.append(r.store, keyForLedger, "one", event("check", 1, 3)).ok):toBe(false)
+					else
+						expect(r.extract("one", 2).ok):toBe(false)
+					end
+				end)
+			end
+		end
 	end)
 end

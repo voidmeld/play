@@ -1,6 +1,7 @@
 --!strict
 local CoreTypes = require("../core/ledger/ledger")
 local EqualData = require("../kernel/codec").equalData
+local Atomic = require("../kernel/store")
 local Result = require("../kernel/result")
 local Shape = require("../core/social/shape")
 local Value = require("../kernel/value")
@@ -19,8 +20,8 @@ export type SnapshotValue = {
 	boundary: string,
 }
 export type Failure = Result.Failure
-export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
-export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
+export type StoreOutcome = Result.Result<Atomic.Readback>
+export type Store = Atomic.Port
 export type Outcome<T> = Result.Result<T>
 
 export type CorePort = {
@@ -67,7 +68,6 @@ local function configure(config: Config): API
 		"replay_unverifiable",
 		"store_failure",
 		"readback_mismatch",
-		"snapshot_wrote",
 	}
 
 	local RECORD_FIELDS: { [string]: boolean } = {
@@ -216,6 +216,7 @@ local function configure(config: Config): API
 			end
 			if applied.replayed then
 				replaySatisfied = { replayed = true, settled = applied.settled, groupId = applied.groupId }
+				desired = buildRecord(state)
 				return nil
 			end
 			appliedValue = { replayed = false, settled = applied.settled, groupId = applied.groupId }
@@ -227,7 +228,8 @@ local function configure(config: Config): API
 				return failed(result.reason or "store_failure")
 			end
 			if replaySatisfied ~= nil then
-				return { ok = true, value = replaySatisfied, reason = nil }
+				local confirmed = Atomic.confirm(store, keyForLedger(ledgerId), Result.ok(desired))
+				return if confirmed.ok then Result.ok(replaySatisfied) else confirmed
 			end
 			return failed(transformFail or "store_failure")
 		end
@@ -248,55 +250,39 @@ local function configure(config: Config): API
 		if type(keyForLedger) ~= "function" or not text(ledgerId) then
 			return failed("ledger_key_invalid")
 		end
-		local captured: SnapshotValue? = nil
-		local transformFail: string? = nil
-		local result = store.update(keyForLedger(ledgerId), function(current)
-			captured = nil
-			transformFail = nil
-			if current == nil then
-				local balances: { [string]: { [string]: number } } = {}
-				local tornGroups: { CoreTypes.TornGroup } = {}
-				captured = {
-					found = false,
-					balances = table.freeze(balances),
-					tornGroups = table.freeze(tornGroups),
-					eventCount = 0,
-					windowFloorAt = NO_FLOOR,
-					boundary = BOUNDARY,
-				}
-				return nil
-			end
-			local record, migrateReason = migrate(current)
-			if record == nil then
-				transformFail = migrateReason
-				return nil
-			end
-			local balances = Core.balances(record.state)
-			local tornGroups = Core.tornGroups(record.state)
-			if balances == nil or tornGroups == nil then
-				transformFail = "record_invalid"
-				return nil
-			end
-			captured = {
-				found = true,
-				balances = balances,
-				tornGroups = tornGroups,
-				eventCount = #record.state.events,
-				windowFloorAt = record.windowFloorAt,
+		local result = store.read(keyForLedger(ledgerId))
+		if not result.ok then
+			return result
+		end
+		if result.value == nil then
+			local balances: { [string]: { [string]: number } } = {}
+			local tornGroups: { CoreTypes.TornGroup } = {}
+			return Result.ok({
+				found = false,
+				balances = table.freeze(balances),
+				tornGroups = table.freeze(tornGroups),
+				eventCount = 0,
+				windowFloorAt = NO_FLOOR,
 				boundary = BOUNDARY,
-			}
-			return nil
-		end)
-		if result.ok then
-			return failed("snapshot_wrote")
+			})
 		end
-		if result.reason ~= "callback_cancelled" then
-			return failed(result.reason or "store_failure")
+		local record, migrateReason = migrate(result.value)
+		if record == nil then
+			return failed(migrateReason or "record_invalid")
 		end
-		if captured ~= nil then
-			return { ok = true, value = captured, reason = nil }
+		local balances = Core.balances(record.state)
+		local tornGroups = Core.tornGroups(record.state)
+		if balances == nil or tornGroups == nil then
+			return failed("record_invalid")
 		end
-		return failed(transformFail or "store_failure")
+		return Result.ok({
+			found = true,
+			balances = balances,
+			tornGroups = tornGroups,
+			eventCount = #record.state.events,
+			windowFloorAt = record.windowFloorAt,
+			boundary = BOUNDARY,
+		})
 	end
 
 	Service.SCHEMA_VERSION = SCHEMA_VERSION

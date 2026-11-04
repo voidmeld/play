@@ -17,12 +17,13 @@ carry existence, balances, torn groups, event count, replay floor and the config
 
 `append(store, keyForLedger, ledgerId, event)` validates through the configured core, checks replay
 admission and applies the event inside an atomic transform. A retained exact replay cancels the write
-and acknowledges the existing receipt. An event outside the retained window at or below its floor is
+and acknowledges the existing receipt only after a fresh read confirms the complete expected record. An event outside the retained window at or below its floor is
 refused as unverifiable. A successful write requires the exact desired committed record in its reply.
 
-`snapshot` reads by cancelling an atomic transform after validating and projecting the current record;
-the backend must distinguish callback cancellation from transport failure. Supply `store.update` and
-an owned key function. Transforms can repeat: speculative results are cleared on every invocation.
+`snapshot` validates and projects a fresh `store.read` result without submitting an update.
+Supply the kernel `store.Port` with uncached `read` and atomic `update`, both returning the kernel
+`Result`, and an owned key function. Native callers can use `roblox/persistence/store.new`.
+Transforms can repeat: speculative results are cleared on every invocation.
 Core operations must be pure. The host owns schema migrations, storage scope, admission/authentication,
 native scheduling, backend budgets and eventual reconciliation after uncertainty.
 
@@ -45,5 +46,5 @@ readback and cargo-to-ledger reconciliation. It does not establish native multi-
 - The saved receipt window and floor must match the validated journal.
 - Speculative results from earlier callback invocations cannot authorize a final refusal.
 - Backend success with a divergent readback is uncertainty, rather than a granted result.
-- Replayed receipts never apply a second material grant.
+- Replayed receipts never apply a second material grant and require committed readback.
 - A snapshot operation cannot silently write a record or interpret transport failure as absence.
