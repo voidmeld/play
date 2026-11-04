@@ -2,7 +2,8 @@
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Membership = require("./membership")
 local Value = require("../../kernel/value")
-type Command = { operation: (unknown, unknown) -> (Membership.Result?, string?), request: unknown }
+type Operation = (unknown, unknown) -> (Membership.Result?, string?)
+type Command = { operation: Operation, request: unknown }
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 local function configured(maxMembers: number)
@@ -211,7 +212,8 @@ return function(suite: Verify.Harness)
 		it("restricts kicks and transfer offers to current non-self members", function()
 			local state = grown({ "a", "b" })
 			state = invite(state, "c", 100)
-			for _, operation in { Core.kick, Core.transferLeader } do
+			local operations: { Operation } = { Core.kick, Core.transferLeader }
+			for _, operation in operations do
 				for _, row in
 					{
 						{ accountId = "b", by = "b", reason = "not_leader" },
