@@ -2,6 +2,7 @@
 
 local Atomic = require("../../kernel/store")
 local CharacterLease = require("./character-lease")
+local Kernel = require("../../kernel/lease")
 local Result = require("../../kernel/result")
 local Value = require("../../kernel/value")
 
@@ -61,6 +62,13 @@ local function create(config: Config): API
 	assert(Value.whole(config.identityLimit, 1, 9007199254740991) ~= nil, "invalid lease identity limit")
 	assert(Value.whole(config.zoneIdLimit, 1, 9007199254740991) ~= nil, "invalid lease zone limit")
 	local Record = config.record
+	local kernel = Kernel.configure({
+		maxRevision = Record.MAX_REVISION,
+		maxTime = Record.MAX_TIME,
+		sessionIdLimit = config.identityLimit,
+		acquisitionIdLimit = config.identityLimit,
+		integerTime = false,
+	})
 	local Repository = {}
 	local function finiteTime(value: unknown): boolean
 		return type(value) == "number"
@@ -146,29 +154,33 @@ local function create(config: Config): API
 			if prior.retirement ~= false then
 				return (Record.copy(prior))
 			end
-			if prior.characterId == characterId then
-				if prior.revision >= Record.MAX_REVISION then
-					return (Record.copy(prior))
-				end
-				if prior.sessionId == sessionId and prior.acquisitionId == acquisitionId and prior.expiresAt > now then
-					satisfied = Record.copy(prior)
-					return nil
-				end
-				if heldByLiveSession(prior.sessionId, prior.expiresAt) then
-					return (Record.copy(prior))
-				end
-			elseif heldByLiveSession(prior.sessionId, prior.expiresAt) or prior.revision >= Record.MAX_REVISION then
+			if prior.revision >= Record.MAX_REVISION then
 				return (Record.copy(prior))
+			end
+			local owned = prior.characterId == characterId
+				and prior.sessionId == sessionId
+				and prior.acquisitionId == acquisitionId
+			if not (owned and prior.expiresAt > now) and heldByLiveSession(prior.sessionId, prior.expiresAt) then
+				return (Record.copy(prior))
+			end
+			local held: Kernel.State = if owned then prior else { revision = prior.revision, expiresAt = 0 }
+			local acquired = kernel.acquire(
+				held,
+				{ sessionId = sessionId, acquisitionId = acquisitionId, now = now, ttl = ttl, liveness = "dead" }
+			)
+			if not acquired.ok then
+				return (Record.copy(prior))
+			end
+			if acquired.value.kind == "owned" then
+				satisfied = Record.copy(prior)
+				return nil
 			end
 			if prior.sessionId ~= nil and (prior.sessionId ~= sessionId or prior.acquisitionId ~= acquisitionId) then
 				takeoverPrior = Record.copy(prior)
 			end
 			prior.characterId = characterId
-			prior.revision += 1
-			prior.sessionId = sessionId
-			prior.acquisitionId = acquisitionId
 			prior.zoneId = zoneId or prior.zoneId
-			prior.expiresAt = now + ttl
+			prior = Kernel.withState(prior, acquired.value.state)
 			return (Record.copy(prior))
 		end)
 		if not result.ok then
@@ -249,18 +261,20 @@ local function create(config: Config): API
 			if prior.characterId ~= characterId then
 				return (Record.copy(prior))
 			end
-			if
-				prior.sessionId ~= sessionId
-				or prior.acquisitionId ~= acquisitionId
-				or prior.revision ~= expectedRevision
-				or prior.expiresAt <= now
-				or prior.revision >= Record.MAX_REVISION
-			then
+			local renewed = kernel.renew(
+				prior,
+				{
+					sessionId = sessionId,
+					acquisitionId = acquisitionId,
+					revision = expectedRevision,
+					now = now,
+					ttl = ttl,
+				}
+			)
+			if not renewed.ok then
 				return (Record.copy(prior))
 			end
-			prior.revision += 1
-			prior.expiresAt = now + ttl
-			return (Record.copy(prior))
+			return (Record.copy(Kernel.withState(prior, renewed.value.state)))
 		end)
 		if not result.ok then
 			if result.reason ~= "callback_cancelled" then
@@ -338,21 +352,14 @@ local function create(config: Config): API
 			if prior.characterId ~= characterId then
 				return (Record.copy(prior))
 			end
-			if
-				prior.sessionId ~= sessionId
-				or prior.acquisitionId ~= acquisitionId
-				or prior.revision ~= expectedRevision
-			then
+			local released = kernel.release(
+				prior,
+				{ sessionId = sessionId, acquisitionId = acquisitionId, revision = expectedRevision }
+			)
+			if not released.ok then
 				return (Record.copy(prior))
 			end
-			if prior.revision >= Record.MAX_REVISION then
-				return (Record.copy(prior))
-			end
-			prior.revision += 1
-			prior.sessionId = nil
-			prior.acquisitionId = nil
-			prior.expiresAt = 0
-			return (Record.copy(prior))
+			return (Record.copy(Kernel.withState(prior, released.value.state)))
 		end)
 		if not result.ok then
 			if result.reason ~= "callback_cancelled" then

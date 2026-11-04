@@ -1,6 +1,8 @@
 --!strict
 
 local Codec = require("../../kernel/codec")
+local Kernel = require("../../kernel/lease")
+local Result = require("../../kernel/result")
 local Value = require("../../kernel/value")
 
 export type Lease = {
@@ -31,12 +33,13 @@ local FIELDS: { [string]: boolean } = {
 	expiresAtUnix = true,
 }
 
-local function readOwner(value: unknown): (string | false)?
-	if value == false then
-		return false
-	end
-	return Value.opaque(value, Record.MAX_ID_BYTES)
-end
+local kernel = Kernel.configure({
+	maxRevision = Record.MAX_REVISION,
+	maxTime = Record.MAX_SAFE_INTEGER,
+	sessionIdLimit = Record.MAX_ID_BYTES,
+	acquisitionIdLimit = Record.MAX_ID_BYTES,
+	integerTime = true,
+})
 
 local copyRecord = Codec.versioned({
 	version = Record.SCHEMA_VERSION,
@@ -44,38 +47,24 @@ local copyRecord = Codec.versioned({
 	required = true,
 	decode = function(source: Value.Raw): (Lease?, string?)
 		local userId = Value.whole(source.userId, 1, Record.MAX_SAFE_INTEGER)
-		local revision = Value.whole(source.revision, 0, Record.MAX_REVISION)
 		local fence = Value.whole(source.fence, 0, Record.MAX_FENCE)
-		local expires = Value.whole(source.expiresAtUnix, 0, Record.MAX_SAFE_INTEGER)
-		if userId == nil or revision == nil or fence == nil or expires == nil then
-			return nil, "record_invalid"
-		end
-		local session, acquisition = readOwner(source.sessionId), readOwner(source.acquisitionId)
-		if session == nil or acquisition == nil then
-			return nil, "record_invalid"
-		end
-		if session == false then
-			if acquisition ~= false or expires ~= 0 then
-				return nil, "record_invalid"
-			end
-		elseif
-			type(session) ~= "string"
-			or Value.opaque(session, Record.MAX_ID_BYTES) == nil
-			or type(acquisition) ~= "string"
-			or Value.opaque(acquisition, Record.MAX_ID_BYTES) == nil
-			or fence < 1
-			or expires < 1
-		then
+		local copied = kernel.copy({
+			revision = source.revision,
+			sessionId = if source.sessionId == false then nil else source.sessionId,
+			acquisitionId = if source.acquisitionId == false then nil else source.acquisitionId,
+			expiresAt = source.expiresAtUnix,
+		})
+		if userId == nil or fence == nil or not copied.ok or (copied.value.sessionId ~= nil and fence < 1) then
 			return nil, "record_invalid"
 		end
 		local value: Lease = {
 			schemaVersion = Record.SCHEMA_VERSION,
 			userId = userId,
-			revision = revision,
+			revision = copied.value.revision,
 			fence = fence,
-			sessionId = session,
-			acquisitionId = acquisition,
-			expiresAtUnix = expires,
+			sessionId = copied.value.sessionId or false,
+			acquisitionId = copied.value.acquisitionId or false,
+			expiresAtUnix = copied.value.expiresAt,
 		}
 		return Value.freezeDeep(value), nil
 	end,
@@ -108,6 +97,37 @@ function Record.equal(leftRaw: unknown, rightRaw: unknown): boolean
 	return left ~= nil and right ~= nil and Codec.equalData(left, right)
 end
 
+local function state(record: Lease): Kernel.State
+	return {
+		revision = record.revision,
+		sessionId = if record.sessionId == false then nil else record.sessionId,
+		acquisitionId = if record.acquisitionId == false then nil else record.acquisitionId,
+		expiresAt = record.expiresAtUnix,
+	}
+end
+local function withState(record: Lease, nextState: Kernel.State): Lease
+	local nextRecord = table.clone(record)
+	nextRecord.revision = nextState.revision
+	nextRecord.sessionId = nextState.sessionId or false
+	nextRecord.acquisitionId = nextState.acquisitionId or false
+	nextRecord.expiresAtUnix = nextState.expiresAt
+	return nextRecord
+end
+
+local function reason(result: Result.Failure): string
+	local mapped = {
+		identity_invalid = "invalid",
+		time_invalid = "invalid",
+		revision_invalid = "invalid",
+		lease_held = "held",
+		lease_not_owned = "not_owned",
+		lease_stale = "stale",
+		lease_expired = "expired",
+		revision_max = "exhausted",
+	}
+	return mapped[result.reason] or "record_invalid"
+end
+
 function Record.acquire(
 	currentRaw: unknown,
 	userIdValue: unknown,
@@ -138,24 +158,19 @@ function Record.acquire(
 	if current.userId ~= userId then
 		return current, "identity_mismatch"
 	end
-	if current.sessionId ~= false and current.expiresAtUnix > now then
-		if current.sessionId == sessionId and current.acquisitionId == acquisitionId then
-			return current, "owned"
-		end
-		return current, "held"
+	local acquired =
+		kernel.acquire(state(current), { sessionId = sessionId, acquisitionId = acquisitionId, now = now, ttl = ttl })
+	if not acquired.ok then
+		return current, reason(acquired)
 	end
-	if current.revision >= Record.MAX_REVISION or current.fence >= Record.MAX_FENCE then
+	if acquired.value.kind == "owned" then
+		return current, "owned"
+	end
+	if current.fence >= Record.MAX_FENCE then
 		return current, "exhausted"
 	end
-	local nextRecord = {
-		schemaVersion = Record.SCHEMA_VERSION,
-		userId = current.userId,
-		revision = current.revision + 1,
-		fence = current.fence + 1,
-		sessionId = sessionId,
-		acquisitionId = acquisitionId,
-		expiresAtUnix = now + ttl,
-	}
+	local nextRecord = withState(current, acquired.value.state)
+	nextRecord.fence += 1
 	return Record.validate(nextRecord), "acquired"
 end
 
@@ -195,28 +210,17 @@ function Record.renew(
 	if current.userId ~= userId then
 		return current, "identity_mismatch"
 	end
-	if current.sessionId ~= sessionId or current.acquisitionId ~= acquisitionId or current.fence ~= expectedFence then
+	if current.fence ~= expectedFence then
 		return current, "not_owned"
 	end
-	if current.revision ~= expectedRevision then
-		return current, "stale"
+	local renewed = kernel.renew(
+		state(current),
+		{ sessionId = sessionId, acquisitionId = acquisitionId, revision = expectedRevision, now = now, ttl = ttl }
+	)
+	if not renewed.ok then
+		return current, reason(renewed)
 	end
-	if current.expiresAtUnix <= now then
-		return current, "expired"
-	end
-	if current.revision >= Record.MAX_REVISION then
-		return current, "exhausted"
-	end
-	local nextRecord = {
-		schemaVersion = Record.SCHEMA_VERSION,
-		userId = current.userId,
-		revision = current.revision + 1,
-		fence = current.fence,
-		sessionId = current.sessionId,
-		acquisitionId = current.acquisitionId,
-		expiresAtUnix = now + ttl,
-	}
-	return Record.validate(nextRecord), "renewed"
+	return Record.validate(withState(current, renewed.value.state)), "renewed"
 end
 
 function Record.release(
@@ -245,25 +249,17 @@ function Record.release(
 	if current.sessionId == false then
 		return current, "absent"
 	end
-	if current.sessionId ~= sessionId or current.acquisitionId ~= acquisitionId or current.fence ~= expectedFence then
+	if current.fence ~= expectedFence then
 		return current, "not_owned"
 	end
-	if current.revision ~= expectedRevision then
-		return current, "stale"
+	local released = kernel.release(
+		state(current),
+		{ sessionId = sessionId, acquisitionId = acquisitionId, revision = expectedRevision }
+	)
+	if not released.ok then
+		return current, reason(released)
 	end
-	if current.revision >= Record.MAX_REVISION then
-		return current, "exhausted"
-	end
-	local nextRecord = {
-		schemaVersion = Record.SCHEMA_VERSION,
-		userId = current.userId,
-		revision = current.revision + 1,
-		fence = current.fence,
-		sessionId = false,
-		acquisitionId = false,
-		expiresAtUnix = 0,
-	}
-	return Record.validate(nextRecord), "released"
+	return Record.validate(withState(current, released.value.state)), "released"
 end
 
 return table.freeze(Record)
