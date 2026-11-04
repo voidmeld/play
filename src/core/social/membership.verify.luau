@@ -260,6 +260,15 @@ return function(suite: Verify.Harness)
 				local result, reason = row.operation(moved, row.request)
 				expect(result):toBeNil()
 				expect(reason):toBe("not_leader")
+				local request = assert(Value.raw(row.request))
+				if request.invitedBy ~= nil then
+					request.invitedBy = "b"
+				else
+					request.by = "b"
+				end
+				local unauthorized, denied = row.operation(state, request)
+				expect(unauthorized):toBeNil()
+				expect(denied):toBe("not_leader")
 			end
 			local changed = assert(Core.setLootMode(moved, { by = "b", lootMode = "round_robin", at = 103 }))
 			expect(changed.state.lootMode):toBe("round_robin")
