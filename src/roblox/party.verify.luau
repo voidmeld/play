@@ -89,6 +89,9 @@ return function(suite: Verify.Harness)
 					return nil
 				end,
 				store = {
+					read = function(key: string): Party.StoreOutcome
+						return { ok = true, value = values[key] }
+					end,
 					update = function(key: string, transform: (unknown) -> unknown): Party.StoreOutcome
 						transform(values[key])
 						local next = transform(values[key])

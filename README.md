@@ -151,7 +151,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [movement-intake](docs/systems/roblox-movement-intake.md) | Epochs, acknowledgments and speed enforcement. |
 | [movement-sender](docs/systems/roblox-movement-sender.md) | Handshake, resend ledger and revocation. |
 | [npc-motion](docs/systems/roblox-npc-motion.md) | Planar steps, leash geometry and puppet projection. |
-| [party](docs/systems/roblox-party.md) | Atomic membership persistence and exact readback. |
+| [party](docs/systems/roblox-party.md) | Atomic membership persistence with fresh reads and complete readback confirmation. |
 | [professions](docs/systems/roblox-professions.md) | Profile/world coordination and durable commits. |
 | [profile-sessions](docs/systems/roblox-profile-sessions.md) | Lease admission, save, renewal, close and drain. |
 | [profile-transfer](docs/systems/roblox-profile-transfer.md) | Session identity, settled writes and per-key exclusion. |

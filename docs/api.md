@@ -17304,7 +17304,19 @@ plan = function plan(
 [Source](../src/roblox/party.luau)
 
 ```luau
+local Codec = require("../kernel/codec")
+```
+
+```luau
 local Membership = require("../core/social/membership")
+```
+
+```luau
+local Result = require("../kernel/result")
+```
+
+```luau
+local Store = require("../kernel/store")
 ```
 
 ```luau
@@ -17314,13 +17326,13 @@ local Value = require("../kernel/value")
 ### `roblox.party.StoreOutcome`
 
 ```luau
-export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
+export type StoreOutcome = Result.Result<unknown>
 ```
 
 ### `roblox.party.Store`
 
 ```luau
-export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
+export type Store = Store.Port
 ```
 
 ### `roblox.party.Dependencies`
