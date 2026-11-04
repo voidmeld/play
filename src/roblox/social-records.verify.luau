@@ -489,43 +489,15 @@ return function(suite: Verify.Harness)
 		end)
 
 		it("answers a replay with its fence and no receipts and writes nothing", function()
-			local store = storeRig()
-			local core = counterCore()
-			local replaying = {
-				empty = core.empty,
-				project = core.project,
-				apply = function(
-					state: Counter,
-					command: unknown,
-					nowSec: number
-				): Records.LedgerOutcome<Counter, string>
-					local result = core.apply(state, command, nowSec)
-					return {
-						ok = result.ok,
-						state = result.state,
-						replayed = true,
-						reason = nil,
-						receipts = nil,
-						fence = "f",
-					}
-				end,
-				invalid = core.invalid,
-			}
-			local ledger = assert(Records.ledger({
-				store = store,
-				keyFor = function(subject: string): string
-					return subject
-				end,
-				clock = function(): number
-					return 1
-				end,
-				core = replaying,
-			}))
+			local ledger, _values, counters = ledgerRig()
+			expect(ledger.apply("a", { kind = "add", id = "c1" }).ok):toBe(true)
 			local replay = ledger.apply("a", { kind = "add", id = "c1" })
 			expect(replay.ok):toBe(true)
 			expect(replay.replayed):toBe(true)
 			expect(replay.fence):toBe("f")
 			expect(#assert(replay.receipts)):toBe(0)
+			expect(assert(replay.state).n):toBe(1)
+			expect(counters.writes):toBe(1)
 		end)
 
 		it("reports a storage failure as ambiguous whether or not the write landed", function()

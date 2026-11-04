@@ -68,7 +68,7 @@ export type Settled<State, Receipt> = {
 	fence: string?,
 }
 export type LedgerCore<Subject, State, Receipt> = {
-	empty: (Subject) -> State,
+	empty: (Subject) -> State?,
 	project: (unknown) -> State?,
 	apply: (State, unknown, number) -> LedgerOutcome<State, Receipt>,
 	invalid: string,
