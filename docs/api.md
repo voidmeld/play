@@ -1504,6 +1504,10 @@ function Record.validate(raw: unknown): Lease?
 [Source](../src/core/identity/account.luau)
 
 ```luau
+local Codec = require("../../kernel/codec")
+```
+
+```luau
 local Shape = require("../social/shape")
 ```
 
@@ -1990,6 +1994,10 @@ seedMatchesReceipt = function Record.seedMatchesReceipt(seedRaw: unknown, receip
 [Source](../src/core/identity/creation.luau)
 
 ```luau
+local Codec = require("../../kernel/codec")
+```
+
+```luau
 local NameRegistry = require("./name-claims")
 ```
 
@@ -2148,6 +2156,10 @@ MAX_SAFE_INTEGER = MAX_SAFE_INTEGER
 ## `core.identity.deletion`
 
 [Source](../src/core/identity/deletion.luau)
+
+```luau
+local Codec = require("../../kernel/codec")
+```
 
 ```luau
 local NameRegistry = require("./name-claims")
