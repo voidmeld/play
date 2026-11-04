@@ -203,6 +203,129 @@ return function(suite: Verify.Harness)
 			malformed.arrival = nil
 			expect(select(2, migrated.copy(malformed))):toBe("arrival_absent")
 		end)
+		it("rejects unknown fields, empty owners and inconsistent unowned expiry", function()
+			for _, patch in
+				{
+					{ future = true },
+					{ sessionId = "" },
+					{ acquisitionId = "" },
+					{ zoneId = "" },
+				}
+			do
+				local raw = assert(Value.raw(owned()))
+				for field, value in patch do
+					raw[field] = value
+				end
+				expect((record.copy(raw))):toBeNil()
+			end
+			local unowned = assert((record.create("character")))
+			unowned.expiresAt = 1
+			expect((record.copy(unowned))):toBeNil()
+			for _, time in { math.huge, -math.huge, math.nan, -1, 10001 } do
+				local invalid = owned()
+				invalid.expiresAt = time
+				expect((record.copy(invalid))):toBeNil()
+			end
+		end)
+		it("rejects incomplete, malformed and foreign fields in both stored receipt slots", function()
+			local receipts = {
+				{
+					field = "arrival",
+					value = { sessionId = "session", acquisitionId = "acquisition", fence = 1, arrivedAtUnix = 0 },
+				},
+				{
+					field = "retirement",
+					value = { operationId = "operation", fingerprint = "fingerprint", fence = 1, retiredAtUnix = 0 },
+				},
+			}
+			for _, receipt in receipts do
+				for field, value in receipt.value do
+					for _, mode in { "missing", "invalid" } do
+						local payload = assert(Value.raw(receipt.value))
+						payload[field] = if mode == "missing" then nil elseif type(value) == "string" then "" else -1
+						local source = assert(Value.raw(owned()))
+						source[receipt.field] = payload
+						expect(select(2, record.copy(source))):toBe(receipt.field .. "_invalid")
+					end
+				end
+				for _, fence in { 0, 1.5, 101 } do
+					local payload = assert(Value.raw(receipt.value))
+					payload.fence = fence
+					local source = assert(Value.raw(owned()))
+					source[receipt.field] = payload
+					expect(select(2, record.copy(source))):toBe(receipt.field .. "_invalid")
+				end
+				local payload = assert(Value.raw(receipt.value))
+				payload.extra = true
+				local source = assert(Value.raw(owned()))
+				source[receipt.field] = payload
+				expect(select(2, record.copy(source))):toBe(receipt.field .. "_invalid")
+			end
+		end)
+		it("validates every witness and claim field before any transition", function()
+			for _, request in
+				{
+					{ value = assert(Value.raw(witness(3))), reason = "witness_invalid", run = record.retire },
+					{ value = assert(Value.raw(claim(3))), reason = "claim_invalid", run = record.arrive },
+				}
+			do
+				for field, value in request.value do
+					for _, mode in { "missing", "invalid" } do
+						local raw = table.clone(request.value)
+						raw[field] = if mode == "missing" then nil elseif type(value) == "string" then "" else -1
+						expect(select(2, request.run(owned(), raw))):toBe(request.reason)
+						if request.reason == "witness_invalid" then
+							expect(select(2, record.restore(owned(), raw))):toBe(request.reason)
+						end
+					end
+				end
+				for _, fence in { 0, 1.5, 101 } do
+					local raw = table.clone(request.value)
+					raw.fence = fence
+					expect(select(2, request.run(owned(), raw))):toBe(request.reason)
+				end
+				local extra = table.clone(request.value)
+				extra.routeId = "route"
+				expect(select(2, request.run(owned(), extra))):toBe(request.reason)
+			end
+			local empty = assert(Value.raw(claim(3)))
+			empty.revision = 0
+			expect(select(2, record.arrive(owned(), empty))):toBe("claim_invalid")
+			local missing = assert(Value.raw(owned()))
+			missing.retirement = nil
+			expect(select(2, record.retire(missing, witness(3)))):toBe("retirement_absent")
+			missing = assert(Value.raw(owned()))
+			missing.arrival = nil
+			expect(select(2, record.arrive(missing, claim(3)))):toBe("arrival_absent")
+		end)
+		it("retires absent records and replays restoration without inventing ownership", function()
+			local retired = assert((record.retire(nil, witness(3))))
+			expect(retired.revision):toBe(0)
+			expect(retired.sessionId):toBeNil()
+			expect(assert(record.retirementOf(retired)).retiredAtUnix):toBe(900)
+			local restored, status = record.restore(owned(), witness(3))
+			expect(status):toBe("replayed")
+			expect(record.equal(restored, owned())):toBe(true)
+			local foreign = owned()
+			foreign.characterId = "other"
+			expect(select(2, record.retire(foreign, witness(3)))):toBe("identity_mismatch")
+			expect(select(2, record.restore(foreign, witness(3)))):toBe("identity_mismatch")
+			expect(record.retired(nil)):toBe(false)
+		end)
+		it("compares only complete valid records including zone and receipt contents", function()
+			local source = owned()
+			local changed = owned()
+			changed.zoneId = "zone"
+			expect(record.equal(source, changed)):toBe(false)
+			changed = owned()
+			changed.expiresAt += 1
+			expect(record.equal(source, changed)):toBe(false)
+			expect(record.equal(source, { schemaVersion = 7 })):toBe(false)
+			local first = assert((record.retire(source, witness(2))))
+			local second = assert((record.retire(source, witness(3))))
+			expect(record.equal(first, second)):toBe(false)
+			expect(record.equal(source, first)):toBe(false)
+		end)
 		it("fences retirement ownership, receipt conflicts and restoration without touching the lease", function()
 			local source = owned()
 			local retired, status = record.retire(source, witness(3))
@@ -211,12 +334,19 @@ return function(suite: Verify.Harness)
 			expect(retired.sessionId):toBe(source.sessionId)
 			expect(source.retirement):toBe(false)
 			expect(select(2, record.retire(retired, witness(3)))):toBe("replayed")
+			local replay = assert((record.retire(retired, witness(3))))
+			expect(record.equal(replay, retired)):toBe(true)
+			expect(replay).never:toBe(retired)
 			expect(select(2, record.retire(retired, witness(2)))):toBe("stale_fence")
 			expect(select(2, record.retire(retired, witness(3, "foreign")))):toBe("stale_fence")
 			expect(select(2, record.restore(retired, witness(4, "foreign")))):toBe("retirement_not_owned")
 			local conflict = witness(3)
 			conflict.fingerprint = "different"
 			expect(select(2, record.retire(retired, conflict))):toBe("receipt_conflict")
+			expect(select(2, record.restore(retired, conflict))):toBe("receipt_conflict")
+			local originalOwner = assert((record.copy(retired)))
+			originalOwner.retirement = false
+			expect(record.equal(originalOwner, source)):toBe(true)
 			local takeover = assert((record.retire(retired, witness(4, "foreign"))))
 			expect(select(2, record.restore(takeover, witness(3, "foreign")))):toBe("stale_fence")
 			local restored = assert((record.restore(takeover, witness(4, "foreign"))))
@@ -228,14 +358,56 @@ return function(suite: Verify.Harness)
 			local arrived, status = record.arrive(owned(), claim(3))
 			assert(arrived ~= nil)
 			expect(status):toBe("arrived")
+			local mark = assert(record.arrivalOf(arrived))
+			expect(mark):toEqual({
+				sessionId = "session",
+				acquisitionId = "acquisition",
+				fence = 3,
+				arrivedAtUnix = 900,
+			})
+			expect(arrived.revision):toBe(4)
+			expect(arrived.expiresAt):toBe(280)
 			expect(select(2, record.arrive(arrived, claim(3)))):toBe("replayed")
 			expect(select(2, record.arrive(arrived, claim(2)))):toBe("stale_fence")
 			expect(select(2, record.arrive(owned(), claim(4)))):toBe("fence_unacquired")
+			expect(select(2, record.arrive(owned(), claim(5)))):toBe("fence_unacquired")
 			local foreign = claim(3)
 			foreign.sessionId = "foreign"
 			expect(select(2, record.arrive(arrived, foreign))):toBe("lease_not_owned")
 			local retired = assert((record.retire(owned(), witness(3))))
 			expect(select(2, record.arrive(retired, claim(3)))):toBe("character_retired")
+		end)
+		it("refuses every foreign holder and admits only a later acquired departure after handoff", function()
+			for _, field in { "sessionId", "acquisitionId", "revision", "characterId" } do
+				local foreign = assert(Value.raw(claim(3)))
+				foreign[field] = if field == "revision" then 5 else "other"
+				expect(select(2, record.arrive(owned(), foreign))):toBe(
+					if field == "characterId" then "identity_mismatch" else "lease_not_owned"
+				)
+			end
+			expect(select(2, record.arrive(nil, claim(3)))):toBe("lease_not_owned")
+			local first = assert((record.arrive(owned(), claim(3))))
+			local nextOwner = assert((record.copy(first)))
+			nextOwner.revision, nextOwner.sessionId, nextOwner.acquisitionId = 9, "next", "next-acquisition"
+			local nextClaim: Lease.Claim = {
+				characterId = "character",
+				sessionId = "next",
+				acquisitionId = "next-acquisition",
+				revision = 9,
+				fence = 3,
+				atUnix = 901,
+			}
+			expect(select(2, record.arrive(nextOwner, nextClaim))):toBe("stale_fence")
+			nextClaim.fence = 2
+			expect(select(2, record.arrive(nextOwner, nextClaim))):toBe("stale_fence")
+			nextClaim.fence = 7
+			local advanced = assert((record.arrive(nextOwner, nextClaim)))
+			expect(assert(record.arrivalOf(advanced)).fence):toBe(7)
+			expect(assert(record.arrivalOf(first)).fence):toBe(3)
+			local replay, status = record.arrive(advanced, nextClaim)
+			expect(status):toBe("replayed")
+			expect(record.equal(replay, advanced)):toBe(true)
+			expect(replay).never:toBe(advanced)
 		end)
 	end)
 
