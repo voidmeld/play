@@ -182,11 +182,11 @@ return function(suite: Verify.Harness)
 			local update = deps.store.update
 			local calls = 0
 			deps.store = {
-				update = function(key, transform)
+				update = function(key: string, transform: (unknown) -> unknown): Records.StoreOutcome
 					calls += 1
 					return if calls == 2 then { ok = false, reason = "release_offline" } else update(key, transform)
 				end,
-				read = function(key)
+				read = function(key: string): Records.StoreOutcome
 					return if key == "lease:subject"
 						then { ok = true, value = values[key] }
 						else { ok = false, reason = "hydrate_offline" }
