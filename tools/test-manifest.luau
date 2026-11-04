@@ -5,6 +5,7 @@ return table.freeze {
 	"src/core/cast/queue.verify.luau",
 	"src/core/character/respawn-host.verify.luau",
 	"src/core/chat/channels.verify.luau",
+	"src/core/combat/contact.verify.luau",
 	"src/core/control/diminishing.verify.luau",
 	"src/core/craft/recipes.verify.luau",
 	"src/core/effects/timed.verify.luau",

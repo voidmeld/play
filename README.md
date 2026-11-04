@@ -104,6 +104,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [Cast](docs/systems/cast.md) | Bounded queues, cancellation tokens and cooldown windows. |
 | [Character](docs/systems/character.md) | Cancellable respawn watches and guarded body replacement. |
 | [Chat](docs/systems/chat.md) | Audiences, history, commands and sender budgets. |
+| [Combat](docs/systems/combat.md) | Immutable attack admission, custody fences, one contact and recovery timing. |
 | [Control](docs/systems/control.md) | Diminishing durations, reset windows and immunity. |
 | [Craft](docs/systems/craft.md) | Recipe projection and material requirements. |
 | [Effects](docs/systems/effects.md) | Timed stacks, periodic ticks and dispels. |

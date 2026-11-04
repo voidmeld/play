@@ -582,6 +582,117 @@ export type API = {
 
 Exported value; see its declaration in [source](../src/core/chat.luau).
 
+## `core.combat.contact`
+
+[Source](../src/core/combat/contact.luau)
+
+```luau
+local Codec = require("../../kernel/codec")
+```
+
+```luau
+local Result = require("../../kernel/result")
+```
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `core.combat.contact.Identity`
+
+```luau
+export type Identity = { read id: string, read characterId: string?, read epoch: number?, read contentId: string? }
+```
+
+### `core.combat.contact.Plan`
+
+```luau
+export type Plan<P> = {
+	read source: Identity,
+	read target: Identity,
+	read equipmentToken: string?,
+	read sequence: number,
+	read startedTick: number,
+	read anticipationSec: number,
+	read contactSec: number,
+	read recoverySec: number,
+	read rangeStuds: number,
+	read payload: P,
+}
+```
+
+### `core.combat.contact.State`
+
+```luau
+export type State<P> = {
+	read plan: Plan<P>,
+	read elapsedSec: number,
+	read lastTick: number,
+	read contacted: boolean,
+	read reserved: boolean,
+}
+```
+
+### `core.combat.contact.Status`
+
+```luau
+export type Status = "waiting" | "contact" | "complete" | "cancelled" | "missed"
+```
+
+### `core.combat.contact.Transition`
+
+```luau
+export type Transition<P> = { read status: Status, read next: State<P>?, read reason: string? }
+```
+
+### `core.combat.contact.Config`
+
+```luau
+export type Config<P> = { read copyPayload: (unknown) -> (P?, string?), read epsilon: number, read idLimit: number }
+```
+
+### `core.combat.contact.API`
+
+```luau
+export type API<P> = {
+	read admit: (unknown) -> Result.Result<State<P>>,
+	read advance: (unknown, unknown) -> Transition<P>,
+	read resolve: (unknown, unknown) -> Transition<P>,
+}
+```
+
+### `core.combat.contact.configure`
+
+```luau
+function configure<P>(config: Config<P>): API<P>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+admit = function admit(raw: unknown): Result.Result<State<P>>
+advance = function advance(raw: unknown, observation: unknown): Transition<P>
+resolve = function resolve(raw: unknown, observation: unknown): Transition<P>
+```
+
+## `core.combat`
+
+[Source](../src/core/combat.luau)
+
+```luau
+local Contact = require("./combat/contact")
+```
+
+### `core.combat.API`
+
+```luau
+export type API = { read contact: typeof(Contact) }
+```
+
+### `core.combat.contact`
+
+Exported value; see its declaration in [source](../src/core/combat.luau).
+
 ## `core.control.diminishing`
 
 [Source](../src/core/control/diminishing.luau)
@@ -20105,6 +20216,39 @@ Returned operations and values (declarations; unannotated results are inferred):
 clock = function(): number
 schedule = function schedule(delay: number, callback: () -> ()): () -> ()
 advance = function advance(seconds: number)
+```
+
+## `test-scene.combat`
+
+[Source](../src/test-scene/combat.luau)
+
+```luau
+local Contact = require("../core/combat/contact")
+```
+
+```luau
+local Value = require("../kernel/value")
+```
+
+### `test-scene.combat.Payload`
+
+```luau
+export type Payload = { read impact: number, read tags: { [string]: number } }
+```
+
+### `test-scene.combat.new`
+
+```luau
+function new()
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+rules = rules
+admission = function admission()
+source = function source()
+observation = function observation()
 ```
 
 ## `test-scene.diminishing`
