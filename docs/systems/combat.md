@@ -3,8 +3,9 @@
 [System catalog](../systems.md) · [Play](../../README.md) · [API reference](../api.md)
 
 Admit an immutable attack snapshot, reserve one contact after anticipation, recheck current custody
-and spatial evidence, and retain recovery until its deadline. Import `src/core/combat.luau` and use
-`combat.contact.configure(config)`. Cast retry windows remain a separate [cast](cast.md) concern.
+and spatial evidence, and retain recovery until its deadline. Import `src/core/combat/contact` and use
+`configure(config)`. The combat family exposes it as `contact`; cast retry windows remain a separate
+[cast](cast.md) concern.
 
 ## State and operations
 
