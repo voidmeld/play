@@ -41,6 +41,11 @@ The [fixture](../../src/roblox/quest-durability.verify.luau) uses actual Play le
 a fake storage host, an alternate snapshot layout, short renewal intervals and a different failure limit.
 It exercises draining, atomic batch admission, failure retention, stale callbacks, in-flight updates,
 renewal and divergent reacquisition.
+The same suite owns coalesced newest-journal saves, asymmetric batch retries, scheduler refusal,
+admission retry, exact-holder adoption, long-lived renewal, transient and persistent renewal refusal,
+and retryable save/release draining. Adopters retain their configured cadence and failure policy,
+status/event encoding, storage namespace and actual yielding session/store integration checks.
+The fake session ports do not certify native storage durability or an adopter's record compare-and-swap.
 
 ## Invariants
 
