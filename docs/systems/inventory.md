@@ -58,5 +58,11 @@ per-copy custody, breakage, current repair quotes, insufficient funds and malfor
 ## Invariants
 
 Capacity and stack limits hold. Bound/worn/permanent rules are explicit. A claim has one custodian and cannot be deposited twice.
+The [cargo regression suite](../../src/core/inventory/cargo.verify.luau) covers malformed commands,
+monotonic caller clocks, conflicting identities, terminal carry replays, exact-deadline recovery and loss,
+and conservation across death, disconnect, teleport and extraction. Delivery receipts retain their
+original settlement time and deterministic per-material credit identities when replayed. Saved records
+with torn claim/drop membership, missing deliveries, inconsistent totals or contradictory recovery fail
+closed; valid projections are detached and immutable. Settled transient losses can be retired.
 Wear follows a particular copy through equipment, bag and bank operations. Plans preserve their input maps.
 Broken items contribute no active equipment. A changed quote or insufficient funds cannot produce a repair.
