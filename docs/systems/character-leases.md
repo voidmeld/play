@@ -33,7 +33,7 @@ Factories snapshot scalar configuration; retirement also copies its phase maps. 
 
 Supply the [atomic store port](../kernel/store.md) and a character-key builder. The port includes
 uncached reads and atomic updates. A canceled callback that observes an apparent replay still
-requires an uncached read matching the complete expected record. Transport failures retain their
+requires an uncached read confirming the expected record or permitted absence. Transport failures retain their
 actual reason; an earlier callback observation never substitutes for durable readback.
 Restoring an absent key confirms uncached absence and returns the unowned empty record without
 a write. Acquisition, retirement and arrival require complete-record receipts.
@@ -64,7 +64,7 @@ lute run tools/gate.luau --file src/core/identity/character-lease.verify.luau --
 - Arrival requires the acquired revision to exceed its departure fence; another holder cannot reuse a consumed departure.
 - Only the retirement operation with the matching fingerprint and an adequate fence can restore its tombstone.
 - Retired characters cannot acquire or arrive, while their existing owner can drain and release.
-- Replay preserves receipts. Callback retries clear provisional results. Missing, forged or failed readback does not become success.
+- Replay preserves receipts. Callback retries clear provisional results. Unconfirmed, forged or failed readback does not become success.
 - Saved rows require both receipt slots. Schema, limits and planner phase admission come from caller policy.
 
 See the [adoption comparison and cutover](../adoption.md) for the current game's removable implementations.
