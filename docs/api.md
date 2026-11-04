@@ -17193,6 +17193,10 @@ local Result = require("../../kernel/result")
 local Store = require("../../kernel/store")
 ```
 
+```luau
+local Value = require("../../kernel/value")
+```
+
 ### `roblox.persistence.store.Port`
 
 ```luau

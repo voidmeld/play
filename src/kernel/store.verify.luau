@@ -1,5 +1,6 @@
 --!strict
 
+local Backend = require("../core/persistence/store-host")
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Native = require("../roblox/persistence/store")
 local Result = require("./result")
@@ -35,13 +36,13 @@ return function(suite: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("atomic store port", function()
 		it("refuses malformed backend envelopes at both boundaries", function()
+			local function malformed(): Backend.Outcome
+				local outcome: Backend.Outcome = { ok = true, value = "untrusted" }
+				return setmetatable(outcome, {})
+			end
 			local store = Native.new({
-				getUncachedOutcome = function()
-					return setmetatable({ ok = true, value = "untrusted" }, {})
-				end,
-				updateOutcome = function()
-					return setmetatable({ ok = true, value = "untrusted" }, {})
-				end,
+				getUncachedOutcome = malformed,
+				updateOutcome = malformed,
 			})
 			expect(Result.reason(store.read("record"))):toBe("read_failed")
 			expect(Result.reason(store.update("record", function(): unknown
