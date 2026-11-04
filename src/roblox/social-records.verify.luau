@@ -439,11 +439,7 @@ return function(suite: Verify.Harness)
 					assert(transform(nextValue) == nil)
 					return { ok = false, value = nil, reason = "callback_cancelled" }
 				end
-				if
-					mode == "index_retry_conflict"
-					or mode == "index_divergent_readback"
-					or mode == "index_lost_reply"
-				then
+				if mode ~= nil and string.sub(mode, 1, 6) == "index_" then
 					values[key] = { a = { id = "a", owner = 3, payload = "other" } }
 					if mode == "index_retry_conflict" then
 						assert(transform(values[key]) == nil)

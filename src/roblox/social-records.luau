@@ -1124,19 +1124,18 @@ function SocialRecords.index<Entry>(dependencies: IndexDependencies<Entry>): (In
 			valid = true
 			return entries
 		end)
-		if valid and result.ok then
+		local function installed(outcome: Outcome): boolean
+			if not outcome.ok then
+				return false
+			end
+			local intact, entries = entriesOf(outcome.value, userId)
+			local held = entries[id]
+			return intact and (if remove then held == nil else valid and held ~= nil and deps.same(held, entry))
+		end
+		if valid and installed(result) then
 			return true, nil
 		end
-		local observed = deps.store.read(deps.keyFor(userId))
-		local intact, observedEntries = false, {}
-		if observed.ok then
-			intact, observedEntries = entriesOf(observed.value, userId)
-		end
-		if not intact then
-			return false, reason
-		end
-		local present = observedEntries[id] ~= nil
-		return if remove then not present else valid and present, reason
+		return installed(deps.store.read(deps.keyFor(userId))), reason
 	end
 
 	local function list(userId: number): IndexListing<Entry>
