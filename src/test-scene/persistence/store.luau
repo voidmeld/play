@@ -38,7 +38,6 @@ local function new(clock: () -> number, options: Options?, initial: { [string]: 
 		end,
 		set = set,
 		update = function(key: string, transform: (unknown) -> unknown): unknown
-			updates += 1
 			local value = transform(values[key])
 			if value ~= nil then
 				set(key, value)
@@ -46,8 +45,13 @@ local function new(clock: () -> number, options: Options?, initial: { [string]: 
 			return value
 		end,
 	}
+	local function observe(event: Host.Observation)
+		if event.operation == "Update" then
+			updates += 1
+		end
+	end
 	local backend = host.memory(memory, options, function()
-		return nil
+		return observe
 	end)
 	return table.freeze({
 		store = Atomic.new(backend),
