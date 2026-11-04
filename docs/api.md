@@ -1770,10 +1770,6 @@ local Codec = require("../../kernel/codec")
 ```
 
 ```luau
-local Shape = require("../internal/shape")
-```
-
-```luau
 local Value = require("../../kernel/value")
 ```
 
@@ -2560,6 +2556,10 @@ REALMS = REALMS
 
 ```luau
 local Shape = require("../social/shape")
+```
+
+```luau
+local Value = require("../../kernel/value")
 ```
 
 ### `core.identity.routing.DestinationProjection`

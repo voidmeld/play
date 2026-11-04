@@ -1,6 +1,7 @@
 --!strict
 
 local Shape = require("../social/shape")
+local Value = require("../../kernel/value")
 
 export type DestinationProjection = {
 	read id: string,
@@ -265,46 +266,18 @@ local function create(config: Config): API
 	end
 
 	local function exactRaw(value: unknown, fields: { [string]: boolean }): Shape.Raw?
-		if not Shape.exact(value, fields) then
-			return nil
-		end
-		return Shape.raw(value)
+		return Value.record(value, fields, true)
 	end
 
 	local function rowsOf(source: unknown): { unknown }?
-		local list = plainRaw(source)
-		local count = Shape.denseLength(source)
-		if list == nil or count == nil then
-			return nil
-		end
-		local rows: { unknown } = {}
-		for index = 1, count do
-			rows[index] = list[index]
-		end
-		return rows
+		return Value.dense(source, MAX_SAFE_INTEGER)
 	end
 
 	local function whole(value: unknown, minimum: number): number?
-		if
-			type(value) == "number"
-			and value == value
-			and value ~= math.huge
-			and value ~= -math.huge
-			and value == math.floor(value)
-			and value >= minimum
-			and value <= MAX_SAFE_INTEGER
-		then
-			return value
-		end
-		return nil
+		return Value.whole(value, minimum, MAX_SAFE_INTEGER)
 	end
 
-	local function text(value: unknown, maximum: number): string?
-		if type(value) == "string" and #value > 0 and #value <= maximum then
-			return value
-		end
-		return nil
-	end
+	local text = Value.opaque
 
 	local structuralId = config.structuralId
 	local namespacedId = config.namespacedId
