@@ -54,3 +54,13 @@ This example exercises: combines every denial category without mutating the stor
 ## Invariants
 
 Invites reserve capacity and name a recipient. A blocked member cannot be bypassed. Foreign ownership and stale fences refuse; shared goods and receipts retain custody.
+
+Membership owns invitation replay, grouped admission, ordered succession, leader-only authority,
+transfer consent and expiry, connected-character tie breaking, absence deadlines and rejoin identity.
+Changing leadership preserves the roster, reservations and loot state. Repeated absence and transfer
+requests do not extend their deadlines. Games supply capacities, allowed realms, timing and reward policy.
+Run these rules directly with neutral policy:
+
+```sh
+lute run tools/gate.luau --file src/core/social/membership.verify.luau
+```
