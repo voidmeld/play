@@ -349,43 +349,7 @@ local function create(config: Config): API
 	function Record.equal(left: unknown, right: unknown): boolean
 		local a = Record.copy(left)
 		local b = Record.copy(right)
-		if a == nil or b == nil then
-			return false
-		end
-		if
-			a.schemaVersion ~= b.schemaVersion
-			or a.revision ~= b.revision
-			or a.characterId ~= b.characterId
-			or a.zoneId ~= b.zoneId
-			or a.sessionId ~= b.sessionId
-			or a.acquisitionId ~= b.acquisitionId
-			or a.expiresAt ~= b.expiresAt
-		then
-			return false
-		end
-		local leftMark = retirementOf(a)
-		local rightMark = retirementOf(b)
-		if leftMark == nil or rightMark == nil then
-			if leftMark ~= rightMark then
-				return false
-			end
-		elseif
-			leftMark.operationId ~= rightMark.operationId
-			or leftMark.fingerprint ~= rightMark.fingerprint
-			or leftMark.fence ~= rightMark.fence
-			or leftMark.retiredAtUnix ~= rightMark.retiredAtUnix
-		then
-			return false
-		end
-		local leftArrival = arrivalOf(a)
-		local rightArrival = arrivalOf(b)
-		if leftArrival == nil or rightArrival == nil then
-			return leftArrival == rightArrival
-		end
-		return leftArrival.sessionId == rightArrival.sessionId
-			and leftArrival.acquisitionId == rightArrival.acquisitionId
-			and leftArrival.fence == rightArrival.fence
-			and leftArrival.arrivedAtUnix == rightArrival.arrivedAtUnix
+		return a ~= nil and b ~= nil and Codec.equalData(a, b)
 	end
 
 	function Record.witness(raw: unknown): (Witness?, string?)

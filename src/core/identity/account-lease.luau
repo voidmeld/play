@@ -105,14 +105,7 @@ end
 function Record.equal(leftRaw: unknown, rightRaw: unknown): boolean
 	local left = Record.validate(leftRaw)
 	local right = Record.validate(rightRaw)
-	return left ~= nil
-		and right ~= nil
-		and left.userId == right.userId
-		and left.revision == right.revision
-		and left.fence == right.fence
-		and left.sessionId == right.sessionId
-		and left.acquisitionId == right.acquisitionId
-		and left.expiresAtUnix == right.expiresAtUnix
+	return left ~= nil and right ~= nil and Codec.equalData(left, right)
 end
 
 function Record.acquire(
