@@ -6,6 +6,8 @@
 committed-readback check. Exact types and operations are in the [generated API](../api.md#kernelstore).
 The primitive has no domain state, key namespace, clock or host service. Records and
 character leases use the same port; their codecs and authority rules remain in their systems.
+The shared [codec contract](codec.md) owns record decoders and domain equality; record-store
+configuration supplies that pair as `codec`.
 
 Readback is untrusted stored data. A successful read may carry nil for absence;
 failure is a refused Result. Decode the payload before using it. An update transform

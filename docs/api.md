@@ -1381,6 +1381,10 @@ Exported value; see its declaration in [source](../src/core/events.luau).
 [Source](../src/core/identity/account-lease.luau)
 
 ```luau
+local Codec = require("../../kernel/codec")
+```
+
+```luau
 local Value = require("../../kernel/value")
 ```
 
@@ -1756,6 +1760,10 @@ arrive = function Repository.arrive(store: Store, keyForCharacter: (string) -> s
 ## `core.identity.character-lease`
 
 [Source](../src/core/identity/character-lease.luau)
+
+```luau
+local Codec = require("../../kernel/codec")
+```
 
 ```luau
 local Shape = require("../internal/shape")
@@ -6408,9 +6416,8 @@ export type View = { read partitionId: string, read subjectId: string, read revi
 
 ```luau
 export type Config<R> = {
-	read copy: (unknown) -> (R?, string?),
+	read codec: Atomic.Codec<R>,
 	read empty: (string, string) -> (R?, string?),
-	read equal: (R, R) -> boolean,
 	read view: (R) -> View,
 	read withRevision: (R, number) -> R,
 	read maxRevision: number,
@@ -6488,6 +6495,10 @@ Exported value; see its declaration in [source](../src/core/persistence/session-
 ## `core.persistence.store-host`
 
 [Source](../src/core/persistence/store-host.luau)
+
+```luau
+local Codec = require("../../kernel/codec")
+```
 
 ```luau
 local Value = require("../../kernel/value")
@@ -14117,6 +14128,70 @@ export type API = {
 
 Exported value; see its declaration in [source](../src/core/vendors.luau).
 
+## `kernel.codec`
+
+[Source](../src/kernel/codec.luau)
+
+```luau
+local Result = require("./result")
+```
+
+```luau
+local Value = require("./value")
+```
+
+### `kernel.codec.Decoder`
+
+```luau
+export type Decoder<T> = (unknown) -> (T?, string?)
+```
+
+### `kernel.codec.Record`
+
+```luau
+export type Record<T> = { read copy: Decoder<T>, read equal: (T, T) -> boolean }
+```
+
+### `kernel.codec.Versioned`
+
+```luau
+export type Versioned<T> = {
+	read version: number,
+	read fields: { [string]: boolean },
+	read required: boolean?,
+	read migrate: ((unknown) -> unknown)?,
+	read decode: (Value.Raw) -> (T?, string?),
+}
+```
+
+### `kernel.codec.API`
+
+```luau
+export type API = {
+	read versioned: typeof(versioned),
+	read copyData: typeof(copyData),
+	read equalData: typeof(equalData),
+}
+```
+
+### `kernel.codec.copyData`
+
+```luau
+function copyData(value: unknown): Result.Result<unknown>
+```
+
+### `kernel.codec.equalData`
+
+```luau
+function equalData(left: unknown, right: unknown): boolean
+```
+
+### `kernel.codec.versioned`
+
+```luau
+function versioned<T>(config: Versioned<T>): Decoder<T>
+```
+
 ## `kernel.result`
 
 [Source](../src/kernel/result.luau)
@@ -14194,6 +14269,10 @@ function unwrap<T>(result: Result<T>): T
 [Source](../src/kernel/store.luau)
 
 ```luau
+local Codec = require("./codec")
+```
+
+```luau
 local Result = require("./result")
 ```
 
@@ -14230,7 +14309,7 @@ export type Port = Reader & Writer
 ### `kernel.store.Codec`
 
 ```luau
-export type Codec<T> = { read copy: (unknown) -> (T?, string?), read equal: (T, T) -> boolean }
+export type Codec<T> = Codec.Record<T>
 ```
 
 ### `kernel.store.API`
@@ -14538,10 +14617,6 @@ yields = function Camera.yields(cameraIsCustom: boolean, scriptedStateActive: bo
 
 ```luau
 local CoreTypes = require("../core/inventory/cargo")
-```
-
-```luau
-local EqualData = require("../core/internal/equal-data")
 ```
 
 ```luau
@@ -16659,10 +16734,6 @@ mount = function MarketService.mount(raw: Dependencies<R>): (Service<R>?, string
 
 ```luau
 local CoreTypes = require("../core/ledger/ledger")
-```
-
-```luau
-local EqualData = require("../core/internal/equal-data")
 ```
 
 ```luau
