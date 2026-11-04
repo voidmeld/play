@@ -46,4 +46,4 @@ This example exercises: refuses foreign guild and formation identities before ap
 
 ## Invariants
 
-Foreign record identity refuses before applying events. Ordered updates preserve readback identity. Duplicate receipts do not settle twice.
+Foreign record identity refuses before applying events. Ordered updates preserve readback identity. Duplicate receipts do not settle twice. Index reservation confirms the caller's complete entry through `same`; a matching identifier with another payload is insufficient, including after a lost write reply.

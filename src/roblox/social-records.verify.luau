@@ -439,6 +439,17 @@ return function(suite: Verify.Harness)
 					assert(transform(nextValue) == nil)
 					return { ok = false, value = nil, reason = "callback_cancelled" }
 				end
+				if mode ~= nil and string.sub(mode, 1, 6) == "index_" then
+					values[key] = { a = { id = "a", owner = 3, payload = "other" } }
+					if mode == "index_retry_conflict" then
+						assert(transform(values[key]) == nil)
+						return { ok = false, value = nil, reason = "callback_cancelled" }
+					end
+					if mode == "index_lost_reply" then
+						return { ok = false, value = nil, reason = "retry_exhausted" }
+					end
+					return { ok = true, value = values[key] }
+				end
 				counters.writes += 1
 				values[key] = nextValue
 				if mode == "commit_then_fail" then
@@ -602,12 +613,16 @@ return function(suite: Verify.Harness)
 		end)
 	end)
 
-	type Slip = { id: string, owner: number }
+	type Slip = { id: string, owner: number, payload: string? }
 
 	local function slipProject(value: unknown): Slip?
 		local raw = Value.raw(value)
 		if raw ~= nil and type(raw.id) == "string" and type(raw.owner) == "number" then
-			return { id = raw.id, owner = raw.owner }
+			return {
+				id = raw.id,
+				owner = raw.owner,
+				payload = if type(raw.payload) == "string" then raw.payload else nil,
+			}
 		end
 		return nil
 	end
@@ -677,8 +692,8 @@ return function(suite: Verify.Harness)
 	end)
 
 	describe("social records bounded index", function()
-		local function indexRig(limit: number)
-			local store, values = storeRig()
+		local function indexRig(limit: number, mode: string?)
+			local store, values = storeRig(mode)
 			local index, reason = Records.index({
 				store = store,
 				keyFor = function(userId: number): string
@@ -692,11 +707,20 @@ return function(suite: Verify.Harness)
 					return slip.owner == userId
 				end,
 				same = function(left: Slip, right: Slip): boolean
-					return left.owner == right.owner
+					return left.owner == right.owner and left.payload == right.payload
 				end,
 				limit = limit,
 			})
 			return assert(index, reason), values
+		end
+
+		for _, mode in { "index_retry_conflict", "index_divergent_readback", "index_lost_reply" } do
+			it("refuses another payload under the same reservation id after " .. mode, function()
+				local index = indexRig(2, mode)
+				local added = index.add(3, { id = "a", owner = 3, payload = "wanted" })
+				expect(added):toBe(false)
+				expect(assert(index.list(3).entries).a.payload):toBe("other")
+			end)
 		end
 
 		it("adds, lists and removes entries for their owner", function()
