@@ -101,7 +101,7 @@ Have: present and reusable. Partial: exists but incomplete or split. Missing: ab
 | Character | stats and attributes with a modifier pipeline (base, gear, effects, derived) | missing |
 | Character | experience and levels, talents, death, respawn and resurrection, rested recovery | partial (levels, talents, respawn, recovery; no death or resurrection) |
 | Combat | ability definitions, costs, cooldowns, global cooldown, cast, channel and interrupt | partial (cast queues and cooldowns) |
-| Combat | targeting and area shapes, hit and damage/heal resolution, mitigation and crits | missing (target selection UI only) |
+| Combat | targeting and area shapes, hit and damage/heal resolution, mitigation and crits | partial (immutable contact admission/lifetime and custody/spatial fencing; target selection UI; consequence policy remains in adopters) |
 | Combat | auras and status effects, crowd control with diminishing returns | have (effects, control) |
 | Combat | threat and aggro, combat state, contribution and kill credit, PvP flagging | partial (threat and contribution) |
 | NPC and AI | behaviors, leash and reset, spawners and respawn timers, encounters and boss phases | missing (NPC motion only) |

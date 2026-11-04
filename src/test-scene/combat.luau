@@ -24,8 +24,8 @@ local function copyPayload(raw: unknown): (Payload?, string?)
 	return { impact = fields.impact, tags = tags }, nil
 end
 local function new()
-	local rules: Contact.API<Payload> =
-		Combat.contact.configure({ copyPayload = copyPayload, epsilon = 1e-6, idLimit = 128 })
+	local config: Contact.Config<Payload> = { copyPayload = copyPayload, epsilon = 1e-6, idLimit = 128 }
+	local rules: Contact.API<Payload> = Combat.contact.configure(config)
 	local function admission()
 		local source: Identity = { id = "sender", characterId = "body-a", epoch = 1 }
 		local target: Identity = { id = "recipient", characterId = "body-b", epoch = 2, contentId = "creature-a" }

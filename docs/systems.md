@@ -23,6 +23,7 @@ the [architecture](architecture.md).
 | [cast](systems/cast.md) | Queue a cast near its cooldown deadline and reject stale wakeups. |
 | [character](systems/character.md) | Coordinate death observations, recovery timers and cancellable body replacement. |
 | [chat](systems/chat.md) | Project channel audiences, parse commands and budget senders. |
+| [combat](systems/combat.md) | Admit immutable attacks and coordinate fenced anticipation, contact and recovery. |
 | [control](systems/control.md) | Apply diminishing control durations with fixed reset deadlines. |
 | [craft](systems/craft.md) | Validate and project recipe definitions into immutable material requirements. |
 | [effects](systems/effects.md) | Advance timed effects, stacks, periodic deadlines and dispels. |
