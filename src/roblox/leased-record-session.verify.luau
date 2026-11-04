@@ -164,12 +164,15 @@ return function(suite: Verify.Harness)
 			expect(replay.session.leaseExpiresAt):toBe(first.lease.expiresAt)
 			local reads = 0
 			local read = deps.store.read
-			deps.store.read = function(key)
-				if key == "sector:subject" then
-					reads += 1
-				end
-				return read(key)
-			end
+			deps.store = {
+				update = deps.store.update,
+				read = function(key)
+					if key == "sector:subject" then
+						reads += 1
+					end
+					return read(key)
+				end,
+			}
 			expect(host.acquireAndHydrate(deps, "sector", "subject", "session", "other").reason):toBe("lease_held")
 			expect(reads):toBe(0)
 			expect(assert(leases.copy(values["lease:subject"])).revision):toBe(first.lease.revision)
@@ -178,15 +181,17 @@ return function(suite: Verify.Harness)
 			local deps, values = rig()
 			local update = deps.store.update
 			local calls = 0
-			deps.store.update = function(key, transform)
-				calls += 1
-				return if calls == 2 then { ok = false, reason = "release_offline" } else update(key, transform)
-			end
-			deps.store.read = function(key)
-				return if key == "lease:subject"
-					then { ok = true, value = values[key] }
-					else { ok = false, reason = "hydrate_offline" }
-			end
+			deps.store = {
+				update = function(key, transform)
+					calls += 1
+					return if calls == 2 then { ok = false, reason = "release_offline" } else update(key, transform)
+				end,
+				read = function(key)
+					return if key == "lease:subject"
+						then { ok = true, value = values[key] }
+						else { ok = false, reason = "hydrate_offline" }
+				end,
+			}
 			local opened = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
 			expect(opened.reason):toBe("hydrate_offline")
 			expect(opened.releaseReason):toBe("release_offline")
@@ -196,13 +201,16 @@ return function(suite: Verify.Harness)
 		it("rechecks the clock after hydration and releases an expired admission", function()
 			local deps, values, control = rig()
 			local read = deps.store.read
-			deps.store.read = function(key)
-				local result = read(key)
-				if key == "sector:subject" then
-					control.now = 20
-				end
-				return result
-			end
+			deps.store = {
+				update = deps.store.update,
+				read = function(key)
+					local result = read(key)
+					if key == "sector:subject" then
+						control.now = 20
+					end
+					return result
+				end,
+			}
 			local opened = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
 			expect(opened.reason):toBe("lease_expired")
 			expect(opened.session):toBe(nil)
@@ -230,16 +238,19 @@ return function(suite: Verify.Harness)
 				assert(opened.ok)
 				control.now = 1
 				local update = deps.store.update
-				deps.store.update = function(key, transform)
-					if key ~= "sector:subject" then
-						return update(key, transform)
-					end
-					expect(transform(values[key]) ~= nil):toBe(true)
-					if reason == "offline" then
-						assert(session.dirty(opened.session, 1, "payload").ok)
-					end
-					return { ok = false, reason = reason, detail = "private stored body" }
-				end
+				deps.store = {
+					read = deps.store.read,
+					update = function(key, transform)
+						if key ~= "sector:subject" then
+							return update(key, transform)
+						end
+						expect(transform(values[key]) ~= nil):toBe(true)
+						if reason == "offline" then
+							assert(session.dirty(opened.session, 1, "payload").ok)
+						end
+						return { ok = false, reason = reason, detail = "private stored body" }
+					end,
+				}
 				local saved = host.savePayload(deps, opened.session, opened.lease, opened.zoneSnapshot, 9)
 				expect(saved.reason):toBe(if reason == "callback_cancelled" then "readback_conflict" else "offline")
 				assert(saved.lease)

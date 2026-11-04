@@ -18,7 +18,7 @@ return function(suite: Verify.Harness)
 			local opened = assert(session.openAcquired(10, 49.5))
 			expect(opened.leaseExpiresAt):toBe(49.5)
 			expect(opened.dirty):toBe(false)
-			for _, pair in { { math.huge, 70 }, { 0, 0 / 0 }, { 10, 10 }, { 11, 10 } } do
+			for _, pair in { { math.huge, 70 }, { 0, math.nan }, { 10, 10 }, { 11, 10 } } do
 				local state, reason = session.openAcquired(pair[1], pair[2])
 				expect(state):toBe(nil)
 				expect(reason):toBe(
