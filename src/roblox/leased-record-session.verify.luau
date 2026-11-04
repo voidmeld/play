@@ -103,13 +103,13 @@ local function rig()
 	local values: { [string]: unknown } = {}
 	local control = { now = 0, failure = "", delay = "", delaySeconds = 0, retry = false, readback = false, writes = 0 }
 	local store: Records.Store = {
-		get = function(key: string): Records.StoreOutcome
+		read = function(key: string): Records.StoreOutcome
 			if key == control.failure then
 				return { ok = false, reason = "offline" }
 			end
 			return { ok = true, value = values[key] }
 		end,
-		updateOutcome = function(key: string, transform: (unknown) -> unknown): Records.StoreOutcome
+		update = function(key: string, transform: (unknown) -> unknown): Records.StoreOutcome
 			control.writes += 1
 			if key == control.failure then
 				return { ok = false, reason = "offline" }

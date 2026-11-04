@@ -1,14 +1,15 @@
 --!strict
 
+local Atomic = require("../../kernel/store")
 local CharacterLease = require("./character-lease")
-local StoreHost = require("../persistence/store-host")
+local Result = require("../../kernel/result")
 local Value = require("../../kernel/value")
 
 type Lease = CharacterLease.Record
 
 type CharacterIdentity = { characterId: string }
-export type StoreOutcome = StoreHost.Outcome
-export type Store = { updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+export type StoreOutcome = Result.Result<Atomic.Readback>
+export type Store = Atomic.Writer
 export type Accepted = { ok: true, value: Lease, reason: string?, takeoverPrior: Lease? }
 export type Refused = { ok: false, value: nil, reason: string, takeoverPrior: Lease? }
 export type Outcome = Accepted | Refused
@@ -114,7 +115,7 @@ local function create(config: Config): API
 		local satisfied: Lease? = nil
 		local invalid: string? = nil
 		local takeoverPrior: Lease? = nil
-		local result = store.updateOutcome(keyForCharacter(characterId), function(current)
+		local result = store.update(keyForCharacter(characterId), function(current)
 			satisfied = nil
 			invalid = nil
 			takeoverPrior = nil
@@ -215,7 +216,7 @@ local function create(config: Config): API
 		end
 		local missing = false
 		local invalid: string? = nil
-		local result = store.updateOutcome(keyForCharacter(characterId), function(current)
+		local result = store.update(keyForCharacter(characterId), function(current)
 			missing = false
 			invalid = nil
 			if current == nil then
@@ -307,7 +308,7 @@ local function create(config: Config): API
 		end
 		local missing = false
 		local invalid: string? = nil
-		local result = store.updateOutcome(keyForCharacter(characterId), function(current)
+		local result = store.update(keyForCharacter(characterId), function(current)
 			missing = false
 			invalid = nil
 			if current == nil then
@@ -389,7 +390,7 @@ local function create(config: Config): API
 		end
 		local satisfied: Lease? = nil
 		local rejected: string? = nil
-		local result = store.updateOutcome(keyForCharacter(witness.characterId), function(current)
+		local result = store.update(keyForCharacter(witness.characterId), function(current)
 			satisfied = nil
 			rejected = nil
 			local nextRecord, status = apply(current, witness)

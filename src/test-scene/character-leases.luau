@@ -3,49 +3,14 @@
 local Clock = require("./clock")
 local Lease = require("../core/identity/character-lease")
 local Leases = require("../core/identity/character-lease-store")
-local Retry = require("../roblox/data-store")
-local StoreHost = require("../core/persistence/store-host")
+local StoreScene = require("./persistence/store")
 
 export type Config = Lease.Config
-export type Options = StoreHost.TestOptions
+export type Options = StoreScene.Options
 
 local function new(config: Config, options: Options?)
 	local clock = Clock.new()
-	local retry = Retry.retryPolicy({ attempts = 1, baseDelay = 0, maxDelay = 0 })
-	local host = StoreHost.create({
-		clock = clock.clock,
-		maxKeyBytes = 256,
-		maxAttempts = 1,
-		backoff = retry.delay,
-		retry = retry.run,
-		warning = function() end,
-	})
-	local values: { [string]: unknown } = {}
-	local writes = 0
-	local store = host.memory(
-		{
-			name = "character-leases",
-			get = function(key)
-				return values[key]
-			end,
-			set = function(key, value)
-				values[key] = value
-				writes += 1
-			end,
-			update = function(key, transform)
-				local nextValue = transform(values[key])
-				if nextValue ~= nil then
-					values[key] = nextValue
-					writes += 1
-				end
-				return nextValue
-			end,
-		},
-		options,
-		function()
-			return nil
-		end
-	)
+	local storage = StoreScene.new(clock.clock, options)
 	local record = Lease.create(config)
 	local repository = Leases.create({
 		record = record,
@@ -55,11 +20,10 @@ local function new(config: Config, options: Options?)
 	return {
 		record = record,
 		repository = repository,
-		store = store,
+		store = storage.store,
+		seed = storage.seed,
 		clock = clock,
-		writes = function(): number
-			return writes
-		end,
+		writes = storage.writes,
 	}
 end
 

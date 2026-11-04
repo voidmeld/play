@@ -1614,11 +1614,15 @@ empty = function Aggregate.empty(userId: unknown): State?
 [Source](../src/core/identity/character-lease-store.luau)
 
 ```luau
+local Atomic = require("../../kernel/store")
+```
+
+```luau
 local CharacterLease = require("./character-lease")
 ```
 
 ```luau
-local StoreHost = require("../persistence/store-host")
+local Result = require("../../kernel/result")
 ```
 
 ```luau
@@ -1628,13 +1632,13 @@ local Value = require("../../kernel/value")
 ### `core.identity.character-lease-store.StoreOutcome`
 
 ```luau
-export type StoreOutcome = StoreHost.Outcome
+export type StoreOutcome = Result.Result<Atomic.Readback>
 ```
 
 ### `core.identity.character-lease-store.Store`
 
 ```luau
-export type Store = { updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+export type Store = Atomic.Writer
 ```
 
 ### `core.identity.character-lease-store.Accepted`
@@ -6353,7 +6357,11 @@ close = function M.close(s: State, now: number): Outcome
 [Source](../src/core/persistence/record-store.luau)
 
 ```luau
-local StoreHost = require("./store-host")
+local Atomic = require("../../kernel/store")
+```
+
+```luau
+local Result = require("../../kernel/result")
 ```
 
 ```luau
@@ -6363,13 +6371,13 @@ local Value = require("../../kernel/value")
 ### `core.persistence.record-store.StoreOutcome`
 
 ```luau
-export type StoreOutcome = StoreHost.Outcome
+export type StoreOutcome = Result.Result<Atomic.Readback>
 ```
 
 ### `core.persistence.record-store.Store`
 
 ```luau
-export type Store = { get: (string) -> StoreOutcome, updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+export type Store = Atomic.Port
 ```
 
 ### `core.persistence.record-store.Accepted`
@@ -14181,6 +14189,68 @@ function reason<T>(result: Result<T>): string?
 function unwrap<T>(result: Result<T>): T
 ```
 
+## `kernel.store`
+
+[Source](../src/kernel/store.luau)
+
+```luau
+local Result = require("./result")
+```
+
+### `kernel.store.Readback`
+
+```luau
+export type Readback = unknown
+```
+
+### `kernel.store.Transform`
+
+```luau
+export type Transform = (unknown) -> unknown
+```
+
+### `kernel.store.Reader`
+
+```luau
+export type Reader = { read read: (string) -> Result.Result<Readback> }
+```
+
+### `kernel.store.Writer`
+
+```luau
+export type Writer = { read update: (string, Transform) -> Result.Result<Readback> }
+```
+
+### `kernel.store.Port`
+
+```luau
+export type Port = Reader & Writer
+```
+
+### `kernel.store.Codec`
+
+```luau
+export type Codec<T> = { read copy: (unknown) -> (T?, string?), read equal: (T, T) -> boolean }
+```
+
+### `kernel.store.API`
+
+```luau
+export type API = { read compareAndSwap: typeof(compareAndSwap), read committed: typeof(committed) }
+```
+
+### `kernel.store.committed`
+
+```luau
+function committed<T>(readback: Readback, expected: T, codec: Codec<T>): Result.Result<T>
+```
+
+### `kernel.store.compareAndSwap`
+
+```luau
+function compareAndSwap<T>(found: boolean, expected: T, desired: T, codec: Codec<T>): Transform
+```
+
 ## `kernel.value`
 
 [Source](../src/kernel/value.luau)
@@ -17107,6 +17177,60 @@ Returned operations and values (declarations; unannotated results are inferred):
 mount = function PartyService.mount(dependencies: Dependencies?): MountResult
 ```
 
+## `roblox.persistence.store`
+
+[Source](../src/roblox/persistence/store.luau)
+
+```luau
+local Host = require("../../core/persistence/store-host")
+```
+
+```luau
+local Result = require("../../kernel/result")
+```
+
+```luau
+local Store = require("../../kernel/store")
+```
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `roblox.persistence.store.Port`
+
+```luau
+export type Port = Store.Port
+```
+
+### `roblox.persistence.store.Backend`
+
+```luau
+export type Backend = {
+	read getUncachedOutcome: (string) -> Host.Outcome,
+	read updateOutcome: (string, Store.Transform) -> Host.Outcome,
+}
+```
+
+### `roblox.persistence.store.API`
+
+```luau
+export type API = { read new: typeof(new) }
+```
+
+### `roblox.persistence.store.new`
+
+```luau
+function new(host: Backend): Port
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+read = function read(key: string): Result.Result<Store.Readback>
+update = function update(key: string, transform: Store.Transform): Result.Result<Store.Readback>
+```
+
 ## `roblox.professions`
 
 [Source](../src/roblox/professions.luau)
@@ -17682,6 +17806,10 @@ function settle(
 [Source](../src/roblox/quest-durability.luau)
 
 ```luau
+local Atomic = require("../kernel/store")
+```
+
+```luau
 local Journal = require("../core/quest/journal")
 ```
 
@@ -17728,7 +17856,7 @@ export type QuestRecord = Journal.Record
 ### `roblox.quest-durability.OutcomeStore`
 
 ```luau
-export type OutcomeStore = LeaseStore.Store & { get: (string) -> LeaseStore.StoreOutcome }
+export type OutcomeStore = Atomic.Port
 ```
 
 ### `roblox.quest-durability.SessionDependencies`
@@ -19683,11 +19811,7 @@ local Leases = require("../core/identity/character-lease-store")
 ```
 
 ```luau
-local Retry = require("../roblox/data-store")
-```
-
-```luau
-local StoreHost = require("../core/persistence/store-host")
+local StoreScene = require("./persistence/store")
 ```
 
 ### `test-scene.character-leases.Config`
@@ -19699,7 +19823,7 @@ export type Config = Lease.Config
 ### `test-scene.character-leases.Options`
 
 ```luau
-export type Options = StoreHost.TestOptions
+export type Options = StoreScene.Options
 ```
 
 ### `test-scene.character-leases.new`
@@ -19713,9 +19837,10 @@ Returned operations and values (declarations; unannotated results are inferred):
 ```luau
 record = record
 repository = repository
-store = store
+store = storage.store
+seed = storage.seed
 clock = clock
-writes = function(): number
+writes = storage.writes
 ```
 
 ## `test-scene.clock`
@@ -19879,6 +20004,66 @@ own = function own(cleanup: () -> ()): () -> ()
 createChild = function(): Sessions.Owner
 dispose = function()
 size = function(): number
+```
+
+## `test-scene.persistence.store`
+
+[Source](../src/test-scene/persistence/store.luau)
+
+```luau
+local Atomic = require("../../roblox/persistence/store")
+```
+
+```luau
+local Host = require("../../core/persistence/store-host")
+```
+
+```luau
+local Kernel = require("../../kernel/store")
+```
+
+```luau
+local Retry = require("../../roblox/data-store")
+```
+
+### `test-scene.persistence.store.Options`
+
+```luau
+export type Options = Host.TestOptions
+```
+
+### `test-scene.persistence.store.Scene`
+
+```luau
+export type Scene = {
+	read store: Kernel.Port,
+	read seed: (string, unknown) -> (),
+	read writes: () -> number,
+	read updates: () -> number,
+	read values: { [string]: unknown },
+}
+```
+
+### `test-scene.persistence.store.API`
+
+```luau
+export type API = { read new: typeof(new) }
+```
+
+### `test-scene.persistence.store.new`
+
+```luau
+function new(clock: () -> number, options: Options?, initial: { [string]: unknown }?): Scene
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+store = Atomic.new(backend)
+seed = function(key: string, value: unknown)
+writes = function(): number
+updates = function(): number
+values = values
 ```
 
 ## `test-scene.signal`

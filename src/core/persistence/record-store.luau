@@ -1,10 +1,11 @@
 --!strict
 
-local StoreHost = require("./store-host")
+local Atomic = require("../../kernel/store")
+local Result = require("../../kernel/result")
 local Value = require("../../kernel/value")
 
-export type StoreOutcome = StoreHost.Outcome
-export type Store = { get: (string) -> StoreOutcome, updateOutcome: (string, (unknown) -> unknown) -> StoreOutcome }
+export type StoreOutcome = Result.Result<Atomic.Readback>
+export type Store = Atomic.Port
 export type Accepted<R> = { ok: true, value: R, reason: string?, found: boolean? }
 export type Refused = { ok: false, value: nil, reason: string?, found: boolean? }
 export type Outcome<R> = Accepted<R> | Refused
@@ -25,13 +26,14 @@ export type API<R> = {
 local function configure<R>(config: Config<R>): API<R>
 	config = table.freeze(table.clone(config))
 	assert(Value.whole(config.maxRevision, 1, 9007199254740991) ~= nil, "invalid record revision limit")
+	local codec: Atomic.Codec<R> = table.freeze({ copy = config.copy, equal = config.equal })
 	local function read(
 		store: Store,
 		keyFor: (string, string) -> string,
 		partitionId: string,
 		subjectId: string
 	): Outcome<R>
-		local got = store.get(keyFor(partitionId, subjectId))
+		local got = store.read(keyFor(partitionId, subjectId))
 		if not got.ok then
 			return { ok = false, value = nil, reason = got.reason or "read_failed" }
 		end
@@ -85,19 +87,10 @@ local function configure<R>(config: Config<R>): API<R>
 			return { ok = false, value = nil, reason = "expected_mismatch" }
 		end
 		local nextValue = config.withRevision(wanted, view.revision + 1)
-		local result = store.updateOutcome(keyFor(view.partitionId, view.subjectId), function(current)
-			if not state.found then
-				if current ~= nil then
-					return nil
-				end
-			else
-				local prior = config.copy(current)
-				if prior == nil or not config.equal(prior, base) then
-					return nil
-				end
-			end
-			return (config.copy(nextValue))
-		end)
+		local result = store.update(
+			keyFor(view.partitionId, view.subjectId),
+			Atomic.compareAndSwap(state.found, base, nextValue, codec)
+		)
 		if not result.ok then
 			return {
 				ok = false,
@@ -107,11 +100,11 @@ local function configure<R>(config: Config<R>): API<R>
 					else result.reason,
 			}
 		end
-		local value = config.copy(result.value)
-		if value == nil or not config.equal(value, nextValue) then
+		local committed = Atomic.committed(result.value, nextValue, codec)
+		if not committed.ok then
 			return { ok = false, value = nil, reason = "readback_conflict" }
 		end
-		return { ok = true, value = value }
+		return { ok = true, value = committed.value }
 	end
 	return table.freeze({ read = read, update = update })
 end
