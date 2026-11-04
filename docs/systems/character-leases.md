@@ -35,6 +35,8 @@ Supply the [atomic store port](../kernel/store.md) and a character-key builder. 
 uncached reads and atomic updates. A canceled callback that observes an apparent replay still
 requires an uncached read matching the complete expected record. Transport failures retain their
 actual reason; an earlier callback observation never substitutes for durable readback.
+Restoring an absent key confirms uncached absence and returns the unowned empty record without
+a write. Acquisition, retirement and arrival require complete-record receipts.
 
 Pass authoritative timestamps, TTL and session-liveness observations. Optional live-session callbacks
 control early takeover and retention of a lapsed lease. Without an early-liveness callback, an

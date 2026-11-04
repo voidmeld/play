@@ -74,6 +74,39 @@ return function(suite: Verify.Harness)
 
 	describe("character lease custody", function()
 		local record = Lease.create(config())
+		it("confirms absent restoration without a write and preserves read refusals", function()
+			local scene = Scene.new(config())
+			local restored = scene.repository.restore(scene.store, keyFor, witness(1))
+			assert(restored.ok)
+			expect(restored.value.retirement):toBe(false)
+			expect(restored.value.sessionId):toBeNil()
+			expect(scene.writes()):toBe(0)
+			expect(Result.unwrap(scene.store.read(keyFor("character")))):toBeNil()
+			local refused = scene.repository.restore({
+				read = function()
+					return Result.fail("read_unavailable")
+				end,
+				update = scene.store.update,
+			}, keyFor, witness(1))
+			expect(refused.ok):toBe(false)
+			expect(refused.reason):toBe("read_unavailable")
+			expect(scene.writes()):toBe(0)
+		end)
+		it("refuses absent restoration when the uncached read finds a concurrent retirement", function()
+			local scene = Scene.new(config())
+			local foreign = assert((scene.record.retire(nil, witness(2, "other"))))
+			local restored = scene.repository.restore({
+				read = function(key)
+					scene.seed(key, foreign)
+					return scene.store.read(key)
+				end,
+				update = scene.store.update,
+			}, keyFor, witness(1))
+			expect(restored.ok):toBe(false)
+			expect(restored.reason):toBe("readback_mismatch")
+			expect(scene.writes()):toBe(1)
+			expect(Result.unwrap(scene.store.read(keyFor("character")))):toEqual(foreign)
+		end)
 		it("refuses acquisition when a canceled retry has no durable lease", function()
 			local scene = Scene.new(config(), { rerun = true })
 			local acquired =

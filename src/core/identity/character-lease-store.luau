@@ -78,10 +78,13 @@ local function create(config: Config): API
 	local function failed(reason: string): Refused
 		return { ok = false, value = nil, reason = reason }
 	end
-	local function confirm(store: Store, key: string, expected: Lease): Outcome
+	local function confirm(store: Store, key: string, expected: Lease, absent: boolean?): Outcome
 		local read = store.read(key)
 		if not read.ok then
 			return failed(read.reason)
+		end
+		if absent and read.value == nil then
+			return { ok = true, value = expected }
 		end
 		local value = Record.copy(read.value)
 		if value == nil or not Record.equal(value, expected) then
@@ -394,17 +397,20 @@ local function create(config: Config): API
 		validate: (unknown) -> ((W & CharacterIdentity)?, string?),
 		apply: (unknown, W & CharacterIdentity) -> (Lease?, string),
 		settled: (Lease, W & CharacterIdentity) -> boolean,
-		conflict: string
+		conflict: string,
+		allowAbsent: boolean?
 	): Outcome
 		local witness, witnessReason = validate(rawWitness)
 		if witness == nil then
 			return failed(witnessReason or "witness_invalid")
 		end
 		local satisfied: Lease? = nil
+		local satisfiedAbsent = false
 		local rejected: string? = nil
 		local key = keyForCharacter(witness.characterId)
 		local result = store.update(key, function(current)
 			satisfied = nil
+			satisfiedAbsent = false
 			rejected = nil
 			local nextRecord, status = apply(current, witness)
 			if nextRecord == nil then
@@ -413,6 +419,7 @@ local function create(config: Config): API
 			end
 			if status == "replayed" then
 				satisfied = nextRecord
+				satisfiedAbsent = allowAbsent == true and current == nil
 				return nil
 			end
 			return nextRecord
@@ -425,7 +432,7 @@ local function create(config: Config): API
 				return failed(rejected)
 			end
 			if satisfied ~= nil then
-				return confirm(store, key, satisfied)
+				return confirm(store, key, satisfied, satisfiedAbsent)
 			end
 			return failed("store_failure")
 		end
@@ -466,7 +473,7 @@ local function create(config: Config): API
 	function Repository.restore(store: Store, keyForCharacter: (string) -> string, rawWitness: unknown): Outcome
 		return transition(store, keyForCharacter, rawWitness, Record.witness, Record.restore, function(readback)
 			return readback.retirement == false
-		end, "retirement_conflict")
+		end, "retirement_conflict", true)
 	end
 
 	function Repository.arrive(store: Store, keyForCharacter: (string) -> string, rawClaim: unknown): Outcome
