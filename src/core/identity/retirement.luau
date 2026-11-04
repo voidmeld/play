@@ -64,46 +64,13 @@ local function create(config: Config): API
 	end
 
 	local function exact(raw: unknown, fields: { [string]: boolean }): Shape.Raw?
-		if type(raw) ~= "table" or getmetatable(raw) ~= nil then
-			return nil
-		end
-		local row = Shape.raw(raw)
-		if row == nil then
-			return nil
-		end
-		for key in row do
-			if type(key) ~= "string" or fields[key] ~= true then
-				return nil
-			end
-		end
-		for key in fields do
-			if row[key] == nil then
-				return nil
-			end
-		end
-		return row
+		return Value.record(raw, fields, true)
 	end
 
-	local function text(value: unknown, maximum: number): string?
-		if type(value) == "string" and #value > 0 and #value <= maximum then
-			return value
-		end
-		return nil
-	end
+	local text = Value.opaque
 
 	local function fence(value: unknown): number?
-		if
-			type(value) == "number"
-			and value == value
-			and value ~= math.huge
-			and value ~= -math.huge
-			and value % 1 == 0
-			and value >= 1
-			and value <= Plan.MAX_FENCE
-		then
-			return value
-		end
-		return nil
+		return Value.whole(value, 1, Plan.MAX_FENCE)
 	end
 
 	local function decision(action: string, reason: string): Decision

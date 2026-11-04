@@ -1,7 +1,6 @@
 --!strict
 
 local Codec = require("../../kernel/codec")
-local Shape = require("../internal/shape")
 local Value = require("../../kernel/value")
 
 export type Record = CharacterLeaseRecord
@@ -148,32 +147,12 @@ local function create(config: Config): API
 		atUnix = true,
 	}
 
-	local function exact(value: unknown, fields: { [string]: boolean }): Shape.Raw?
-		local raw = Shape.raw(value)
-		if raw == nil then
-			return nil
-		end
-		for key in raw do
-			if type(key) ~= "string" or fields[key] ~= true then
-				return nil
-			end
-		end
-		return raw
+	local function exact(value: unknown, fields: { [string]: boolean }): Value.Raw?
+		return Value.record(value, fields, false, false)
 	end
 
 	local function whole(value: unknown, maximum: number): number?
-		if
-			type(value) == "number"
-			and value == value
-			and value ~= math.huge
-			and value ~= -math.huge
-			and value >= 0
-			and value <= maximum
-			and value % 1 == 0
-		then
-			return value
-		end
-		return nil
+		return Value.whole(value, 0, maximum)
 	end
 
 	local function positiveFence(value: unknown): number?
@@ -185,25 +164,15 @@ local function create(config: Config): API
 	end
 
 	local function finiteTime(value: unknown): number?
-		if
-			type(value) == "number"
-			and value == value
-			and value ~= math.huge
-			and value ~= -math.huge
-			and value >= 0
-			and value <= Record.MAX_TIME
-		then
-			return value
-		end
-		return nil
+		return if type(value) == "number"
+				and Value.finite(value)
+				and value >= 0
+				and value <= Record.MAX_TIME
+			then value
+			else nil
 	end
 
-	local function text(value: unknown, maximum: number): string?
-		if type(value) == "string" and #value > 0 and #value <= maximum then
-			return value
-		end
-		return nil
-	end
+	local text = Value.opaque
 
 	local function copyRetirement(raw: unknown): Retirement?
 		local source = exact(raw, RETIREMENT_FIELDS)
