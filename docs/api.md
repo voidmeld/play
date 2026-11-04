@@ -17199,6 +17199,15 @@ local Store = require("../../kernel/store")
 export type Port = Store.Port
 ```
 
+### `roblox.persistence.store.Backend`
+
+```luau
+export type Backend = {
+	read getUncachedOutcome: (string) -> Host.Outcome,
+	read updateOutcome: (string, Store.Transform) -> Host.Outcome,
+}
+```
+
 ### `roblox.persistence.store.API`
 
 ```luau
@@ -17208,7 +17217,7 @@ export type API = { read new: typeof(new) }
 ### `roblox.persistence.store.new`
 
 ```luau
-function new(host: Host.Store): Port
+function new(host: Backend): Port
 ```
 
 Returned operations and values (declarations; unannotated results are inferred):

@@ -5,8 +5,12 @@ local Result = require("../../kernel/result")
 local Store = require("../../kernel/store")
 
 export type Port = Store.Port
+export type Backend = {
+	read getUncachedOutcome: (string) -> Host.Outcome,
+	read updateOutcome: (string, Store.Transform) -> Host.Outcome,
+}
 
-local function new(host: Host.Store): Port
+local function new(host: Backend): Port
 	local function read(key: string): Result.Result<Store.Readback>
 		local outcome = host.getUncachedOutcome(key)
 		return if outcome.ok then Result.ok(outcome.value) else Result.fail(outcome.reason or "read_failed")
