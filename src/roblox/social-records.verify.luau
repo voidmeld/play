@@ -276,16 +276,16 @@ return function(suite: Verify.Harness)
 				it("refuses tentative " .. operation .. " authority with " .. readback .. " readback", function()
 					local cached: unknown = nil
 					local actual: unknown = nil
-					local store: Records.Store & Records.UncachedStore = {
+					local store: Records.Store & { getOutcome: (string) -> Records.Outcome } = {
 						getOutcome = function(_key: string): Records.Outcome
 							return { ok = true, value = cached }
 						end,
-						getUncachedOutcome = function(_key: string): Records.Outcome
+						read = function(_key: string): Records.Outcome
 							return if readback == "unavailable"
 								then { ok = false, value = nil, reason = "read_unavailable" }
 								else { ok = true, value = actual }
 						end,
-						updateOutcome = function(_key: string, transform: (unknown) -> unknown): Records.Outcome
+						update = function(_key: string, transform: (unknown) -> unknown): Records.Outcome
 							local proposed = transform(nil)
 							assert(proposed ~= nil)
 							cached = proposed
@@ -367,18 +367,19 @@ return function(suite: Verify.Harness)
 		end)
 	end)
 
-	type Counter = { n: number }
+	type Counter = { n: number, lastId: string? }
 	type Command = { kind: string, id: string }
 
 	local function counterCore(): Records.LedgerCore<string, Counter, string>
-		local applied: { [string]: boolean } = {}
 		return {
 			empty = function(_subject: string): Counter
 				return { n = 0 }
 			end,
 			project = function(value: unknown): Counter?
 				local raw = Value.raw(value)
-				return if raw ~= nil and type(raw.n) == "number" then { n = raw.n } else nil
+				return if raw ~= nil and type(raw.n) == "number"
+					then { n = raw.n, lastId = if type(raw.lastId) == "string" then raw.lastId else nil }
+					else nil
 			end,
 			apply = function(state: Counter, command: unknown, _nowSec: number): Records.LedgerOutcome<Counter, string>
 				local fields = Value.raw(command)
@@ -403,12 +404,12 @@ return function(suite: Verify.Harness)
 						fence = nil,
 					}
 				end
-				if applied[id] then
+				if state.lastId == id then
 					return { ok = true, state = state, replayed = true, reason = nil, receipts = nil, fence = "f" }
 				end
 				return {
 					ok = true,
-					state = { n = state.n + 1 },
+					state = { n = state.n + 1, lastId = id },
 					replayed = false,
 					reason = nil,
 					receipts = { id },
@@ -423,18 +424,19 @@ return function(suite: Verify.Harness)
 		local values: { [string]: unknown } = {}
 		local counters = { writes = 0 }
 		local store = {
-			getOutcome = function(key: string): Records.Outcome
+			read = function(key: string): Records.Outcome
 				return { ok = true, value = values[key], reason = nil }
 			end,
-			getUncachedOutcome = function(key: string): Records.Outcome
-				return { ok = true, value = values[key], reason = nil }
-			end,
-			updateOutcome = function(key: string, transform: (unknown) -> unknown): Records.Outcome
+			update = function(key: string, transform: (unknown) -> unknown): Records.Outcome
 				if mode == "fail_before" then
 					return { ok = false, value = nil, reason = "circuit_open" }
 				end
 				local nextValue = transform(values[key])
 				if nextValue == nil then
+					return { ok = false, value = nil, reason = "callback_cancelled" }
+				end
+				if mode == "speculative_retry" then
+					assert(transform(nextValue) == nil)
 					return { ok = false, value = nil, reason = "callback_cancelled" }
 				end
 				counters.writes += 1
@@ -464,6 +466,15 @@ return function(suite: Verify.Harness)
 	end
 
 	describe("social records settled ledger", function()
+		it("refuses an uncommitted ledger replay from a speculative retry", function()
+			local ledger, values, counters = ledgerRig("speculative_retry")
+			local outcome = ledger.apply("a", { kind = "add", id = "c1" })
+			expect(outcome.ok):toBe(false)
+			expect(outcome.ambiguous):toBe(true)
+			expect(values["ledger/a"]):toBeNil()
+			expect(counters.writes):toBe(0)
+		end)
+
 		it("writes one command and reports a definitive refusal without writing", function()
 			local ledger, _values, counters = ledgerRig()
 			local first = ledger.apply("a", { kind = "add", id = "c1" })
@@ -478,43 +489,15 @@ return function(suite: Verify.Harness)
 		end)
 
 		it("answers a replay with its fence and no receipts and writes nothing", function()
-			local store = storeRig()
-			local core = counterCore()
-			local replaying = {
-				empty = core.empty,
-				project = core.project,
-				apply = function(
-					state: Counter,
-					command: unknown,
-					nowSec: number
-				): Records.LedgerOutcome<Counter, string>
-					local result = core.apply(state, command, nowSec)
-					return {
-						ok = result.ok,
-						state = result.state,
-						replayed = true,
-						reason = nil,
-						receipts = nil,
-						fence = "f",
-					}
-				end,
-				invalid = core.invalid,
-			}
-			local ledger = assert(Records.ledger({
-				store = store,
-				keyFor = function(subject: string): string
-					return subject
-				end,
-				clock = function(): number
-					return 1
-				end,
-				core = replaying,
-			}))
+			local ledger, _values, counters = ledgerRig()
+			expect(ledger.apply("a", { kind = "add", id = "c1" }).ok):toBe(true)
 			local replay = ledger.apply("a", { kind = "add", id = "c1" })
 			expect(replay.ok):toBe(true)
 			expect(replay.replayed):toBe(true)
 			expect(replay.fence):toBe("f")
 			expect(#assert(replay.receipts)):toBe(0)
+			expect(assert(replay.state).n):toBe(1)
+			expect(counters.writes):toBe(1)
 		end)
 
 		it("reports a storage failure as ambiguous whether or not the write landed", function()
@@ -577,6 +560,13 @@ return function(suite: Verify.Harness)
 
 	describe("social records inbox", function()
 		local PHRASE = "need_help"
+
+		it("refuses an uncommitted inbox replay from a speculative retry", function()
+			local inbox, counters = inboxRig("speculative_retry")
+			expect(inbox.deliver(5, "Bryn", 9, PHRASE).ok):toBe(false)
+			expect(#assert(inbox.inbox(9).notes)):toBe(0)
+			expect(counters.writes):toBe(0)
+		end)
 
 		it("delivers to the recipient key only and reads the note back", function()
 			local inbox = inboxRig()

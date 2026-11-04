@@ -2,6 +2,7 @@
 
 local Backend = require("../core/persistence/store-host")
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
+local Codec = require("./codec")
 local Native = require("../roblox/persistence/store")
 local Result = require("./result")
 local Scene = require("../test-scene/persistence/store")
@@ -35,6 +36,25 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("atomic store port", function()
+		it("confirms exact absence and refuses divergent or unavailable replay readback", function()
+			local scene = Scene.new(clock)
+			expect(Store.confirm(scene.store, "record", Result.ok(nil)).ok):toBe(true)
+			local expected = Codec.copyData({ revision = 1, payload = "one" })
+			scene.seed("record", { revision = 1, payload = "two" })
+			expect(Result.reason(Store.confirm(scene.store, "record", expected))):toBe("readback_mismatch")
+			scene.seed("record", { revision = 1, payload = "one" })
+			expect(Store.confirm(scene.store, "record", expected).ok):toBe(true)
+			local unreadable: Store.Reader = {
+				read = function(): Result.Result<unknown>
+					return Result.fail("offline")
+				end,
+			}
+			expect(Result.reason(Store.confirm(unreadable, "record", expected))):toBe("offline")
+			expect(Result.reason(Store.confirm(unreadable, "record", Result.fail("value_invalid")))):toBe(
+				"value_invalid"
+			)
+			expect(scene.writes()):toBe(2)
+		end)
 		it("refuses malformed backend envelopes at both boundaries", function()
 			local function malformed(): Backend.Outcome
 				local outcome: Backend.Outcome = { ok = true, value = "untrusted" }

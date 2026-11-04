@@ -32,6 +32,21 @@ local function committed<T>(readback: Readback, expected: T, codec: Codec<T>): R
 	return Result.ok(value)
 end
 
-export type API = { read compareAndSwap: typeof(compareAndSwap), read committed: typeof(committed) }
-local api: API = { compareAndSwap = compareAndSwap, committed = committed }
+local function confirm(reader: Reader, key: string, expected: Result.Result<unknown>): Result.Result<Readback>
+	if not expected.ok then
+		return expected
+	end
+	local observed = reader.read(key)
+	if not observed.ok then
+		return observed
+	end
+	return if Codec.equalData(observed.value, expected.value) then observed else Result.fail("readback_mismatch")
+end
+
+export type API = {
+	read compareAndSwap: typeof(compareAndSwap),
+	read committed: typeof(committed),
+	read confirm: typeof(confirm),
+}
+local api: API = { compareAndSwap = compareAndSwap, committed = committed, confirm = confirm }
 return table.freeze(api)

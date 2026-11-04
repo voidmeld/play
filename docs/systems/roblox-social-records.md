@@ -14,7 +14,7 @@ Types and configuration are exported from [src/roblox/social-records.luau](../..
 
 | Component | Operations | Exported types |
 | --- | --- | --- |
-| [social-records](../../src/roblox/social-records.luau) | `add`, `apply`, `create`, `deliver`, `getOutcome`, `inbox`, `index`, `keyed`, `ledger`, `list`, `markRead`, `read`, `remove`, `updateOutcome` | `Outcome`, `Store`, `FellowshipPort`, `FormationPort`, `WarbandPort`, `Dependencies`, `Refusal`, `RecordResult`, `Result`, `FormationResult`, `Status`, `ProposerResult`, `Membership`, `MembershipResult`, `WarbandMembership`, `WarbandMembershipResult`, `LedgerOutcome`, `Settled`, `LedgerCore`, `LedgerDependencies`, `Ledger`, `InboxCore`, `InboxDependencies`, `InboxResult`, `Inbox`, `UncachedStore`, `KeyedOutcome`, `KeyedDependencies`, `Keyed`, `IndexDependencies`, `IndexListing`, `Index`, `Service` |
+| [social-records](../../src/roblox/social-records.luau) | `add`, `apply`, `create`, `deliver`, `getOutcome`, `inbox`, `index`, `keyed`, `ledger`, `list`, `markRead`, `read`, `remove`, `updateOutcome` | `Outcome`, `Store`, `FellowshipPort`, `FormationPort`, `WarbandPort`, `Dependencies`, `Refusal`, `RecordResult`, `Result`, `FormationResult`, `Status`, `ProposerResult`, `Membership`, `MembershipResult`, `WarbandMembership`, `WarbandMembershipResult`, `LedgerOutcome`, `Settled`, `LedgerCore`, `LedgerDependencies`, `Ledger`, `InboxCore`, `InboxDependencies`, `InboxResult`, `Inbox`, `KeyedOutcome`, `KeyedDependencies`, `Keyed`, `IndexDependencies`, `IndexListing`, `Index`, `Service` |
 
 The linked components declare their factories and operations; see the [API reference](../api.md).
 
@@ -22,10 +22,11 @@ The linked components declare their factories and operations; see the [API refer
 
 Inject compare-and-swap/update/read operations, record projectors, clocks, keys and bounds.
 
-The social service requires `UncachedStore`. Reads must bypass host caches. A cancelled
-update callback can observe a speculative retry value; it does not prove a committed row.
-Membership, formation-pointer and record replays confirm the complete captured row through
-`getUncachedOutcome` before granting authority. Failed or different readback refuses.
+Every constructor consumes the [kernel store port](../kernel/store.md): `read` returns
+uncached data and `update` returns committed data through the shared kernel Result envelope.
+Bind the native budgeted backend with `roblox/persistence/store.new`.
+Membership, formation-pointer, record, ledger and inbox replays use the kernel's complete
+readback confirmation before granting authority. Failed or different readback refuses.
 
 Use the [host-operation contract](../../README.md#host-operation-contract) when installing state,
 handling uncertain writes and releasing resources.
