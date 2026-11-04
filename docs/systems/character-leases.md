@@ -69,4 +69,9 @@ lute run tools/gate.luau --file src/core/identity/character-lease.verify.luau --
 - Replay preserves receipts. Callback retries clear provisional results. Unconfirmed, forged or failed readback does not become success.
 - Saved rows require both receipt slots. Schema, limits and planner phase admission come from caller policy.
 
+The executable character-lease suite owns generic record, receipt and handoff regressions. It rejects
+missing, malformed and foreign receipt fields, fences every holder identity, compares complete records
+and preserves detached replay results. Adopters retain checks for their configured schema, migrations,
+limits and native persistence wiring.
+
 See the [adoption comparison and cutover](../adoption.md) for the current game's removable implementations.
