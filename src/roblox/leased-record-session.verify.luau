@@ -150,6 +150,121 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("leased record sessions", function()
+		it("hydrates absence without writing and replays only the exact live acquisition", function()
+			local deps, values, control = rig()
+			local first = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
+			assert(first.ok)
+			expect(first.session.leaseExpiresAt):toBe(first.lease.expiresAt)
+			expect(control.writes):toBe(1)
+			expect(values["sector:subject"]):toBe(nil)
+			control.now = 1
+			local replay = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
+			assert(replay.ok)
+			expect(replay.lease.revision):toBe(first.lease.revision)
+			expect(replay.session.leaseExpiresAt):toBe(first.lease.expiresAt)
+			local reads = 0
+			local read = deps.store.read
+			deps.store = {
+				update = deps.store.update,
+				read = function(key)
+					if key == "sector:subject" then
+						reads += 1
+					end
+					return read(key)
+				end,
+			}
+			expect(host.acquireAndHydrate(deps, "sector", "subject", "session", "other").reason):toBe("lease_held")
+			expect(reads):toBe(0)
+			expect(assert(leases.copy(values["lease:subject"])).revision):toBe(first.lease.revision)
+		end)
+		it("keeps hydration failure primary when releasing the acquired lease also fails", function()
+			local deps, values = rig()
+			local update = deps.store.update
+			local calls = 0
+			deps.store = {
+				update = function(key: string, transform: (unknown) -> unknown): Records.StoreOutcome
+					calls += 1
+					return if calls == 2 then { ok = false, reason = "release_offline" } else update(key, transform)
+				end,
+				read = function(key: string): Records.StoreOutcome
+					return if key == "lease:subject"
+						then { ok = true, value = values[key] }
+						else { ok = false, reason = "hydrate_offline" }
+				end,
+			}
+			local opened = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
+			expect(opened.reason):toBe("hydrate_offline")
+			expect(opened.releaseReason):toBe("release_offline")
+			expect(opened.session):toBe(nil)
+			expect(assert(leases.copy(values["lease:subject"])).sessionId):toBe("session")
+		end)
+		it("rechecks the clock after hydration and releases an expired admission", function()
+			local deps, values, control = rig()
+			local read = deps.store.read
+			deps.store = {
+				update = deps.store.update,
+				read = function(key)
+					local result = read(key)
+					if key == "sector:subject" then
+						control.now = 20
+					end
+					return result
+				end,
+			}
+			local opened = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
+			expect(opened.reason):toBe("lease_expired")
+			expect(opened.session):toBe(nil)
+			expect(assert(leases.copy(values["lease:subject"])).sessionId):toBe(nil)
+		end)
+		it("never starts a record write after renewal fails", function()
+			local deps, values, control = rig()
+			local opened = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
+			assert(opened.ok)
+			control.failure = "lease:subject"
+			local writes = control.writes
+			local saved = host.savePayload(deps, opened.session, opened.lease, opened.zoneSnapshot, 9)
+			expect(saved.reason):toBe("offline")
+			expect(saved.lease):toBe(nil)
+			expect(control.writes):toBe(writes + 1)
+			expect(values["sector:subject"]):toBe(nil)
+			expect(opened.session.dirty):toBe(true)
+			expect(opened.session.failed):toBe(true)
+			expect(opened.session.inFlightGeneration):toBe(nil)
+		end)
+		it("retains renewed authority and newer dirty work after conflict or ambiguous save", function()
+			for _, reason in { "callback_cancelled", "offline" } do
+				local deps, values, control = rig()
+				local opened = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")
+				assert(opened.ok)
+				control.now = 1
+				local update = deps.store.update
+				deps.store = {
+					read = deps.store.read,
+					update = function(key, transform)
+						if key ~= "sector:subject" then
+							return update(key, transform)
+						end
+						expect(transform(values[key]) ~= nil):toBe(true)
+						if reason == "offline" then
+							assert(session.dirty(opened.session, 1, "payload").ok)
+						end
+						return { ok = false, reason = reason, detail = "private stored body" }
+					end,
+				}
+				local saved = host.savePayload(deps, opened.session, opened.lease, opened.zoneSnapshot, 9)
+				expect(saved.reason):toBe(if reason == "callback_cancelled" then "readback_conflict" else "offline")
+				assert(saved.lease)
+				expect(saved.lease.revision):toBe(2)
+				expect(saved.lease.expiresAt):toBe(21)
+				expect(opened.session.leaseExpiresAt):toBe(21)
+				expect(opened.session.generation):toBe(if reason == "offline" then 2 else 1)
+				expect(opened.session.dirty):toBe(true)
+				expect(opened.session.dirtyDueAt):toBe(1)
+				expect(opened.session.failed):toBe(true)
+				expect(opened.session.inFlightGeneration):toBe(nil)
+				expect(values["sector:subject"]):toBe(nil)
+			end
+		end)
 		it("saves a projected payload without losing opaque fields or mutating the read snapshot", function()
 			local deps, values = rig()
 			local opened = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")

@@ -39,6 +39,10 @@ The [fixture](../../src/roblox/leased-record-session.verify.luau) uses an altern
 numeric payload, four-revision ceiling, schema-seven lease, twenty-unit expiry and fake store/clock.
 It includes final callback retry conflicts, uncertain readbacks, hydration failure, takeover fencing,
 lease-length reply delays at renewal and storage, and game payload refusal.
+It also owns exact acquisition replay, duplicate refusal before hydration, failed release reporting,
+expiry during hydration, renewal refusal before record writes and dirty-generation retention after
+conflicted or ambiguous saves. Adopters retain their actual schema/payload projection, storage adapter,
+partition-family and retirement bindings; these fixtures do not certify native storage durability.
 
 ## Invariants
 

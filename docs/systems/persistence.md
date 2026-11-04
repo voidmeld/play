@@ -51,6 +51,10 @@ This example exercises: preserves changes arriving during a successful save.
 
 Independent keys can progress while each key stays ordered. Save acknowledgments preserve concurrent dirty work. Expiry fences late completions; close respects its budget.
 
+The profile-session suite owns acquisition-time validation, renewal retries, expiry fencing,
+dirty-generation retention and close draining. Adopters test their configured lease, renewal,
+coalescing and shutdown boundaries and their ordinary/immediate dirty-reason vocabulary.
+
 The [leased-record fixture](../../src/roblox/leased-record-session.verify.luau) exercises record-store
 absence, stored revision zero, mismatched snapshots, callback retries, readback uncertainty and a small
 revision ceiling. Run it with `lute run tools/gate.luau --file src/roblox/leased-record-session.verify.luau`.
