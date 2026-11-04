@@ -19067,6 +19067,10 @@ projectionRefusals = function()
 [Source](../src/roblox/social-records.luau)
 
 ```luau
+local Codec = require("../kernel/codec")
+```
+
+```luau
 local Fellowship = require("../core/social/fellowship")
 ```
 
@@ -19076,6 +19080,10 @@ local Formation = require("../core/social/formation")
 
 ```luau
 local Notes = require("../core/social/notes")
+```
+
+```luau
+local ResultEnvelope = require("../kernel/result")
 ```
 
 ```luau
@@ -19136,7 +19144,7 @@ export type WarbandPort = {
 
 ```luau
 export type Dependencies = {
-	store: Store,
+	store: UncachedStore,
 	keyFor: (string) -> string,
 	memberKeyFor: (number) -> string,
 	formationKeyFor: ((string) -> string)?,
@@ -20321,7 +20329,7 @@ export type Counters = { writes: number, clock: number }
 ### `test-scene.social.Options`
 
 ```luau
-export type Options = { requiredFounders: number?, fee: number? }
+export type Options = { requiredFounders: number?, fee: number?, store: Records.UncachedStore? }
 ```
 
 ### `test-scene.social.rig`

@@ -1,8 +1,10 @@
 --!strict
 
+local Codec = require("../kernel/codec")
 local Fellowship = require("../core/social/fellowship")
 local Formation = require("../core/social/formation")
 local Notes = require("../core/social/notes")
+local ResultEnvelope = require("../kernel/result")
 local Value = require("../kernel/value")
 local Warband = require("../core/social/warband")
 
@@ -30,7 +32,7 @@ export type WarbandPort = {
 	transition: (Warband.State, Warband.Event, Warband.Parties, number) -> Warband.Result,
 }
 export type Dependencies = {
-	store: Store,
+	store: UncachedStore,
 	keyFor: (string) -> string,
 	memberKeyFor: (number) -> string,
 	formationKeyFor: ((string) -> string)?,
@@ -262,7 +264,7 @@ local function validDependencies(raw: unknown): boolean
 	end
 	local store = Value.raw(value.store)
 	return store ~= nil
-		and type(store.getOutcome) == "function"
+		and type(store.getUncachedOutcome) == "function"
 		and type(store.updateOutcome) == "function"
 		and type(value.keyFor) == "function"
 		and type(value.memberKeyFor) == "function"
@@ -279,6 +281,18 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local deps = dependencies
 	local clock = deps.clock
 	local store = deps.store
+	local function confirm(key: string, expected: ResultEnvelope.Result<unknown>): Outcome
+		if not expected.ok then
+			return { ok = false, value = nil, reason = expected.reason }
+		end
+		local observed = store.getUncachedOutcome(key)
+		if not observed.ok then
+			return observed
+		end
+		return if Codec.equalData(observed.value, expected.value)
+			then { ok = true, value = observed.value, reason = nil }
+			else { ok = false, value = nil, reason = "readback_mismatch" }
+	end
 	local function formationKey(formationId: string): string
 		return if deps.formationKeyFor ~= nil
 			then deps.formationKeyFor(formationId)
@@ -316,7 +330,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	end
 
 	local function readRecord<S>(kind: Kind<S>, key: string, id: string): RecordResult<S>
-		local outcome = store.getOutcome(key)
+		local outcome = store.getUncachedOutcome(key)
 		if not outcome.ok then
 			return refused(outcome.reason)
 		end
@@ -366,6 +380,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local function applyRecord<S>(kind: Kind<S>, key: string, id: string, event: unknown): RecordResult<S>
 		local refusal: string? = nil
 		local replayedState: S? = nil
+		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
 		local outcome = store.updateOutcome(key, function(current: unknown): unknown
 			refusal = nil
 			replayedState = nil
@@ -381,12 +396,14 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			end
 			if result.replayed then
 				replayedState = result.state
+				expected = Codec.copyData(current)
 				return nil
 			end
 			return result.state
 		end)
 		if replayedState ~= nil then
-			return accepted(replayedState, true)
+			local observed = confirm(key, expected)
+			return if observed.ok then accepted(replayedState, true) else refused(observed.reason)
 		end
 		if not outcome.ok then
 			return refused(refusal or outcome.reason)
@@ -454,7 +471,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	end
 
 	local function readProposerFormation(userId: number): ProposerResult
-		local outcome = store.getOutcome(formationKey("by:" .. tostring(userId)))
+		local outcome = store.getUncachedOutcome(formationKey("by:" .. tostring(userId)))
 		if not outcome.ok then
 			return { ok = false, formationId = nil, reason = outcome.reason or "not_durable" }
 		end
@@ -472,6 +489,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 
 	local function setProposerFormation(userId: number, formationId: string): Status
 		local refusal: string? = nil
+		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
 		local outcome = store.updateOutcome(formationKey("by:" .. tostring(userId)), function(current: unknown): unknown
 			refusal = nil
 			if current ~= nil and current ~= false then
@@ -479,12 +497,14 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 				refusal = if pointer ~= nil and pointer.formationId == formationId
 					then "pointer_exists_same"
 					else "pointer_exists"
+				expected = Codec.copyData(current)
 				return nil
 			end
 			return { formationId = formationId }
 		end)
 		if refusal == "pointer_exists_same" then
-			return { ok = true, reason = nil }
+			local observed = confirm(formationKey("by:" .. tostring(userId)), expected)
+			return { ok = observed.ok, reason = observed.reason }
 		end
 		return { ok = outcome.ok, reason = refusal or outcome.reason }
 	end
@@ -501,7 +521,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	end
 
 	local function readMembership(userId: number): MembershipResult
-		local outcome = store.getOutcome(deps.memberKeyFor(userId))
+		local outcome = store.getUncachedOutcome(deps.memberKeyFor(userId))
 		if not outcome.ok then
 			return { ok = false, membership = nil, reason = outcome.reason or "not_durable" }
 		end
@@ -516,6 +536,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 		local refusal: string? = nil
 		local kept: Membership? = nil
 		local keep = false
+		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
 		local outcome = store.updateOutcome(deps.memberKeyFor(userId), function(current: unknown): unknown
 			refusal = nil
 			keep = false
@@ -533,12 +554,14 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			if nextValue == nil then
 				keep = true
 				kept = membership
+				expected = Codec.copyData(current)
 				return nil
 			end
 			return nextValue
 		end)
 		if keep then
-			return { ok = true, membership = kept, reason = nil }
+			local observed = confirm(deps.memberKeyFor(userId), expected)
+			return { ok = observed.ok, membership = if observed.ok then kept else nil, reason = observed.reason }
 		end
 		if not outcome.ok then
 			return { ok = false, membership = nil, reason = refusal or outcome.reason or "not_durable" }
@@ -586,22 +609,8 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			else deps.keyFor("warband:" .. kind .. ":" .. id)
 	end
 
-	local function warbandRead(key: string): Outcome
-		local observed = false
-		local value: unknown = nil
-		local outcome = store.updateOutcome(key, function(current: unknown): unknown
-			observed = true
-			value = current
-			return nil
-		end)
-		if not observed or (not outcome.ok and outcome.reason ~= "callback_cancelled") then
-			return outcome
-		end
-		return { ok = true, value = value }
-	end
-
 	local function readWarband(id: string): Warband.Result
-		local outcome = warbandRead(warbandKey("record", id))
+		local outcome = store.getUncachedOutcome(warbandKey("record", id))
 		if not outcome.ok then
 			return { ok = false, reason = outcome.reason or "not_durable" }
 		end
@@ -631,7 +640,9 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local function applyWarband(id: string, event: Warband.Event, parties: Warband.Parties): Warband.Result
 		local result: Warband.Result = { ok = false, reason = "not_durable" }
 		local unchanged = false
+		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
 		local outcome = store.updateOutcome(warbandKey("record", id), function(current: unknown): unknown
+			unchanged = false
 			local state = deps.warband.project(current)
 			if state == nil or state.warbandId ~= id then
 				result = { ok = false, reason = "warband_invalid" }
@@ -640,12 +651,14 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			result = deps.warband.transition(state, event, parties, math.max(clock(), state.lastClockSec))
 			unchanged = result.ok and result.state == state
 			if unchanged then
+				expected = Codec.copyData(current)
 				return nil
 			end
 			return if result.ok then result.state else nil
 		end)
 		if unchanged and outcome.reason == "callback_cancelled" then
-			return result
+			local observed = confirm(warbandKey("record", id), expected)
+			return if observed.ok then result else { ok = false, reason = observed.reason }
 		end
 		if not outcome.ok then
 			return { ok = false, reason = if result.ok then outcome.reason or "not_durable" else result.reason }
@@ -654,7 +667,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	end
 
 	local function readWarbandMembership(partyId: string): WarbandMembershipResult
-		local outcome = warbandRead(warbandKey("member", partyId))
+		local outcome = store.getUncachedOutcome(warbandKey("member", partyId))
 		if not outcome.ok then
 			return { ok = false, reason = outcome.reason or "not_durable" }
 		end
@@ -672,6 +685,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 		local refusal: string? = nil
 		local kept: WarbandMembership? = nil
 		local keep = false
+		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
 		local outcome = store.updateOutcome(warbandKey("member", partyId), function(value: unknown): unknown
 			refusal = nil
 			keep = false
@@ -689,6 +703,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 					end
 					keep = true
 					kept = current
+					expected = Codec.copyData(value)
 					return nil
 				end
 				return { partyId = partyId, warbandId = seen.warbandId, revision = revision + 1, pending = true }
@@ -705,7 +720,8 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			}
 		end)
 		if keep then
-			return { ok = true, membership = kept }
+			local observed = confirm(warbandKey("member", partyId), expected)
+			return { ok = observed.ok, membership = if observed.ok then kept else nil, reason = observed.reason }
 		end
 		if not outcome.ok then
 			return { ok = false, reason = refusal or outcome.reason or "not_durable" }

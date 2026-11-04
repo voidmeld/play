@@ -69,7 +69,7 @@ local warbandCore = Warband.warband({
 	maxAssistants = 2,
 })
 
-export type Options = { requiredFounders: number?, fee: number? }
+export type Options = { requiredFounders: number?, fee: number?, store: Records.UncachedStore? }
 
 function Social.rig(
 	readback: ((unknown) -> unknown)?,
@@ -87,20 +87,26 @@ function Social.rig(
 	local values: { [string]: unknown } = {}
 	local counters = { writes = 0, clock = 100 }
 	local service = Records.create({
-		store = {
-			getOutcome = function(key: string): Records.Outcome
-				return { ok = true, value = values[key], reason = nil }
-			end,
-			updateOutcome = function(key: string, transform: (unknown) -> unknown): Records.Outcome
-				local nextValue = transform(values[key])
-				if nextValue == nil then
-					return { ok = false, value = nil, reason = "callback_cancelled" }
-				end
-				counters.writes += 1
-				values[key] = nextValue
-				return { ok = true, value = if readback ~= nil then readback(nextValue) else nextValue, reason = nil }
-			end,
-		},
+		store = if options and options.store
+			then options.store
+			else {
+				getUncachedOutcome = function(key: string): Records.Outcome
+					return { ok = true, value = values[key], reason = nil }
+				end,
+				updateOutcome = function(key: string, transform: (unknown) -> unknown): Records.Outcome
+					local nextValue = transform(values[key])
+					if nextValue == nil then
+						return { ok = false, value = nil, reason = "callback_cancelled" }
+					end
+					counters.writes += 1
+					values[key] = nextValue
+					return {
+						ok = true,
+						value = if readback ~= nil then readback(nextValue) else nextValue,
+						reason = nil,
+					}
+				end,
+			},
 		keyFor = function(fellowshipId: string): string
 			return "fellowship/" .. fellowshipId
 		end,
