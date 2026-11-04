@@ -1,4 +1,6 @@
 --!strict
+
+local Codec = require("../../kernel/codec")
 local Shape = require("../social/shape")
 local freeze = require("../social/shape").freezeDeep
 
@@ -106,30 +108,7 @@ local function create<E>(policy: Policy.Policy, extension: Extension<E>)
 		return true
 	end
 
-	local function sameValue(left: unknown, right: unknown): boolean
-		if type(left) ~= type(right) then
-			return false
-		end
-		if type(left) ~= "table" then
-			return left == right
-		end
-		local leftFields = assert(HasMetatable.raw(left))
-		local rightFields = HasMetatable.raw(right)
-		if rightFields == nil then
-			return false
-		end
-		for key, value in leftFields do
-			if not sameValue(value, rightFields[key]) then
-				return false
-			end
-		end
-		for key in rightFields do
-			if leftFields[key] == nil then
-				return false
-			end
-		end
-		return true
-	end
+	local sameValue = Codec.equalData
 
 	local function dense(raw: unknown): number?
 		if type(raw) ~= "table" or HasMetatable.hasMetatable(raw) then

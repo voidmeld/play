@@ -3,6 +3,7 @@
 local Atomic = require("./character-lease-store")
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Lease = require("./character-lease")
+local Result = require("../../kernel/result")
 local Scene = require("../../test-scene/character-leases")
 local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
@@ -63,12 +64,48 @@ local function keyFor(id: string): string
 	return "lease:" .. id
 end
 
+local function unexpectedRead(): Result.Result<unknown>
+	error("unexpected readback")
+end
+
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("character lease custody", function()
 		local record = Lease.create(config())
+		it("refuses acquisition when a canceled retry has no durable lease", function()
+			local scene = Scene.new(config(), { rerun = true })
+			local acquired =
+				scene.repository.acquire(scene.store, keyFor, "character", "session", "acquisition", 100, 180)
+			expect(acquired.ok):toBe(false)
+			expect(acquired.reason):toBe("readback_mismatch")
+			expect(scene.writes()):toBe(0)
+			expect(Result.unwrap(scene.store.read(keyFor("character")))):toBeNil()
+		end)
+		it("refuses retirement when a canceled retry has not stored the witness", function()
+			local scene = Scene.new(config(), { rerun = true })
+			scene.seed(keyFor("character"), assert((scene.record.create("character"))))
+			local retired = scene.repository.retire(scene.store, keyFor, witness(1))
+			expect(retired.ok):toBe(false)
+			expect(retired.reason):toBe("readback_mismatch")
+			expect(scene.writes()):toBe(1)
+			local stored = assert((scene.record.copy(Result.unwrap(scene.store.read(keyFor("character"))))))
+			expect(stored.retirement):toBe(false)
+		end)
+		it("retains a read refusal when an observed acquisition replay cannot be confirmed", function()
+			local scene = Scene.new(config())
+			scene.seed(keyFor("character"), owned())
+			local acquired = scene.repository.acquire({
+				read = function()
+					return Result.fail("read_unavailable")
+				end,
+				update = scene.store.update,
+			}, keyFor, "character", "session", "acquisition", 100, 180)
+			expect(acquired.ok):toBe(false)
+			expect(acquired.reason):toBe("read_unavailable")
+			expect(scene.writes()):toBe(1)
+		end)
 		it("uses supplied schemas and bounds and returns detached records", function()
 			local source = owned()
 			local copied = assert((record.copy(source)))
@@ -238,6 +275,7 @@ return function(suite: Verify.Harness)
 			local scene = Scene.new(config())
 			local called = 0
 			local store: Atomic.Store = {
+				read = unexpectedRead,
 				update = function(_key: string, _transform: (unknown) -> unknown)
 					called += 1
 					return { ok = true, value = owned(), reason = nil }
@@ -254,6 +292,7 @@ return function(suite: Verify.Harness)
 			local first = assert((record.retire(nil, witness(3))))
 			local foreign = assert((record.retire(nil, witness(4, "other"))))
 			local store: Atomic.Store = {
+				read = unexpectedRead,
 				update = function(_key: string, transform: (unknown) -> unknown)
 					transform(first)
 					local final = transform(foreign)

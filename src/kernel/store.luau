@@ -1,5 +1,6 @@
 --!strict
 
+local Codec = require("./codec")
 local Result = require("./result")
 
 export type Readback = unknown
@@ -7,7 +8,7 @@ export type Transform = (unknown) -> unknown
 export type Reader = { read read: (string) -> Result.Result<Readback> }
 export type Writer = { read update: (string, Transform) -> Result.Result<Readback> }
 export type Port = Reader & Writer
-export type Codec<T> = { read copy: (unknown) -> (T?, string?), read equal: (T, T) -> boolean }
+export type Codec<T> = Codec.Record<T>
 
 local function compareAndSwap<T>(found: boolean, expected: T, desired: T, codec: Codec<T>): Transform
 	return function(current: unknown): unknown

@@ -9,7 +9,7 @@ type Lease = CharacterLease.Record
 
 type CharacterIdentity = { characterId: string }
 export type StoreOutcome = Result.Result<Atomic.Readback>
-export type Store = Atomic.Writer
+export type Store = Atomic.Port
 export type Accepted = { ok: true, value: Lease, reason: string?, takeoverPrior: Lease? }
 export type Refused = { ok: false, value: nil, reason: string, takeoverPrior: Lease? }
 export type Outcome = Accepted | Refused
@@ -78,6 +78,17 @@ local function create(config: Config): API
 	local function failed(reason: string): Refused
 		return { ok = false, value = nil, reason = reason }
 	end
+	local function confirm(store: Store, key: string, expected: Lease): Outcome
+		local read = store.read(key)
+		if not read.ok then
+			return failed(read.reason)
+		end
+		local value = Record.copy(read.value)
+		if value == nil or not Record.equal(value, expected) then
+			return failed("readback_mismatch")
+		end
+		return { ok = true, value = value }
+	end
 
 	function Repository.acquire(
 		store: Store,
@@ -115,7 +126,8 @@ local function create(config: Config): API
 		local satisfied: Lease? = nil
 		local invalid: string? = nil
 		local takeoverPrior: Lease? = nil
-		local result = store.update(keyForCharacter(characterId), function(current)
+		local key = keyForCharacter(characterId)
+		local result = store.update(key, function(current)
 			satisfied = nil
 			invalid = nil
 			takeoverPrior = nil
@@ -161,7 +173,7 @@ local function create(config: Config): API
 				return failed(result.reason or "store_failure")
 			end
 			if satisfied ~= nil then
-				return { ok = true, value = satisfied, reason = nil }
+				return confirm(store, key, satisfied)
 			end
 			return failed(invalid or "store_failure")
 		end
@@ -390,7 +402,8 @@ local function create(config: Config): API
 		end
 		local satisfied: Lease? = nil
 		local rejected: string? = nil
-		local result = store.update(keyForCharacter(witness.characterId), function(current)
+		local key = keyForCharacter(witness.characterId)
+		local result = store.update(key, function(current)
 			satisfied = nil
 			rejected = nil
 			local nextRecord, status = apply(current, witness)
@@ -412,7 +425,7 @@ local function create(config: Config): API
 				return failed(rejected)
 			end
 			if satisfied ~= nil then
-				return { ok = true, value = satisfied, reason = nil }
+				return confirm(store, key, satisfied)
 			end
 			return failed("store_failure")
 		end

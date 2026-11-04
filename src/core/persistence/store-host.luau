@@ -1,4 +1,5 @@
 --!strict
+local Codec = require("../../kernel/codec")
 local Value = require("../../kernel/value")
 export type Outcome = { ok: boolean, value: unknown, reason: string? }
 export type DrainOutcome = { ok: boolean, flushed: number, remaining: number, reason: string? }
@@ -13,7 +14,6 @@ export type Observation = {
 }
 export type Observer = (Observation) -> ()
 export type BudgetKind = "get" | "set" | "update"
-type RawValue = { [unknown]: unknown }
 export type QueuedWrite = { id: string, storeName: string, key: string, nextAttemptAt: number }
 export type Circuit = {
 	success: () -> (),
@@ -144,50 +144,6 @@ function StoreHost.create(config: Config)
 		end
 	end
 
-	local function copyDataStoreValue(
-		value: unknown,
-		copies: RawValue?,
-		active: { [unknown]: boolean }?
-	): (boolean, unknown)
-		local valueType = type(value)
-		if value == nil or valueType == "boolean" or valueType == "string" then
-			return true, value
-		end
-		if type(value) == "number" then
-			return value == value and value > -math.huge and value < math.huge, value
-		end
-		if type(value) ~= "table" or getmetatable(value) ~= nil then
-			return false, nil
-		end
-		local known: RawValue = copies or {}
-		local visiting: { [unknown]: boolean } = active or {}
-		if visiting[value] then
-			return false, nil
-		end
-		if known[value] ~= nil then
-			return true, known[value]
-		end
-		local result: RawValue = {}
-		known[value] = result
-		visiting[value] = true
-		for key, child in value do
-			local keyType = type(key)
-			if
-				(keyType ~= "string" and keyType ~= "number")
-				or (type(key) == "number" and (key ~= key or key <= -math.huge or key >= math.huge))
-			then
-				return false, nil
-			end
-			local ok, childCopy = copyDataStoreValue(child, known, visiting)
-			if not ok then
-				return false, nil
-			end
-			result[key] = childCopy
-		end
-		visiting[value] = nil
-		return true, result
-	end
-
 	local function success(value: unknown): Outcome
 		return { ok = true, value = value, reason = nil }
 	end
@@ -243,32 +199,32 @@ function StoreHost.create(config: Config)
 
 		local function updateOutcome(key: string, transform: (unknown) -> unknown): Outcome
 			boundedKey(key)
-			local currentOk, currentValue = copyDataStoreValue(store.get(key))
-			if not currentOk then
+			local current = Codec.copyData(store.get(key))
+			if not current.ok then
 				return failure("value_invalid")
 			end
-			local transformOk, nextValue = pcall(transform, currentValue)
+			local transformOk, nextValue = pcall(transform, current.value)
 			if not transformOk then
 				return failure("retry_exhausted")
 			end
 			if rerun and nextValue ~= nil then
-				local firstOk, firstValue = copyDataStoreValue(nextValue)
-				if not firstOk then
+				local first = Codec.copyData(nextValue)
+				if not first.ok then
 					return failure("value_invalid")
 				end
-				transformOk, nextValue = pcall(transform, firstValue)
+				transformOk, nextValue = pcall(transform, first.value)
 				if not transformOk then
 					return failure("retry_exhausted")
 				end
 			end
 			local storedValue: unknown = nil
 			if nextValue ~= nil then
-				local nextOk, copy = copyDataStoreValue(nextValue)
-				if not nextOk then
+				local next = Codec.copyData(nextValue)
+				if not next.ok then
 					return failure("value_invalid")
 				end
-				store.set(key, copy)
-				storedValue = copy
+				store.set(key, next.value)
+				storedValue = next.value
 			end
 			local reason = injected()
 			if reason ~= nil then
@@ -277,8 +233,8 @@ function StoreHost.create(config: Config)
 			if storedValue == nil then
 				return failure("callback_cancelled")
 			end
-			local readbackOk, readback = copyDataStoreValue(storedValue)
-			return if readbackOk then success(readback) else failure("value_invalid")
+			local readback = Codec.copyData(storedValue)
+			return if readback.ok then success(readback.value) else failure("value_invalid")
 		end
 
 		local function getOutcome(key: string): Outcome
@@ -288,8 +244,8 @@ function StoreHost.create(config: Config)
 				if reason ~= nil then
 					return failure(reason)
 				end
-				local ok, value = copyDataStoreValue(store.get(key))
-				return if ok then success(value) else failure("value_invalid")
+				local value = Codec.copyData(store.get(key))
+				return if value.ok then success(value.value) else failure("value_invalid")
 			end)
 		end
 		return {

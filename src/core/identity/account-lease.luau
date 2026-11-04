@@ -1,5 +1,6 @@
 --!strict
 
+local Codec = require("../../kernel/codec")
 local Value = require("../../kernel/value")
 
 export type Lease = {
@@ -37,46 +38,52 @@ local function readOwner(value: unknown): (string | false)?
 	return Value.opaque(value, Record.MAX_ID_BYTES)
 end
 
-function Record.validate(raw: unknown): Lease?
-	local source = Value.record(raw, FIELDS, true)
-	if source == nil or source.schemaVersion ~= Record.SCHEMA_VERSION then
-		return nil
-	end
-	local userId = Value.whole(source.userId, 1, Record.MAX_SAFE_INTEGER)
-	local revision = Value.whole(source.revision, 0, Record.MAX_REVISION)
-	local fence = Value.whole(source.fence, 0, Record.MAX_FENCE)
-	local expires = Value.whole(source.expiresAtUnix, 0, Record.MAX_SAFE_INTEGER)
-	if userId == nil or revision == nil or fence == nil or expires == nil then
-		return nil
-	end
-	local session, acquisition = readOwner(source.sessionId), readOwner(source.acquisitionId)
-	if session == nil or acquisition == nil then
-		return nil
-	end
-	if session == false then
-		if acquisition ~= false or expires ~= 0 then
-			return nil
+local copyRecord = Codec.versioned({
+	version = Record.SCHEMA_VERSION,
+	fields = FIELDS,
+	required = true,
+	decode = function(source: Value.Raw): (Lease?, string?)
+		local userId = Value.whole(source.userId, 1, Record.MAX_SAFE_INTEGER)
+		local revision = Value.whole(source.revision, 0, Record.MAX_REVISION)
+		local fence = Value.whole(source.fence, 0, Record.MAX_FENCE)
+		local expires = Value.whole(source.expiresAtUnix, 0, Record.MAX_SAFE_INTEGER)
+		if userId == nil or revision == nil or fence == nil or expires == nil then
+			return nil, "record_invalid"
 		end
-	elseif
-		type(session) ~= "string"
-		or Value.opaque(session, Record.MAX_ID_BYTES) == nil
-		or type(acquisition) ~= "string"
-		or Value.opaque(acquisition, Record.MAX_ID_BYTES) == nil
-		or fence < 1
-		or expires < 1
-	then
-		return nil
-	end
-	local value: Lease = {
-		schemaVersion = Record.SCHEMA_VERSION,
-		userId = userId,
-		revision = revision,
-		fence = fence,
-		sessionId = session,
-		acquisitionId = acquisition,
-		expiresAtUnix = expires,
-	}
-	return Value.freezeDeep(value)
+		local session, acquisition = readOwner(source.sessionId), readOwner(source.acquisitionId)
+		if session == nil or acquisition == nil then
+			return nil, "record_invalid"
+		end
+		if session == false then
+			if acquisition ~= false or expires ~= 0 then
+				return nil, "record_invalid"
+			end
+		elseif
+			type(session) ~= "string"
+			or Value.opaque(session, Record.MAX_ID_BYTES) == nil
+			or type(acquisition) ~= "string"
+			or Value.opaque(acquisition, Record.MAX_ID_BYTES) == nil
+			or fence < 1
+			or expires < 1
+		then
+			return nil, "record_invalid"
+		end
+		local value: Lease = {
+			schemaVersion = Record.SCHEMA_VERSION,
+			userId = userId,
+			revision = revision,
+			fence = fence,
+			sessionId = session,
+			acquisitionId = acquisition,
+			expiresAtUnix = expires,
+		}
+		return Value.freezeDeep(value), nil
+	end,
+})
+
+function Record.validate(raw: unknown): Lease?
+	local value = copyRecord(raw)
+	return value
 end
 
 function Record.empty(userId: unknown): Lease?
@@ -98,14 +105,7 @@ end
 function Record.equal(leftRaw: unknown, rightRaw: unknown): boolean
 	local left = Record.validate(leftRaw)
 	local right = Record.validate(rightRaw)
-	return left ~= nil
-		and right ~= nil
-		and left.userId == right.userId
-		and left.revision == right.revision
-		and left.fence == right.fence
-		and left.sessionId == right.sessionId
-		and left.acquisitionId == right.acquisitionId
-		and left.expiresAtUnix == right.expiresAtUnix
+	return left ~= nil and right ~= nil and Codec.equalData(left, right)
 end
 
 function Record.acquire(

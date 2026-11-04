@@ -9,6 +9,7 @@ operations, host obligations and executable examples. The [generated API](api.md
 
 [Value](kernel/value.md) owns record admission, bounded scalar validation and explicit field copies.
 [Result](kernel/result.md) owns the shared success or refusal envelope used by material ledger responses.
+[Codec](kernel/codec.md) owns versioned record admission and detached stored-data copying/equality.
 [Store](kernel/store.md) owns the atomic port, full-record comparison and committed-readback contract.
 The primitives have no mutable state or host services. Other kernel primitives follow the migration order in
 the [architecture](architecture.md).

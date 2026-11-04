@@ -11,9 +11,8 @@ export type Refused = { ok: false, value: nil, reason: string?, found: boolean? 
 export type Outcome<R> = Accepted<R> | Refused
 export type View = { read partitionId: string, read subjectId: string, read revision: number }
 export type Config<R> = {
-	read copy: (unknown) -> (R?, string?),
+	read codec: Atomic.Codec<R>,
 	read empty: (string, string) -> (R?, string?),
-	read equal: (R, R) -> boolean,
 	read view: (R) -> View,
 	read withRevision: (R, number) -> R,
 	read maxRevision: number,
@@ -26,7 +25,7 @@ export type API<R> = {
 local function configure<R>(config: Config<R>): API<R>
 	config = table.freeze(table.clone(config))
 	assert(Value.whole(config.maxRevision, 1, 9007199254740991) ~= nil, "invalid record revision limit")
-	local codec: Atomic.Codec<R> = table.freeze({ copy = config.copy, equal = config.equal })
+	local codec: Atomic.Codec<R> = table.freeze(table.clone(config.codec))
 	local function read(
 		store: Store,
 		keyFor: (string, string) -> string,
@@ -41,7 +40,7 @@ local function configure<R>(config: Config<R>): API<R>
 		local value: R?
 		local reason: string?
 		if found then
-			value, reason = config.copy(got.value)
+			value, reason = codec.copy(got.value)
 		else
 			value, reason = config.empty(partitionId, subjectId)
 		end
@@ -61,7 +60,7 @@ local function configure<R>(config: Config<R>): API<R>
 		snapshot: unknown,
 		desired: unknown
 	): Outcome<R>
-		local wanted, reason = config.copy(desired)
+		local wanted, reason = codec.copy(desired)
 		if wanted == nil then
 			return { ok = false, value = nil, reason = reason }
 		end
@@ -73,7 +72,7 @@ local function configure<R>(config: Config<R>): API<R>
 		if state == nil or state.ok ~= true or type(state.found) ~= "boolean" then
 			return { ok = false, value = nil, reason = "snapshot_invalid" }
 		end
-		local base = config.copy(state.value)
+		local base = codec.copy(state.value)
 		if base == nil then
 			return { ok = false, value = nil, reason = "snapshot_invalid" }
 		end

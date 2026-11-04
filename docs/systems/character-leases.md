@@ -31,11 +31,10 @@ The projector must leave its input unchanged; its result still passes the full r
 An identity projector deliberately refuses older schemas. Migration rules and their rollout belong to the game.
 Factories snapshot scalar configuration; retirement also copies its phase maps. Phase sets must be disjoint.
 
-Supply an atomic `store.updateOutcome(key, transform)` returning `{ ok, value, reason }` and a
-character-key builder. A nil transform result must cancel with `callback_cancelled`; successful
-updates must return the final committed readback. Transforms may retry. Transport failures must
-retain their actual reason, including when a callback found a replay or proposed a committed value.
-The [store host](persistence.md) implements this port, including a fake memory backend.
+Supply the [atomic store port](../kernel/store.md) and a character-key builder. The port includes
+uncached reads and atomic updates. A canceled callback that observes an apparent replay still
+requires an uncached read matching the complete expected record. Transport failures retain their
+actual reason; an earlier callback observation never substitutes for durable readback.
 
 Pass authoritative timestamps, TTL and session-liveness observations. Optional live-session callbacks
 control early takeover and retention of a lapsed lease. Without an early-liveness callback, an

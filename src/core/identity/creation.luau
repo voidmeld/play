@@ -1,5 +1,7 @@
 --!strict
 
+local Codec = require("../../kernel/codec")
+
 local NameRegistry = require("./name-claims")
 local Policy = require("./policy")
 local Roster = require("./roster")
@@ -560,27 +562,7 @@ local function create(policy: Policy.Policy)
 		return if value == nil then rejected(state, "revision_exhausted") else accepted(value, false)
 	end
 
-	local function equal(left: unknown, right: unknown): boolean
-		if left == right then
-			return true
-		end
-		if type(left) ~= "table" or type(right) ~= "table" then
-			return false
-		end
-		local leftFields = assert(tableFields(left))
-		local rightFields = assert(tableFields(right))
-		for key, value in leftFields do
-			if not equal(value, rightFields[key]) then
-				return false
-			end
-		end
-		for key in rightFields do
-			if leftFields[key] == nil then
-				return false
-			end
-		end
-		return true
-	end
+	local equal = Codec.equalData
 
 	local function observeRoster(raw: unknown, candidate: unknown): Result
 		local event = tableFields(candidate)
