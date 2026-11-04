@@ -5,16 +5,14 @@ local Fellowship = require("../core/social/fellowship")
 local Formation = require("../core/social/formation")
 local Notes = require("../core/social/notes")
 local ResultEnvelope = require("../kernel/result")
+local StorePort = require("../kernel/store")
 local Value = require("../kernel/value")
 local Warband = require("../core/social/warband")
 
 local SocialRecords = {}
 
-export type Outcome = { ok: boolean, value: unknown, reason: string? }
-export type Store = {
-	getOutcome: (key: string) -> Outcome,
-	updateOutcome: (key: string, transform: (unknown) -> unknown) -> Outcome,
-}
+export type Outcome = ResultEnvelope.Result<unknown>
+export type Store = StorePort.Port
 export type FellowshipPort = {
 	create: (unknown, unknown) -> Fellowship.Result,
 	createFromFormation: (unknown, unknown) -> Fellowship.Result,
@@ -32,7 +30,7 @@ export type WarbandPort = {
 	transition: (Warband.State, Warband.Event, Warband.Parties, number) -> Warband.Result,
 }
 export type Dependencies = {
-	store: UncachedStore,
+	store: Store,
 	keyFor: (string) -> string,
 	memberKeyFor: (number) -> string,
 	formationKeyFor: ((string) -> string)?,
@@ -105,13 +103,9 @@ export type Inbox = {
 	read deliver: (number, string, number, string) -> InboxResult,
 	read markRead: (number, string) -> InboxResult,
 }
-export type UncachedStore = {
-	getUncachedOutcome: (key: string) -> Outcome,
-	updateOutcome: (key: string, transform: (unknown) -> unknown) -> Outcome,
-}
 export type KeyedOutcome<Item> = { ok: boolean, value: Item?, reason: string? }
 export type KeyedDependencies<Item> = {
-	store: UncachedStore,
+	store: Store,
 	keyFor: (string) -> string,
 	project: (unknown) -> Item?,
 	wire: (Item) -> unknown?,
@@ -124,7 +118,7 @@ export type Keyed<Item> = {
 	read updateOutcome: (string, (Item?) -> Item?) -> KeyedOutcome<Item>,
 }
 export type IndexDependencies<Entry> = {
-	store: UncachedStore,
+	store: Store,
 	keyFor: (number) -> string,
 	read: (unknown) -> Entry?,
 	idOf: (Entry) -> string,
@@ -264,8 +258,8 @@ local function validDependencies(raw: unknown): boolean
 	end
 	local store = Value.raw(value.store)
 	return store ~= nil
-		and type(store.getUncachedOutcome) == "function"
-		and type(store.updateOutcome) == "function"
+		and type(store.read) == "function"
+		and type(store.update) == "function"
 		and type(value.keyFor) == "function"
 		and type(value.memberKeyFor) == "function"
 		and type(value.clock) == "function"
@@ -281,18 +275,6 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local deps = dependencies
 	local clock = deps.clock
 	local store = deps.store
-	local function confirm(key: string, expected: ResultEnvelope.Result<unknown>): Outcome
-		if not expected.ok then
-			return { ok = false, value = nil, reason = expected.reason }
-		end
-		local observed = store.getUncachedOutcome(key)
-		if not observed.ok then
-			return observed
-		end
-		return if Codec.equalData(observed.value, expected.value)
-			then { ok = true, value = observed.value, reason = nil }
-			else { ok = false, value = nil, reason = "readback_mismatch" }
-	end
 	local function formationKey(formationId: string): string
 		return if deps.formationKeyFor ~= nil
 			then deps.formationKeyFor(formationId)
@@ -330,9 +312,9 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	end
 
 	local function readRecord<S>(kind: Kind<S>, key: string, id: string): RecordResult<S>
-		local outcome = store.getUncachedOutcome(key)
+		local outcome = store.read(key)
 		if not outcome.ok then
-			return refused(outcome.reason)
+			return refused(ResultEnvelope.reason(outcome))
 		end
 		if outcome.value == nil then
 			return refused(kind.absent)
@@ -352,7 +334,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	): RecordResult<S>
 		local refusal: string? = nil
 		local created: S? = nil
-		local outcome = store.updateOutcome(key, function(current: unknown): unknown
+		local outcome = store.update(key, function(current: unknown): unknown
 			refusal = nil
 			created = nil
 			if current ~= nil then
@@ -368,7 +350,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return result.state
 		end)
 		if not outcome.ok or created == nil then
-			return refused(refusal or outcome.reason)
+			return refused(refusal or ResultEnvelope.reason(outcome))
 		end
 		local record = recordState(kind, outcome.value, id)
 		if record == nil then
@@ -381,7 +363,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 		local refusal: string? = nil
 		local replayedState: S? = nil
 		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
-		local outcome = store.updateOutcome(key, function(current: unknown): unknown
+		local outcome = store.update(key, function(current: unknown): unknown
 			refusal = nil
 			replayedState = nil
 			local state = recordState(kind, current, id)
@@ -402,11 +384,11 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return result.state
 		end)
 		if replayedState ~= nil then
-			local observed = confirm(key, expected)
-			return if observed.ok then accepted(replayedState, true) else refused(observed.reason)
+			local observed = StorePort.confirm(store, key, expected)
+			return if observed.ok then accepted(replayedState, true) else refused(ResultEnvelope.reason(observed))
 		end
 		if not outcome.ok then
-			return refused(refusal or outcome.reason)
+			return refused(refusal or ResultEnvelope.reason(outcome))
 		end
 		local state = recordState(kind, outcome.value, id)
 		if state == nil then
@@ -471,9 +453,9 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	end
 
 	local function readProposerFormation(userId: number): ProposerResult
-		local outcome = store.getUncachedOutcome(formationKey("by:" .. tostring(userId)))
+		local outcome = store.read(formationKey("by:" .. tostring(userId)))
 		if not outcome.ok then
-			return { ok = false, formationId = nil, reason = outcome.reason or "not_durable" }
+			return { ok = false, formationId = nil, reason = ResultEnvelope.reason(outcome) or "not_durable" }
 		end
 		local value = outcome.value
 		if value == nil or value == false then
@@ -490,7 +472,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	local function setProposerFormation(userId: number, formationId: string): Status
 		local refusal: string? = nil
 		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
-		local outcome = store.updateOutcome(formationKey("by:" .. tostring(userId)), function(current: unknown): unknown
+		local outcome = store.update(formationKey("by:" .. tostring(userId)), function(current: unknown): unknown
 			refusal = nil
 			if current ~= nil and current ~= false then
 				local pointer = Value.raw(current)
@@ -503,27 +485,27 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return { formationId = formationId }
 		end)
 		if refusal == "pointer_exists_same" then
-			local observed = confirm(formationKey("by:" .. tostring(userId)), expected)
-			return { ok = observed.ok, reason = observed.reason }
+			local observed = StorePort.confirm(store, formationKey("by:" .. tostring(userId)), expected)
+			return { ok = observed.ok, reason = ResultEnvelope.reason(observed) }
 		end
-		return { ok = outcome.ok, reason = refusal or outcome.reason }
+		return { ok = outcome.ok, reason = refusal or ResultEnvelope.reason(outcome) }
 	end
 
 	local function clearProposerFormation(userId: number, formationId: string): Status
-		local outcome = store.updateOutcome(formationKey("by:" .. tostring(userId)), function(current: unknown): unknown
+		local outcome = store.update(formationKey("by:" .. tostring(userId)), function(current: unknown): unknown
 			local pointer = Value.raw(current)
 			if pointer ~= nil and pointer.formationId == formationId then
 				return false
 			end
 			return nil
 		end)
-		return { ok = outcome.ok, reason = outcome.reason }
+		return { ok = outcome.ok, reason = ResultEnvelope.reason(outcome) }
 	end
 
 	local function readMembership(userId: number): MembershipResult
-		local outcome = store.getUncachedOutcome(deps.memberKeyFor(userId))
+		local outcome = store.read(deps.memberKeyFor(userId))
 		if not outcome.ok then
-			return { ok = false, membership = nil, reason = outcome.reason or "not_durable" }
+			return { ok = false, membership = nil, reason = ResultEnvelope.reason(outcome) or "not_durable" }
 		end
 		local valid, membership = projectMembership(outcome.value)
 		if not valid then
@@ -537,7 +519,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 		local kept: Membership? = nil
 		local keep = false
 		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
-		local outcome = store.updateOutcome(deps.memberKeyFor(userId), function(current: unknown): unknown
+		local outcome = store.update(deps.memberKeyFor(userId), function(current: unknown): unknown
 			refusal = nil
 			keep = false
 			kept = nil
@@ -560,11 +542,15 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return nextValue
 		end)
 		if keep then
-			local observed = confirm(deps.memberKeyFor(userId), expected)
-			return { ok = observed.ok, membership = if observed.ok then kept else nil, reason = observed.reason }
+			local observed = StorePort.confirm(store, deps.memberKeyFor(userId), expected)
+			return {
+				ok = observed.ok,
+				membership = if observed.ok then kept else nil,
+				reason = ResultEnvelope.reason(observed),
+			}
 		end
 		if not outcome.ok then
-			return { ok = false, membership = nil, reason = refusal or outcome.reason or "not_durable" }
+			return { ok = false, membership = nil, reason = refusal or ResultEnvelope.reason(outcome) or "not_durable" }
 		end
 		local _, membership = projectMembership(outcome.value)
 		return { ok = true, membership = membership, reason = nil }
@@ -610,9 +596,9 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 	end
 
 	local function readWarband(id: string): Warband.Result
-		local outcome = store.getUncachedOutcome(warbandKey("record", id))
+		local outcome = store.read(warbandKey("record", id))
 		if not outcome.ok then
-			return { ok = false, reason = outcome.reason or "not_durable" }
+			return { ok = false, reason = ResultEnvelope.reason(outcome) or "not_durable" }
 		end
 		local state = deps.warband.project(outcome.value)
 		if state == nil or state.warbandId ~= id then
@@ -623,7 +609,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 
 	local function foundWarband(id: string, partyId: string, party: Warband.Party, revision: number): Warband.Result
 		local result: Warband.Result = { ok = false, reason = "not_durable" }
-		local outcome = store.updateOutcome(warbandKey("record", id), function(current: unknown): unknown
+		local outcome = store.update(warbandKey("record", id), function(current: unknown): unknown
 			if current ~= nil then
 				result = { ok = false, reason = "warband_exists" }
 				return nil
@@ -632,7 +618,10 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			return if result.ok then result.state else nil
 		end)
 		if not outcome.ok then
-			return { ok = false, reason = if result.ok then outcome.reason or "not_durable" else result.reason }
+			return {
+				ok = false,
+				reason = if result.ok then ResultEnvelope.reason(outcome) or "not_durable" else result.reason,
+			}
 		end
 		return readWarband(id)
 	end
@@ -641,7 +630,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 		local result: Warband.Result = { ok = false, reason = "not_durable" }
 		local unchanged = false
 		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
-		local outcome = store.updateOutcome(warbandKey("record", id), function(current: unknown): unknown
+		local outcome = store.update(warbandKey("record", id), function(current: unknown): unknown
 			unchanged = false
 			local state = deps.warband.project(current)
 			if state == nil or state.warbandId ~= id then
@@ -656,20 +645,23 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			end
 			return if result.ok then result.state else nil
 		end)
-		if unchanged and outcome.reason == "callback_cancelled" then
-			local observed = confirm(warbandKey("record", id), expected)
-			return if observed.ok then result else { ok = false, reason = observed.reason }
+		if unchanged and ResultEnvelope.reason(outcome) == "callback_cancelled" then
+			local observed = StorePort.confirm(store, warbandKey("record", id), expected)
+			return if observed.ok then result else { ok = false, reason = ResultEnvelope.reason(observed) }
 		end
 		if not outcome.ok then
-			return { ok = false, reason = if result.ok then outcome.reason or "not_durable" else result.reason }
+			return {
+				ok = false,
+				reason = if result.ok then ResultEnvelope.reason(outcome) or "not_durable" else result.reason,
+			}
 		end
 		return readWarband(id)
 	end
 
 	local function readWarbandMembership(partyId: string): WarbandMembershipResult
-		local outcome = store.getUncachedOutcome(warbandKey("member", partyId))
+		local outcome = store.read(warbandKey("member", partyId))
 		if not outcome.ok then
-			return { ok = false, reason = outcome.reason or "not_durable" }
+			return { ok = false, reason = ResultEnvelope.reason(outcome) or "not_durable" }
 		end
 		local valid, membership = warbandMembership(outcome.value, partyId)
 		return if valid
@@ -686,7 +678,7 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 		local kept: WarbandMembership? = nil
 		local keep = false
 		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
-		local outcome = store.updateOutcome(warbandKey("member", partyId), function(value: unknown): unknown
+		local outcome = store.update(warbandKey("member", partyId), function(value: unknown): unknown
 			refusal = nil
 			keep = false
 			kept = nil
@@ -720,11 +712,15 @@ function SocialRecords.create(dependencies: Dependencies): (Service?, string?)
 			}
 		end)
 		if keep then
-			local observed = confirm(warbandKey("member", partyId), expected)
-			return { ok = observed.ok, membership = if observed.ok then kept else nil, reason = observed.reason }
+			local observed = StorePort.confirm(store, warbandKey("member", partyId), expected)
+			return {
+				ok = observed.ok,
+				membership = if observed.ok then kept else nil,
+				reason = ResultEnvelope.reason(observed),
+			}
 		end
 		if not outcome.ok then
-			return { ok = false, reason = refusal or outcome.reason or "not_durable" }
+			return { ok = false, reason = refusal or ResultEnvelope.reason(outcome) or "not_durable" }
 		end
 		return readWarbandMembership(partyId)
 	end
@@ -782,9 +778,9 @@ local INDEX_FIELDS = {
 	limit = true,
 }
 
-local function validStore(raw: unknown, read: string): boolean
+local function validStore(raw: unknown): boolean
 	local store = Value.raw(raw)
-	return store ~= nil and type(store[read]) == "function" and type(store.updateOutcome) == "function"
+	return store ~= nil and type(store.read) == "function" and type(store.update) == "function"
 end
 
 local function ledgerFailure<State, Receipt>(reason: string?, ambiguous: boolean): Settled<State, Receipt>
@@ -805,7 +801,7 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 	local fields = Value.record(dependencies, LEDGER_FIELDS, true)
 	if
 		fields == nil
-		or not validStore(fields.store, "getOutcome")
+		or not validStore(fields.store)
 		or type(fields.keyFor) ~= "function"
 		or type(fields.clock) ~= "function"
 		or Value.raw(fields.core) == nil
@@ -820,9 +816,9 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 	end
 
 	local function read(subject: Subject): Settled<State, Receipt>
-		local outcome = deps.store.getOutcome(deps.keyFor(subject))
+		local outcome = deps.store.read(deps.keyFor(subject))
 		if not outcome.ok then
-			return ledgerFailure(outcome.reason, true)
+			return ledgerFailure(ResultEnvelope.reason(outcome), true)
 		end
 		local state = load(subject, outcome.value)
 		if state == nil then
@@ -843,7 +839,8 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 		local nowSec = deps.clock()
 		local last: LedgerOutcome<State, Receipt>? = nil
 		local produced = false
-		local outcome = deps.store.updateOutcome(deps.keyFor(subject), function(current: unknown): unknown
+		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
+		local outcome = deps.store.update(deps.keyFor(subject), function(current: unknown): unknown
 			local state = load(subject, current)
 			if state == nil then
 				last = { ok = false, state = nil, replayed = false, reason = core.invalid, receipts = nil, fence = nil }
@@ -852,6 +849,7 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 			local result = core.apply(state, command, nowSec)
 			last = result
 			if not result.ok or result.replayed then
+				expected = Codec.copyData(current)
 				return nil
 			end
 			produced = true
@@ -859,6 +857,10 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 		end)
 		local verdict = last
 		if verdict ~= nil and verdict.ok and verdict.replayed then
+			local observed = StorePort.confirm(deps.store, deps.keyFor(subject), expected)
+			if not observed.ok then
+				return ledgerFailure(ResultEnvelope.reason(observed), true)
+			end
 			return {
 				ok = true,
 				state = verdict.state,
@@ -873,7 +875,7 @@ function SocialRecords.ledger<Subject, State, Receipt>(
 			return ledgerFailure(verdict.reason, produced)
 		end
 		if not outcome.ok or verdict == nil then
-			return ledgerFailure(outcome.reason, true)
+			return ledgerFailure(ResultEnvelope.reason(outcome), true)
 		end
 		local committed = core.project(outcome.value)
 		if committed == nil then
@@ -901,7 +903,7 @@ function SocialRecords.inbox(dependencies: InboxDependencies): (Inbox?, string?)
 	local fields = Value.record(dependencies, INBOX_FIELDS, true)
 	if
 		fields == nil
-		or not validStore(fields.store, "getOutcome")
+		or not validStore(fields.store)
 		or type(fields.keyFor) ~= "function"
 		or type(fields.clock) ~= "function"
 		or type(fields.guid) ~= "function"
@@ -920,7 +922,8 @@ function SocialRecords.inbox(dependencies: InboxDependencies): (Inbox?, string?)
 	local function update(userId: number, step: (Notes.State) -> Notes.Result): InboxResult
 		local refusal: string? = nil
 		local unchanged: Notes.State? = nil
-		local outcome = deps.store.updateOutcome(deps.keyFor(userId), function(current: unknown): unknown
+		local expected: ResultEnvelope.Result<unknown> = ResultEnvelope.ok(nil)
+		local outcome = deps.store.update(deps.keyFor(userId), function(current: unknown): unknown
 			refusal = nil
 			unchanged = nil
 			local state = stateOf(current, userId)
@@ -935,25 +938,30 @@ function SocialRecords.inbox(dependencies: InboxDependencies): (Inbox?, string?)
 			end
 			if not stepped.changed then
 				unchanged = stepped.state
+				expected = Codec.copyData(current)
 				return nil
 			end
 			return stepped.state
 		end)
 		local kept = unchanged
 		if kept ~= nil then
+			local observed = StorePort.confirm(deps.store, deps.keyFor(userId), expected)
+			if not observed.ok then
+				return inboxFailure(observed.reason)
+			end
 			return { ok = true, notes = kept.notes, reason = nil }
 		end
 		if not outcome.ok then
-			return inboxFailure(refusal or outcome.reason or "not_durable")
+			return inboxFailure(refusal or ResultEnvelope.reason(outcome) or "not_durable")
 		end
 		local state = core.projectState(outcome.value)
 		return if state == nil then inboxFailure(deps.invalid) else { ok = true, notes = state.notes, reason = nil }
 	end
 
 	local function inbox(userId: number): InboxResult
-		local outcome = deps.store.getOutcome(deps.keyFor(userId))
+		local outcome = deps.store.read(deps.keyFor(userId))
 		if not outcome.ok then
-			return inboxFailure(outcome.reason or "not_durable")
+			return inboxFailure(ResultEnvelope.reason(outcome) or "not_durable")
 		end
 		local state = stateOf(outcome.value, userId)
 		return if state == nil then inboxFailure(deps.invalid) else { ok = true, notes = state.notes, reason = nil }
@@ -988,7 +996,7 @@ function SocialRecords.keyed<Item>(dependencies: KeyedDependencies<Item>): (Keye
 	local fields = Value.record(dependencies, KEYED_FIELDS, true)
 	if
 		fields == nil
-		or not validStore(fields.store, "getUncachedOutcome")
+		or not validStore(fields.store)
 		or type(fields.keyFor) ~= "function"
 		or type(fields.project) ~= "function"
 		or type(fields.wire) ~= "function"
@@ -1002,22 +1010,22 @@ function SocialRecords.keyed<Item>(dependencies: KeyedDependencies<Item>): (Keye
 
 	local function decode(raw: Outcome, id: string): KeyedOutcome<Item>
 		if not raw.ok or raw.value == nil then
-			return { ok = raw.ok, value = nil, reason = raw.reason }
+			return { ok = raw.ok, value = nil, reason = ResultEnvelope.reason(raw) }
 		end
 		local value = deps.project(raw.value)
 		if value == nil or deps.prefix .. deps.idOf(value) ~= id then
 			return { ok = false, value = nil, reason = deps.invalid }
 		end
-		return { ok = true, value = value, reason = raw.reason }
+		return { ok = true, value = value, reason = ResultEnvelope.reason(raw) }
 	end
 
 	local function getOutcome(id: string): KeyedOutcome<Item>
-		return decode(deps.store.getUncachedOutcome(deps.keyFor(id)), id)
+		return decode(deps.store.read(deps.keyFor(id)), id)
 	end
 
 	local function updateOutcome(id: string, transform: (Item?) -> Item?): KeyedOutcome<Item>
 		local invalid = false
-		local result = deps.store.updateOutcome(deps.keyFor(id), function(raw: unknown): unknown
+		local result = deps.store.update(deps.keyFor(id), function(raw: unknown): unknown
 			local current: KeyedOutcome<Item> = decode({ ok = true, value = raw, reason = nil }, id)
 			if not current.ok then
 				invalid = true
@@ -1044,7 +1052,7 @@ function SocialRecords.index<Entry>(dependencies: IndexDependencies<Entry>): (In
 	local fields = Value.record(dependencies, INDEX_FIELDS, true)
 	if
 		fields == nil
-		or not validStore(fields.store, "getUncachedOutcome")
+		or not validStore(fields.store)
 		or type(fields.keyFor) ~= "function"
 		or type(fields.read) ~= "function"
 		or type(fields.idOf) ~= "function"
@@ -1086,7 +1094,7 @@ function SocialRecords.index<Entry>(dependencies: IndexDependencies<Entry>): (In
 		local valid = false
 		local reason: string? = nil
 		local id = deps.idOf(entry)
-		local result = deps.store.updateOutcome(deps.keyFor(userId), function(raw: unknown): unknown
+		local result = deps.store.update(deps.keyFor(userId), function(raw: unknown): unknown
 			valid = false
 			reason = nil
 			local intact, entries = entriesOf(raw, userId)
@@ -1119,7 +1127,7 @@ function SocialRecords.index<Entry>(dependencies: IndexDependencies<Entry>): (In
 		if valid and result.ok then
 			return true, nil
 		end
-		local observed = deps.store.getUncachedOutcome(deps.keyFor(userId))
+		local observed = deps.store.read(deps.keyFor(userId))
 		local intact, observedEntries = false, {}
 		if observed.ok then
 			intact, observedEntries = entriesOf(observed.value, userId)
@@ -1132,7 +1140,7 @@ function SocialRecords.index<Entry>(dependencies: IndexDependencies<Entry>): (In
 	end
 
 	local function list(userId: number): IndexListing<Entry>
-		local result = deps.store.getUncachedOutcome(deps.keyFor(userId))
+		local result = deps.store.read(deps.keyFor(userId))
 		if not result.ok then
 			return { ok = false, entries = nil, reason = "inbox_unavailable" }
 		end

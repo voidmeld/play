@@ -14452,7 +14452,11 @@ export type Codec<T> = Codec.Record<T>
 ### `kernel.store.API`
 
 ```luau
-export type API = { read compareAndSwap: typeof(compareAndSwap), read committed: typeof(committed) }
+export type API = {
+	read compareAndSwap: typeof(compareAndSwap),
+	read committed: typeof(committed),
+	read confirm: typeof(confirm),
+}
 ```
 
 ### `kernel.store.committed`
@@ -14465,6 +14469,12 @@ function committed<T>(readback: Readback, expected: T, codec: Codec<T>): Result.
 
 ```luau
 function compareAndSwap<T>(found: boolean, expected: T, desired: T, codec: Codec<T>): Transform
+```
+
+### `kernel.store.confirm`
+
+```luau
+function confirm(reader: Reader, key: string, expected: Result.Result<unknown>): Result.Result<Readback>
 ```
 
 ## `kernel.value`
@@ -19087,6 +19097,10 @@ local ResultEnvelope = require("../kernel/result")
 ```
 
 ```luau
+local StorePort = require("../kernel/store")
+```
+
+```luau
 local Value = require("../kernel/value")
 ```
 
@@ -19097,16 +19111,13 @@ local Warband = require("../core/social/warband")
 ### `roblox.social-records.Outcome`
 
 ```luau
-export type Outcome = { ok: boolean, value: unknown, reason: string? }
+export type Outcome = ResultEnvelope.Result<unknown>
 ```
 
 ### `roblox.social-records.Store`
 
 ```luau
-export type Store = {
-	getOutcome: (key: string) -> Outcome,
-	updateOutcome: (key: string, transform: (unknown) -> unknown) -> Outcome,
-}
+export type Store = StorePort.Port
 ```
 
 ### `roblox.social-records.FellowshipPort`
@@ -19144,7 +19155,7 @@ export type WarbandPort = {
 
 ```luau
 export type Dependencies = {
-	store: UncachedStore,
+	store: Store,
 	keyFor: (string) -> string,
 	memberKeyFor: (number) -> string,
 	formationKeyFor: ((string) -> string)?,
@@ -19314,15 +19325,6 @@ export type Inbox = {
 }
 ```
 
-### `roblox.social-records.UncachedStore`
-
-```luau
-export type UncachedStore = {
-	getUncachedOutcome: (key: string) -> Outcome,
-	updateOutcome: (key: string, transform: (unknown) -> unknown) -> Outcome,
-}
-```
-
 ### `roblox.social-records.KeyedOutcome`
 
 ```luau
@@ -19333,7 +19335,7 @@ export type KeyedOutcome<Item> = { ok: boolean, value: Item?, reason: string? }
 
 ```luau
 export type KeyedDependencies<Item> = {
-	store: UncachedStore,
+	store: Store,
 	keyFor: (string) -> string,
 	project: (unknown) -> Item?,
 	wire: (Item) -> unknown?,
@@ -19356,7 +19358,7 @@ export type Keyed<Item> = {
 
 ```luau
 export type IndexDependencies<Entry> = {
-	store: UncachedStore,
+	store: Store,
 	keyFor: (number) -> string,
 	read: (unknown) -> Entry?,
 	idOf: (Entry) -> string,
@@ -20329,7 +20331,7 @@ export type Counters = { writes: number, clock: number }
 ### `test-scene.social.Options`
 
 ```luau
-export type Options = { requiredFounders: number?, fee: number?, store: Records.UncachedStore? }
+export type Options = { requiredFounders: number?, fee: number?, store: Records.Store? }
 ```
 
 ### `test-scene.social.rig`

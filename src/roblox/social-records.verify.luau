@@ -276,16 +276,16 @@ return function(suite: Verify.Harness)
 				it("refuses tentative " .. operation .. " authority with " .. readback .. " readback", function()
 					local cached: unknown = nil
 					local actual: unknown = nil
-					local store: Records.Store & Records.UncachedStore = {
+					local store: Records.Store & { getOutcome: (string) -> Records.Outcome } = {
 						getOutcome = function(_key: string): Records.Outcome
 							return { ok = true, value = cached }
 						end,
-						getUncachedOutcome = function(_key: string): Records.Outcome
+						read = function(_key: string): Records.Outcome
 							return if readback == "unavailable"
 								then { ok = false, value = nil, reason = "read_unavailable" }
 								else { ok = true, value = actual }
 						end,
-						updateOutcome = function(_key: string, transform: (unknown) -> unknown): Records.Outcome
+						update = function(_key: string, transform: (unknown) -> unknown): Records.Outcome
 							local proposed = transform(nil)
 							assert(proposed ~= nil)
 							cached = proposed
@@ -424,13 +424,10 @@ return function(suite: Verify.Harness)
 		local values: { [string]: unknown } = {}
 		local counters = { writes = 0 }
 		local store = {
-			getOutcome = function(key: string): Records.Outcome
+			read = function(key: string): Records.Outcome
 				return { ok = true, value = values[key], reason = nil }
 			end,
-			getUncachedOutcome = function(key: string): Records.Outcome
-				return { ok = true, value = values[key], reason = nil }
-			end,
-			updateOutcome = function(key: string, transform: (unknown) -> unknown): Records.Outcome
+			update = function(key: string, transform: (unknown) -> unknown): Records.Outcome
 				if mode == "fail_before" then
 					return { ok = false, value = nil, reason = "circuit_open" }
 				end

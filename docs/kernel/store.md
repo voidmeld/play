@@ -20,6 +20,11 @@ the desired record for the backend. Revision equality alone does not prove that
 private payload fields still match. `committed` decodes and compares the returned
 record against the desired value, refusing valid but divergent readback.
 
+`confirm` reconciles a cancelled or uncertain update against a captured
+`codec.copyData` result. It reads through the injected port and compares the entire
+stored value, including known absence. Invalid snapshots, unavailable reads and
+divergent rows refuse. Social membership, record, ledger and inbox replays share it.
+
 The [native binding](../../src/roblox/persistence/store.luau) wraps the existing
 budgeted storage backend's uncached read and atomic update operations. It exposes
 `read` and `update` through the kernel port, refuses malformed backend envelopes and

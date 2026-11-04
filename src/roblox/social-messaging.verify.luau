@@ -40,10 +40,10 @@ local function noteRig()
 		{ clock = 100, sequence = 0, permitted = true, filtered = true, hidden = false, notified = 0, writes = 0 }
 	local inbox = assert(Records.inbox({
 		store = {
-			getOutcome = function(key: string): Records.Outcome
+			read = function(key: string): Records.Outcome
 				return { ok = true, value = values[key] }
 			end,
-			updateOutcome = function(key: string, transform: (unknown) -> unknown): Records.Outcome
+			update = function(key: string, transform: (unknown) -> unknown): Records.Outcome
 				local value = transform(values[key])
 				if value == nil then
 					return { ok = false, value = nil, reason = "cancelled" }
