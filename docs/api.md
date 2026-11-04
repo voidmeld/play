@@ -14767,7 +14767,15 @@ local CoreTypes = require("../core/inventory/cargo")
 ```
 
 ```luau
+local Atomic = require("../kernel/store")
+```
+
+```luau
 local LedgerTypes = require("./material-ledger")
+```
+
+```luau
+local Result = require("../kernel/result")
 ```
 
 ```luau
@@ -16884,6 +16892,10 @@ local CoreTypes = require("../core/ledger/ledger")
 ```
 
 ```luau
+local Atomic = require("../kernel/store")
+```
+
+```luau
 local Result = require("../kernel/result")
 ```
 
@@ -16935,13 +16947,13 @@ export type Failure = Result.Failure
 ### `roblox.material-ledger.StoreOutcome`
 
 ```luau
-export type StoreOutcome = { ok: boolean, value: unknown, reason: string? }
+export type StoreOutcome = Result.Result<Atomic.Readback>
 ```
 
 ### `roblox.material-ledger.Store`
 
 ```luau
-export type Store = { update: (string, (unknown) -> unknown) -> StoreOutcome }
+export type Store = Atomic.Port
 ```
 
 ### `roblox.material-ledger.Outcome`

@@ -2,6 +2,11 @@
 
 [System catalog](../systems.md) · [Inventory rules](inventory.md) · [Material ledger](roblox-material-ledger.md)
 
+The host store is the kernel `store.Port`: uncached `read` and atomic `update` return the kernel
+`Result`. Reads never submit update callbacks. Cancelled cargo and settlement replays require a
+fresh complete-record confirmation before acknowledgement. Bind native stores with
+`roblox/persistence/store.new`; staged ledger transforms use the same port inside the atomic write.
+
 Coordinate carried claims, recoverable drops and durable extraction through configured cargo rules.
 Import [roblox/cargo](../../src/roblox/cargo.luau), `configure` the rules/policy, then call `mount` with
 camp loading, store and key ports. `mountFromContent` additionally reports missing source/store wiring.

@@ -161,7 +161,7 @@ Each row links to a system guide with its entry, state, host requirements and ex
 | [quest-durability](docs/systems/roblox-quest-durability.md) | Leased journal hydration, dirty batches, retry/renewal, fencing and close draining. |
 | [character-admission](docs/systems/roblox-character-admission.md) | Stage leased character arrival, reverse cleanup, renewal and interrupted-return recovery. |
 | [cargo](docs/systems/roblox-cargo.md) | Coordinate durable carried/drop custody and replayable extraction into one material ledger. |
-| [material-ledger](docs/systems/roblox-material-ledger.md) | Persist material events with bounded replay receipts and exact committed readback. |
+| [material-ledger](docs/systems/roblox-material-ledger.md) | Persist material events with bounded replay receipts, fresh snapshots and confirmed replay authority. |
 | [leased-record-session](docs/systems/roblox-leased-record-session.md) | Acquire/hydrate opaque records, fence takeovers and save through renewed leases. |
 | [social-fellowship](docs/systems/roblox-social-fellowship.md) | Guild custody, privacy admission, invitations, steward activity and member projections. |
 | [social-formation](docs/systems/roblox-social-formation.md) | Multi-founder charters with durable fee custody and recovery pointers. |
