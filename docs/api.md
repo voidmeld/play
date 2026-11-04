@@ -1385,6 +1385,14 @@ local Codec = require("../../kernel/codec")
 ```
 
 ```luau
+local Kernel = require("../../kernel/lease")
+```
+
+```luau
+local Result = require("../../kernel/result")
+```
+
+```luau
 local Value = require("../../kernel/value")
 ```
 
@@ -1630,6 +1638,10 @@ local CharacterLease = require("./character-lease")
 ```
 
 ```luau
+local Kernel = require("../../kernel/lease")
+```
+
+```luau
 local Result = require("../../kernel/result")
 ```
 
@@ -1767,6 +1779,10 @@ arrive = function Repository.arrive(store: Store, keyForCharacter: (string) -> s
 
 ```luau
 local Codec = require("../../kernel/codec")
+```
+
+```luau
+local Kernel = require("../../kernel/lease")
 ```
 
 ```luau
@@ -14202,6 +14218,115 @@ function equalData(left: unknown, right: unknown): boolean
 
 ```luau
 function versioned<T>(config: Versioned<T>): Decoder<T>
+```
+
+## `kernel.lease`
+
+[Source](../src/kernel/lease.luau)
+
+```luau
+local Result = require("./result")
+```
+
+```luau
+local Value = require("./value")
+```
+
+### `kernel.lease.State`
+
+```luau
+export type State = {
+	revision: number,
+	sessionId: string?,
+	acquisitionId: string?,
+	expiresAt: number,
+}
+```
+
+### `kernel.lease.Grant`
+
+```luau
+export type Grant = { read state: State, read kind: "acquired" | "owned" | "renewed" | "released" }
+```
+
+### `kernel.lease.Liveness`
+
+```luau
+export type Liveness = "alive" | "dead" | "unknown"
+```
+
+### `kernel.lease.Acquire`
+
+```luau
+export type Acquire = {
+	read sessionId: string,
+	read acquisitionId: string,
+	read now: number,
+	read ttl: number,
+	read liveness: Liveness?,
+}
+```
+
+### `kernel.lease.Expected`
+
+```luau
+export type Expected = { read sessionId: string, read acquisitionId: string, read revision: number }
+```
+
+### `kernel.lease.Renewal`
+
+```luau
+export type Renewal = Expected & { read now: number, read ttl: number }
+```
+
+### `kernel.lease.Config`
+
+```luau
+export type Config = {
+	read maxRevision: number,
+	read maxTime: number,
+	read sessionIdLimit: number,
+	read acquisitionIdLimit: number,
+	read integerTime: boolean,
+}
+```
+
+### `kernel.lease.Service`
+
+```luau
+export type Service = {
+	read copy: (unknown) -> Result.Result<State>,
+	read acquire: (unknown, Acquire) -> Result.Result<Grant>,
+	read renew: (unknown, Renewal) -> Result.Result<Grant>,
+	read release: (unknown, Expected) -> Result.Result<Grant>,
+}
+```
+
+### `kernel.lease.API`
+
+```luau
+export type API = { read configure: typeof(configure), read withState: typeof(withState) }
+```
+
+### `kernel.lease.configure`
+
+```luau
+function configure(config: Config): Service
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+copy = function copy(raw: unknown): Result.Result<State>
+acquire = function acquire(raw: unknown, request: Acquire): Result.Result<Grant>
+renew = function renew(raw: unknown, request: Renewal): Result.Result<Grant>
+release = function release(raw: unknown, request: Expected): Result.Result<Grant>
+```
+
+### `kernel.lease.withState`
+
+```luau
+function withState<T>(record: T & State, state: State): T & State
 ```
 
 ## `kernel.result`

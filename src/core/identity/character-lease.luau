@@ -1,6 +1,7 @@
 --!strict
 
 local Codec = require("../../kernel/codec")
+local Kernel = require("../../kernel/lease")
 local Value = require("../../kernel/value")
 
 export type Record = CharacterLeaseRecord
@@ -104,6 +105,13 @@ local function create(config: Config): API
 		MAX_TIME = config.maxTime,
 		MAX_FENCE = config.maxFence,
 	}
+	local kernel = Kernel.configure({
+		maxRevision = Record.MAX_REVISION,
+		maxTime = Record.MAX_TIME,
+		sessionIdLimit = config.sessionIdLimit,
+		acquisitionIdLimit = config.acquisitionIdLimit,
+		integerTime = false,
+	})
 	local RECORD_FIELDS: { [string]: boolean } = {
 		schemaVersion = true,
 		revision = true,
@@ -240,26 +248,13 @@ local function create(config: Config): API
 			if revision == nil or characterId == nil then
 				return nil, "record_invalid"
 			end
-			local sessionId = text(source.sessionId, config.sessionIdLimit)
-			if source.sessionId ~= nil and sessionId == nil then
-				return nil, "record_invalid"
-			end
-			local acquisitionId = text(source.acquisitionId, config.acquisitionIdLimit)
-			if source.acquisitionId ~= nil and acquisitionId == nil then
-				return nil, "record_invalid"
-			end
 			local zoneId = text(source.zoneId, config.zoneIdLimit)
 			if source.zoneId ~= nil and zoneId == nil then
 				return nil, "record_invalid"
 			end
-			local expiresAt = finiteTime(source.expiresAt)
-			if expiresAt == nil then
-				return nil, "record_invalid"
-			end
-			local unowned = sessionId == nil and acquisitionId == nil and expiresAt == 0
-			local owned = sessionId ~= nil and acquisitionId ~= nil and expiresAt > 0
-			if not unowned and not owned then
-				return nil, "lease_invalid"
+			local lease = kernel.copy(source)
+			if not lease.ok then
+				return nil, lease.reason
 			end
 			if source.retirement == nil then
 				return nil, "retirement_absent"
@@ -288,9 +283,9 @@ local function create(config: Config): API
 				revision = revision,
 				characterId = characterId,
 				zoneId = zoneId,
-				sessionId = sessionId,
-				acquisitionId = acquisitionId,
-				expiresAt = expiresAt,
+				sessionId = lease.value.sessionId,
+				acquisitionId = lease.value.acquisitionId,
+				expiresAt = lease.value.expiresAt,
 				retirement = retirement,
 				arrival = arrival,
 			},
