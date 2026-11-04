@@ -439,11 +439,18 @@ return function(suite: Verify.Harness)
 					assert(transform(nextValue) == nil)
 					return { ok = false, value = nil, reason = "callback_cancelled" }
 				end
-				if mode == "index_retry_conflict" or mode == "index_divergent_readback" then
+				if
+					mode == "index_retry_conflict"
+					or mode == "index_divergent_readback"
+					or mode == "index_lost_reply"
+				then
 					values[key] = { a = { id = "a", owner = 3, payload = "other" } }
 					if mode == "index_retry_conflict" then
 						assert(transform(values[key]) == nil)
 						return { ok = false, value = nil, reason = "callback_cancelled" }
+					end
+					if mode == "index_lost_reply" then
+						return { ok = false, value = nil, reason = "retry_exhausted" }
 					end
 					return { ok = true, value = values[key] }
 				end
@@ -711,7 +718,7 @@ return function(suite: Verify.Harness)
 			return assert(index, reason), values
 		end
 
-		for _, mode in { "index_retry_conflict", "index_divergent_readback" } do
+		for _, mode in { "index_retry_conflict", "index_divergent_readback", "index_lost_reply" } do
 			it("refuses another payload under the same reservation id after " .. mode, function()
 				local index = indexRig(2, mode)
 				local added = index.add(3, { id = "a", owner = 3, payload = "wanted" })
