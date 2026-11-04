@@ -12085,20 +12085,20 @@ export type Config = {
 
 ```luau
 export type Core = {
-	projectState: (unknown) -> (State?, string?),
-	open: (unknown) -> (Result?, string?),
-	invite: (unknown, unknown) -> (Result?, string?),
-	accept: (unknown, unknown) -> (Result?, string?),
-	decline: (unknown, unknown) -> (Result?, string?),
-	leave: (unknown, unknown) -> (Result?, string?),
-	kick: (unknown, unknown) -> (Result?, string?),
-	transferLeader: (unknown, unknown) -> (Result?, string?),
-	acceptLeaderTransfer: (unknown, unknown) -> (Result?, string?),
-	disband: (unknown, unknown) -> (Result?, string?),
-	setLootMode: (unknown, unknown) -> (Result?, string?),
-	markAbsent: (unknown, unknown) -> (Result?, string?),
-	markPresent: (unknown, unknown) -> (Result?, string?),
-	sweep: (unknown, unknown) -> (Result?, string?),
+	read projectState: (unknown) -> (State?, string?),
+	read open: (unknown) -> (Result?, string?),
+	read invite: (unknown, unknown) -> (Result?, string?),
+	read accept: (unknown, unknown) -> (Result?, string?),
+	read decline: (unknown, unknown) -> (Result?, string?),
+	read leave: (unknown, unknown) -> (Result?, string?),
+	read kick: (unknown, unknown) -> (Result?, string?),
+	read transferLeader: (unknown, unknown) -> (Result?, string?),
+	read acceptLeaderTransfer: (unknown, unknown) -> (Result?, string?),
+	read disband: (unknown, unknown) -> (Result?, string?),
+	read setLootMode: (unknown, unknown) -> (Result?, string?),
+	read markAbsent: (unknown, unknown) -> (Result?, string?),
+	read markPresent: (unknown, unknown) -> (Result?, string?),
+	read sweep: (unknown, unknown) -> (Result?, string?),
 }
 ```
 
