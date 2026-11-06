@@ -3,7 +3,7 @@
 return table.freeze({
 	verify = table.freeze({
 		repository = "https://github.com/voidmeld/verify.git",
-		commit = "6aa3cab153f84e94c30370aee45158cff29c2959",
-		tree = "eb137e511dfacb875f4777a1eee4713f4135255b",
+		commit = "4d6fe22a7b5261c4925889b3449fcf9e60d36f28",
+		tree = "ee0a7007acbf7b4942eb785d3a2d703946848674",
 	}),
 })
