@@ -5591,11 +5591,9 @@ export type Search = { limit: number?, sellerId: number?, itemId: string?, ceili
 ```luau
 export type Config = {
 	listingTtlSec: number,
-	legacyListingTtlSec: number,
 	minFeeBps: number,
 	maxFeeBps: number,
 	defaultFeeBps: number,
-	legacyFeeBps: number,
 	maxListings: number,
 	maxReceipts: number,
 	operationRetentionSec: number,

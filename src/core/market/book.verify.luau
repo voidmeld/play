@@ -3,11 +3,9 @@
 local Books = require("./book")
 local settings: Books.Config = {
 	listingTtlSec = 48 * 60 * 60,
-	legacyListingTtlSec = 72 * 60 * 60,
 	minFeeBps = 300,
 	maxFeeBps = 500,
 	defaultFeeBps = 500,
-	legacyFeeBps = 400,
 	maxListings = 600,
 	maxReceipts = 2000,
 	operationRetentionSec = 45 * 24 * 60 * 60,
@@ -174,26 +172,20 @@ return function(suite: Verify.Harness)
 				expect(fill(later.state, "b1", 20, 1, 10, 10, T0 + settings.listingTtlSec).reason):toBe("no_supply")
 			end)
 
-			it(
-				"reads a stored book written under the earlier 72-hour window and 4% cut and sells under the current cut",
-				function(own)
-					local state = list(empty(), "l1", 11, 3, 100, T0).state
-					local legacy = table.clone(assert(state))
-					legacy.feeBps = 400
-					legacy.listings = { table.clone((assert(state)).listings[1]) }
-					legacy.listings[1].expiresAtSec = T0 + 72 * 60 * 60
-					local read = Book.projectState(legacy)
-					expect((read ~= nil)):toBe(true)
-					expect((assert(read)).feeBps):toBe(settings.defaultFeeBps)
-					local sold = fill(legacy, "b1", 20, 3, 100, 300, T0 + 10)
-					expect(sold.ok):toBe(true)
-					expect((assert(sold.state)).burnedCoin):toBe(15)
-					local swept = Book.apply(legacy, { kind = "sweep", opId = "s1" }, T0 + 72 * 60 * 60)
-					expect(#(assert(Book.receiptsFor(swept.state, 11)))):toBe(1)
-					legacy.listings[1].expiresAtSec = T0 + 60 * 60
-					expect((Book.projectState(legacy))):toBeNil()
-				end
-			)
+			it("preserves admitted stored fees and expiries independently of new listing policy", function()
+				local state = table.clone(assert(list(empty(), "l1", 11, 3, 100, T0).state))
+				state.feeBps = settings.minFeeBps
+				state.listings = { table.clone(state.listings[1]) }
+				state.listings[1].expiresAtSec = T0 + 123
+				local read = assert(Book.projectState(state))
+				expect(read.feeBps):toBe(settings.minFeeBps)
+				expect(read.listings[1].expiresAtSec):toBe(T0 + 123)
+				local sold = fill(state, "b1", 20, 3, 100, 300, T0 + 10)
+				expect(sold.ok):toBe(true)
+				expect(assert(sold.state).burnedCoin):toBe(9)
+				state.listings[1].expiresAtSec = T0 - 1
+				expect(Book.projectState(state)):toBeNil()
+			end)
 
 			it("keeps each item in a category book apart and returns exactly that item", function(own)
 				local category = Book.emptyState("north", "category.gear_weapon")
@@ -516,7 +508,7 @@ return function(suite: Verify.Harness)
 			local cfg = table.clone(settings)
 			cfg.realms = { zone = true }
 			cfg.maxId, cfg.maxCount, cfg.maxPrice, cfg.maxCoin, cfg.maxTime = 2, 3, 4, 10, 10
-			cfg.listingTtlSec, cfg.legacyListingTtlSec, cfg.maxSearch = 2, 3, 1
+			cfg.listingTtlSec, cfg.maxSearch = 2, 1
 			local book = Books.book(cfg)
 			local state = assert(book.emptyState("zone", "ab", nil))
 			expect(book.emptyState("north", "ab", nil)):toBeNil()
@@ -576,10 +568,10 @@ return function(suite: Verify.Harness)
 			}, 0).ok):toBe(true)
 		end)
 
-		it("uses configured fees, current and legacy lifetimes, retention and actor windows", function()
+		it("uses configured fees, listing lifetime, retention and actor windows", function()
 			local cfg = table.clone(settings)
-			cfg.minFeeBps, cfg.maxFeeBps, cfg.defaultFeeBps, cfg.legacyFeeBps = 10, 30, 30, 20
-			cfg.listingTtlSec, cfg.legacyListingTtlSec = 2, 3
+			cfg.minFeeBps, cfg.maxFeeBps, cfg.defaultFeeBps = 10, 30, 30
+			cfg.listingTtlSec = 2
 			cfg.operationRetentionSec, cfg.actorWindowSec, cfg.maxOperationsPerActor = 10, 3, 1
 			local book = Books.book(cfg)
 			expect(book.emptyState("north", "ore", 9)):toBeNil()
@@ -600,7 +592,7 @@ return function(suite: Verify.Harness)
 			legacy.feeBps = 20
 			legacy.listings = { table.clone(legacy.listings[1]) }
 			legacy.listings[1].expiresAtSec = 3
-			expect(assert(book.projectState(legacy)).feeBps):toBe(30)
+			expect(assert(book.projectState(legacy)).feeBps):toBe(20)
 			local sold = book.apply(legacy, {
 				kind = "fill",
 				opId = "b",
@@ -610,7 +602,7 @@ return function(suite: Verify.Harness)
 				ceilingUnitPrice = 1000,
 				holdCoin = 1000,
 			}, 1)
-			expect(assert(sold.state).burnedCoin):toBe(3)
+			expect(assert(sold.state).burnedCoin):toBe(2)
 			local later = book.apply(
 				listed.state,
 				{ kind = "list", opId = "l2", actorId = 1, actorRealmId = "north", count = 1, unitPrice = 1 },

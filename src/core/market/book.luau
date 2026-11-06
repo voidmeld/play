@@ -77,11 +77,9 @@ export type Command =
 export type Search = { limit: number?, sellerId: number?, itemId: string?, ceilingUnitPrice: number? }
 export type Config = {
 	listingTtlSec: number,
-	legacyListingTtlSec: number,
 	minFeeBps: number,
 	maxFeeBps: number,
 	defaultFeeBps: number,
-	legacyFeeBps: number,
 	maxListings: number,
 	maxReceipts: number,
 	operationRetentionSec: number,
@@ -205,10 +203,7 @@ function Market.book(config: Config)
 			or listedAtSec == nil
 			or expiresAtSec == nil
 			or (raw.itemId ~= nil and itemId == nil)
-			or (
-				expiresAtSec ~= listedAtSec + config.listingTtlSec
-				and expiresAtSec ~= listedAtSec + config.legacyListingTtlSec
-			)
+			or expiresAtSec < listedAtSec
 		then
 			return nil
 		end
@@ -339,7 +334,7 @@ function Market.book(config: Config)
 			schemaVersion = SCHEMA_VERSION,
 			realmId = realmId,
 			materialId = materialId,
-			feeBps = if feeBps == config.legacyFeeBps then config.defaultFeeBps else feeBps,
+			feeBps = feeBps,
 			lastClockSec = lastClockSec,
 			listings = listings,
 			receipts = receipts,

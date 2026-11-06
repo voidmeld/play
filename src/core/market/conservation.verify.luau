@@ -8,11 +8,9 @@ local Wallets = require("./wallet")
 
 local book = Books.book({
 	listingTtlSec = 10,
-	legacyListingTtlSec = 20,
 	minFeeBps = 300,
 	maxFeeBps = 500,
 	defaultFeeBps = 500,
-	legacyFeeBps = 400,
 	maxListings = 10,
 	maxReceipts = 30,
 	operationRetentionSec = 50,
