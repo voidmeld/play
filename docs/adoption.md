@@ -1,6 +1,6 @@
 # Adoption
 
-[Play](../README.md) · [Architecture](architecture.md) · [System catalog](systems.md) · [API reference](api.md)
+[Play](../README.md) · [Architecture](architecture.md) · [System catalog](api.md#task-table) · [API reference](api.md)
 
 Games supply content, policy, saved schemas and native authority. Play supplies reusable rules,
 validation and coordination over explicit host ports. Keep an adopter's source comparison, file
@@ -19,8 +19,8 @@ inventory, migration receipts and acceptance evidence in that adopter's reposito
 | Social | Group admission, membership, formation, messaging and guild-bank coordination. | Platform observations, communication permission, phrases, labels, fees, catalogs and limits. |
 | Cargo | Pure claim custody, drops, extraction receipts and conservation. | Camp geometry, safe radii, realm bindings, intent installation and persistence integration. |
 
-Use the selected [system guide](systems.md) for its current public entry, required ports, runnable
-example and invariants. The [API reference](api.md) owns declarations and import paths.
+Use the selected [API area](api.md#task-table) for its current public entry, required ports, runnable
+example and invariants. The API owns signatures, returns, failures and import paths.
 
 ## Cut over one consumer
 
@@ -35,8 +35,8 @@ example and invariants. The [API reference](api.md) owns declarations and import
 5. Complete the game's required native and durability proof before calling its cutover accepted.
    A source gate or successful module load does not substitute for consumer evidence.
 
-The [host-operation contract](../README.md#host-operation-contract) and
-[compatibility policy](../README.md#compatibility-and-contributing) apply throughout the cutover.
+The [host-operation contract](api.md#host-operations) and
+[compatibility policy](../README.md#compatibility) apply throughout the cutover.
 
 ## Consumer proof limits
 
