@@ -1175,6 +1175,39 @@ revision ceiling. Run it with `lute run tools/gate.luau --file src/roblox/leased
 
 ## professions
 
+### Tokens, work orders and milestones
+
+`professions.tokens.create({ names, maxLength })` returns `normalize` and `matches`.
+Issue unpredictable action tokens on the server. Bind them to the authoritative character and interaction revision.
+Rotate tokens in the same transaction as the action. Play validates tokens; it does not generate randomness or commit state.
+`normalize(raw, allowEmpty)` rejects missing or unknown names, duplicate nonempty values, metatables and malformed tokens.
+Allow empty tokens only for saved states without issued actions. `matches(raw, name, supplied)` never accepts an empty token.
+
+`professions.milestones.create(definitions)` returns `receipt(characterId, name)` and `normalize(raw, characterId)`.
+Each definition supplies a stable transaction ID and event kind. Each receipt also contains the character ID.
+Normalization rejects unknown milestones and receipts whose complete identity differs from the configured milestone and character.
+Record receipts only after validated gameplay. A receipt alone does not authorize inventory or reward changes.
+
+`professions.workOrders` exposes the same reducer as `orders.work`; both paths share one implementation.
+Supply unique step IDs, unique tags, positive targets and a reward ID. Accept the order and apply validated progress.
+Complete every step before claiming with a stable event ID and a monotonic clock.
+A replay reports the original reward with `replayed = true`. Grant rewards only for fresh claims.
+Commit consumed items, progress, the claim receipt and the reward together through the authoritative host.
+
+`professions.progression.create(config)` composes gather slots, milestone receipts, action tokens and one active order.
+Supply allowed node IDs, milestone definitions, an order catalogue and the token length.
+Its action tokens are `craft`, `equip` and `order`. Revisions and gather slots are safe nonnegative integers.
+Capability rank is zero before a claim and one after a claim. The consumer owns what that rank unlocks.
+`default()` creates an empty state. `normalize(raw, characterId)` returns a detached state or `nil, reason` for corrupt data.
+`tokens(raw)` admits a complete issued token set. `milestone(characterId, name)` constructs a configured receipt.
+Keep item IDs, order text, reward values, stations and UI in the consumer.
+
+The [progression specification](../src/core/professions/progression.verify.luau) exercises tokens, identity, restoration and reward replay:
+
+```sh
+lute run tools/gate.luau --file src/core/professions/progression.verify.luau
+```
+
 Run skills, recipe transactions, harvesting, fishing and gathering sessions.
 
 ### State shape
@@ -10973,6 +11006,125 @@ harvestNode = function Gather.harvestNode(state: State, nodeKind: NodeKind, rng:
 skinCorpse = function Gather.skinCorpse(state: State, skinRow: SkinRow, rng: () -> number): Outcome
 ```
 
+## `core.professions.milestones`
+
+[Source](../src/core/professions/milestones.luau)
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `core.professions.milestones.Receipt`
+
+```luau
+export type Receipt = { characterId: string, transactionId: string, eventKind: string }
+```
+
+### `core.professions.milestones.Definition`
+
+```luau
+export type Definition = { transactionId: string, eventKind: string }
+```
+
+### `core.professions.milestones.Config`
+
+```luau
+export type Config = { [string]: Definition }
+```
+
+### `core.professions.milestones.State`
+
+```luau
+export type State = { [string]: Receipt }
+```
+
+### `core.professions.milestones.create`
+
+```luau
+function Milestones.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+receipt = function receipt(characterId: string, name: string): Receipt
+normalize = function normalize(raw: unknown, characterId: unknown): State?
+```
+
+## `core.professions.progression`
+
+[Source](../src/core/professions/progression.luau)
+
+```luau
+local Milestones = require("./milestones")
+```
+
+```luau
+local Tokens = require("./tokens")
+```
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+```luau
+local WorkOrders = require("../orders/work")
+```
+
+### `core.professions.progression.Tokens`
+
+```luau
+export type Tokens = { craft: string, equip: string, order: string }
+```
+
+### `core.professions.progression.WorkOrder`
+
+```luau
+export type WorkOrder = { orderId: string, capabilityRank: number, state: WorkOrders.State }
+```
+
+### `core.professions.progression.State`
+
+```luau
+export type State = {
+	revision: number,
+	gatherSlots: { [string]: number },
+	milestones: Milestones.State,
+	tokens: Tokens,
+	workOrder: WorkOrder,
+}
+```
+
+### `core.professions.progression.Config`
+
+```luau
+export type Config = {
+	nodeIds: { [string]: boolean },
+	milestones: Milestones.Config,
+	orders: { [string]: WorkOrders.WorkOrder },
+	maxTokenLength: number,
+}
+```
+
+### `core.professions.progression.MAX_INTEGER`
+
+Exported value; see its declaration in [source](../src/core/professions/progression.luau).
+
+### `core.professions.progression.create`
+
+```luau
+function Progression.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+default = function default(): State
+normalize = function normalize(raw: unknown, characterId: unknown): (State?, string?)
+tokens = function projectTokens(raw: unknown): (Tokens?, string?)
+milestone = milestones.receipt
+```
+
 ## `core.professions.session`
 
 [Source](../src/core/professions/session.luau)
@@ -11129,6 +11281,39 @@ trainerRoster = function Core.trainerRoster(
 	): { { recipe: Recipe, status: string, cost: number } }
 sameState = function Core.sameState(left: State, right: State): boolean
 freezeState = function Core.freezeState(state: State): State
+```
+
+## `core.professions.tokens`
+
+[Source](../src/core/professions/tokens.luau)
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `core.professions.tokens.Tokens`
+
+```luau
+export type Tokens = { [string]: string }
+```
+
+### `core.professions.tokens.Config`
+
+```luau
+export type Config = { names: { string }, maxLength: number }
+```
+
+### `core.professions.tokens.create`
+
+```luau
+function Tokens.create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+normalize = function normalize(raw: unknown, allowEmpty: boolean?): Tokens?
+matches = function matches(raw: unknown, name: string, supplied: unknown): boolean
 ```
 
 ## `core.professions.types`
@@ -11292,6 +11477,14 @@ local Harvest = require("./professions/harvest")
 ```
 
 ```luau
+local Milestones = require("./professions/milestones")
+```
+
+```luau
+local Progression = require("./professions/progression")
+```
+
+```luau
 local Session = require("./professions/session")
 ```
 
@@ -11300,7 +11493,15 @@ local Skills = require("./professions/skills")
 ```
 
 ```luau
+local Tokens = require("./professions/tokens")
+```
+
+```luau
 local Types = require("./professions/types")
+```
+
+```luau
+local WorkOrders = require("./orders/work")
 ```
 
 ### `core.professions.CraftingPlan`
@@ -11409,6 +11610,108 @@ export type HarvestOutcome = Harvest.Outcome
 
 ```luau
 export type HarvestConfig = Harvest.Config
+```
+
+### `core.professions.MilestonesReceipt`
+
+```luau
+export type MilestonesReceipt = Milestones.Receipt
+```
+
+### `core.professions.MilestonesDefinition`
+
+```luau
+export type MilestonesDefinition = Milestones.Definition
+```
+
+### `core.professions.MilestonesConfig`
+
+```luau
+export type MilestonesConfig = Milestones.Config
+```
+
+### `core.professions.MilestonesState`
+
+```luau
+export type MilestonesState = Milestones.State
+```
+
+### `core.professions.ProgressionTokens`
+
+```luau
+export type ProgressionTokens = Progression.Tokens
+```
+
+### `core.professions.ProgressionWorkOrder`
+
+```luau
+export type ProgressionWorkOrder = Progression.WorkOrder
+```
+
+### `core.professions.ProgressionState`
+
+```luau
+export type ProgressionState = Progression.State
+```
+
+### `core.professions.ProgressionConfig`
+
+```luau
+export type ProgressionConfig = Progression.Config
+```
+
+### `core.professions.TokensTokens`
+
+```luau
+export type TokensTokens = Tokens.Tokens
+```
+
+### `core.professions.TokensConfig`
+
+```luau
+export type TokensConfig = Tokens.Config
+```
+
+### `core.professions.WorkOrdersPhase`
+
+```luau
+export type WorkOrdersPhase = WorkOrders.Phase
+```
+
+### `core.professions.WorkOrdersWorkOrderStep`
+
+```luau
+export type WorkOrdersWorkOrderStep = WorkOrders.WorkOrderStep
+```
+
+### `core.professions.WorkOrdersWorkOrder`
+
+```luau
+export type WorkOrdersWorkOrder = WorkOrders.WorkOrder
+```
+
+### `core.professions.WorkOrdersState`
+
+```luau
+export type WorkOrdersState = WorkOrders.State
+```
+
+### `core.professions.WorkOrdersCommandKind`
+
+```luau
+export type WorkOrdersCommandKind = WorkOrders.CommandKind
+```
+
+### `core.professions.WorkOrdersCommand`
+
+```luau
+export type WorkOrdersCommand = WorkOrders.Command
+```
+
+### `core.professions.WorkOrdersResult`
+
+```luau
+export type WorkOrdersResult = WorkOrders.Result
 ```
 
 ### `core.professions.SessionKind`
@@ -11533,9 +11836,13 @@ export type API = {
 	read fishing: typeof(Fishing),
 	read gathering: typeof(Gathering),
 	read harvest: typeof(Harvest),
+	read milestones: typeof(Milestones),
+	read progression: typeof(Progression),
 	read session: typeof(Session),
 	read skills: typeof(Skills),
+	read tokens: typeof(Tokens),
 	read types: typeof(Types),
+	read workOrders: typeof(WorkOrders),
 }
 ```
 
@@ -11555,6 +11862,14 @@ Exported value; see its declaration in [source](../src/core/professions.luau).
 
 Exported value; see its declaration in [source](../src/core/professions.luau).
 
+### `core.professions.milestones`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.progression`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
 ### `core.professions.session`
 
 Exported value; see its declaration in [source](../src/core/professions.luau).
@@ -11563,7 +11878,15 @@ Exported value; see its declaration in [source](../src/core/professions.luau).
 
 Exported value; see its declaration in [source](../src/core/professions.luau).
 
+### `core.professions.tokens`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
 ### `core.professions.types`
+
+Exported value; see its declaration in [source](../src/core/professions.luau).
+
+### `core.professions.workOrders`
 
 Exported value; see its declaration in [source](../src/core/professions.luau).
 

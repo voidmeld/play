@@ -41,6 +41,7 @@ return table.freeze {
 	"src/core/persistence/session-lock.verify.luau",
 	"src/core/persistence/store-host.verify.luau",
 	"src/core/professions/professions.verify.luau",
+	"src/core/professions/progression.verify.luau",
 	"src/core/progression/actionbar.verify.luau",
 	"src/core/progression/consumables.verify.luau",
 	"src/core/progression/fingerprinted-transactions.verify.luau",
