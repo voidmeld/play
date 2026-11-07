@@ -2654,7 +2654,10 @@ Overlapping writes retain only the current generation's returned lease expiry. A
 from an older write returns `operation_cancelled` and cannot shorten or revive the newer lease.
 `drain` captures each admitted context before starting closes. Interleaved removal is replayed
 against that context; a replacement sharing its key is never closed on its predecessor's behalf.
-With `spawn` and `wait`, a result still pending at the injected deadline is `drain_held`. Returned
+With `spawn` and `wait`, drain also waits for configured close retries within its budget; it does
+not accelerate their backoff or close replacement contexts. A committed retry returns success;
+an unresolved refusal remains a refusal at the deadline. A first result still pending at the
+injected deadline is `drain_held`. Returned
 results are a snapshot and never turn into success after return. A late write can still complete
 under its current generation; reconcile that actual completion through a fresh operation.
 An exception from the native `write` callback returns `save_failed`, reports the failed write

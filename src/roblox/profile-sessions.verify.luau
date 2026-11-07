@@ -252,6 +252,79 @@ return function(suite: Verify.Harness)
 			expect(f.environment.scheduler.failures):toEqual({})
 			f.sessions.dispose()
 		end)
+		it("waits for a configured close retry within the asynchronous drain budget", function()
+			local f = fixture(true)
+			local outcomes: { [string]: Sessions.Outcome }? = nil
+			f.state.fail = true
+			f.environment.scheduler.spawn(function()
+				outcomes = f.sessions.drain()
+			end)
+			f.clock.advance(0.5)
+			expect(outcomes):toBe(nil)
+			expect(#f.writes):toBe(1)
+			f.state.fail = false
+			f.state.value = 2
+			f.clock.advance(1)
+			expect(assert(outcomes).profile.ok):toBe(true)
+			expect(#f.writes):toBe(2)
+			expect(f.writes[2].profile):toBe(2)
+			expect(f.writes[2].release):toBe(true)
+			expect(f.state.releases):toBe(1)
+			expect(f.environment.scheduler.failures):toEqual({})
+			f.sessions.dispose()
+		end)
+		it("bounds failed close retries and retains the returned refusal after recovery", function()
+			local f = fixture(true)
+			local outcomes: { [string]: Sessions.Outcome }? = nil
+			f.state.fail = true
+			f.environment.scheduler.spawn(function()
+				outcomes = f.sessions.drain()
+			end)
+			for _ = 1, 5 do
+				f.clock.advance(0.5)
+			end
+			expect(outcomes):toBe(nil)
+			expect(#f.writes):toBe(3)
+			f.clock.advance(0.5)
+			local observed = assert(outcomes)
+			expect(observed.profile.ok):toBe(false)
+			expect(observed.profile.reason):toBe("offline")
+			expect(f.state.releases):toBe(0)
+			expect(f.sessions.isAdmitted("profile")):toBe(true)
+			local count = #f.writes
+			f.clock.advance(1)
+			expect(#f.writes):toBe(count)
+			f.state.fail = false
+			expect(f.sessions.unload("profile").ok):toBe(true)
+			expect(observed.profile.ok):toBe(false)
+			expect(observed.profile.reason):toBe("offline")
+			expect(f.environment.scheduler.failures):toEqual({})
+			f.sessions.dispose()
+		end)
+		it("does not wait for or close a replacement admitted during a close retry", function()
+			local f = fixture(true, function()
+				return "profile"
+			end)
+			local outcomes: { [string]: Sessions.Outcome }? = nil
+			f.state.fail = true
+			f.environment.scheduler.spawn(function()
+				outcomes = f.sessions.drain()
+			end)
+			f.clock.advance(0.5)
+			expect(outcomes):toBe(nil)
+			f.sessions.admit("replacement", 10, function()
+				return 3
+			end, function()
+				f.state.releases += 100
+			end)
+			f.clock.advance(0.5)
+			expect(assert(outcomes).profile.ok):toBe(false)
+			expect(f.sessions.isAdmitted("replacement")):toBe(true)
+			expect(#f.writes):toBe(1)
+			expect(f.state.releases):toBe(0)
+			expect(f.environment.scheduler.failures):toEqual({})
+			f.sessions.dispose()
+		end)
 		it("contains thrown writes and retries the current profile without releasing admission", function()
 			for _, scheduled in { false, true } do
 				local f = fixture()

@@ -220,12 +220,28 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 			end)
 			owner.own(cancel)
 		end
-		while remaining > 0 and deps.clock() < deadline do
+		local function awaitingClose(): boolean
+			if remaining > 0 then
+				return true
+			end
+			for _, admitted in owners do
+				local result = outcomes[admitted.key]
+				local entry = entries[admitted.key]
+				if result ~= nil and not result.ok and entry ~= nil and deps.same(entry.context, admitted.context) then
+					return true
+				end
+			end
+			return false
+		end
+		while awaitingClose() and deps.clock() < deadline do
 			assert(deps.wait)()
 		end
 		for _, admitted in owners do
 			local ownerKey = admitted.key
-			if outcomes[ownerKey] == nil then
+			local settled = released[ownerKey]
+			if settled ~= nil and deps.same(settled, admitted.context) then
+				outcomes[ownerKey] = { ok = true, reason = nil }
+			elseif outcomes[ownerKey] == nil then
 				outcomes[ownerKey] = { ok = false, reason = "drain_held" }
 				deps.report("held", ownerKey, nil)
 			end
