@@ -5,6 +5,7 @@ local Host = require("./leased-record-session")
 local LeaseStores = require("../core/identity/character-lease-store")
 local Leases = require("../core/identity/character-lease")
 local Records = require("../core/persistence/record-store")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Sessions = require("../core/persistence/profile-session")
 local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
@@ -150,6 +151,61 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("leased record sessions", function()
+		it("fences a paused payload write after another coordinator acquires and saves", function()
+			for _, destination in { "sector", "next" } do
+				local environment = Roblox.testEnvironment({ handlerErrors = "raise" })
+				local deps, values = rig()
+				deps.clock = environment.now
+				local opened = host.acquireAndHydrate(deps, "sector", "subject", "old", "old-attempt")
+				assert(opened.ok)
+				local store = deps.store
+				local held: thread? = nil
+				local result: Host.SaveOutcome<Record>? = nil
+				local paused = table.clone(deps)
+				paused.store = {
+					read = store.read,
+					update = function(key, transform)
+						if key == "sector:subject" then
+							environment.scheduler.block(function(pending)
+								held = pending
+							end)
+						end
+						return store.update(key, transform)
+					end,
+				}
+				environment.step(1)
+				environment.scheduler.spawn(function()
+					result = host.savePayload(paused, opened.session, opened.lease, opened.zoneSnapshot, 9)
+				end)
+				expect(held == nil):toBe(false)
+				local renewed = assert(leases.copy(values["lease:subject"]))
+				expect(renewed.expiresAt):toBe(21)
+				expect(renewed.revision):toBe(opened.lease.revision + 1)
+				environment.step(20)
+				local arrived = host.acquireAndHydrate(deps, destination, "subject", "new", "new-attempt")
+				assert(arrived.ok)
+				local saved = host.savePayload(deps, arrived.session, arrived.lease, arrived.zoneSnapshot, 7)
+				assert(saved.ok)
+				local authoritative = assert(copy(values[keyFor(destination, "subject")]))
+				local fenced = assert(copy(values["sector:subject"]))
+				expect(authoritative.content):toBe(7)
+				expect(authoritative.generation):toBe(if destination == "sector" then 2 else 1)
+				expect(fenced.generation):toBe(if destination == "sector" then 2 else 1)
+				expect(arrived.lease.revision):toBe(renewed.revision + 1)
+				environment.scheduler.resume(assert(held))
+				environment.step(0)
+				local stale = assert(result)
+				expect(stale.ok):toBe(false)
+				expect(stale.reason):toBe("readback_conflict")
+				expect(opened.session.leaseLost):toBe(true)
+				expect(opened.session.dirty):toBe(true)
+				expect(copy(values[keyFor(destination, "subject")])):toEqual(authoritative)
+				expect(copy(values["sector:subject"])):toEqual(fenced)
+				expect(assert(leases.copy(values["lease:subject"])).sessionId):toBe("new")
+				expect(environment.scheduler.pending()):toBe(0)
+				expect(environment.scheduler.failures):toEqual({})
+			end
+		end)
 		it("hydrates absence without writing and replays only the exact live acquisition", function()
 			local deps, values, control = rig()
 			local first = host.acquireAndHydrate(deps, "sector", "subject", "session", "attempt")

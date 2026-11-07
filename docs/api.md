@@ -2178,6 +2178,9 @@ The [fixture](../src/roblox/leased-record-session.verify.luau) uses an alternate
 numeric payload, four-revision ceiling, schema-seven lease, twenty-unit expiry and fake store/clock.
 It includes final callback retry conflicts, uncertain readbacks, hydration failure, takeover fencing,
 lease-length reply delays at renewal and storage, and game payload refusal.
+Its Verify scheduler also suspends an old payload write after renewal while a second coordinator
+lawfully takes over and saves, both within one partition and across partitions. Resuming the old
+write preserves the takeover fences and new committed record; the old session remains dirty and lost.
 It also owns exact acquisition replay, duplicate refusal before hydration, failed release reporting,
 expiry during hydration, renewal refusal before record writes and dirty-generation retention after
 conflicted or ambiguous saves. Adopters retain their actual schema/payload projection, storage adapter,
