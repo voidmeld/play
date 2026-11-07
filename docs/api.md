@@ -1548,6 +1548,9 @@ configured budget or reports failure with custody retained. `dispose` stops admi
 subscriptions and attempts cleanup for every retained entry. `isAdmitted` observes current movement
 and optional group authority. `previewDeparture`, `prepareReturn` and `recover` expose fenced return
 snapshots and recovery; preparation reports a separate recoverable snapshot if cleanup fails.
+Repeated disposal retries retained entries and failed unsubscribe handles, preserves completed cleanup,
+and returns true once all custody settles. It never reopens admission. A concurrent disposal while
+native cleanup is suspended returns false without starting another cleanup pass.
 
 ### Required host operations
 

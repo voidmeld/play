@@ -2,6 +2,7 @@
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Host = require("./character-admission")
 local LeaseStores = require("../core/identity/character-lease-store")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Routing = require("../core/identity/routing")
 local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
@@ -273,13 +274,84 @@ local function rig()
 	local function start(): Host.Runtime<Host.Subject> | Host.Refused
 		return Host.start(config, deps)
 	end
-	return { start = start, subject = subject, control = control, trace = trace, pending = pending }
+	return { start = start, subject = subject, control = control, trace = trace, pending = pending, deps = deps }
 end
 
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("staged character admission", function()
+		it("retries retained disposal custody without reopening admission or repeating successful cleanup", function()
+			local r = rig()
+			local runtime = r.start()
+			assert(runtime.phase == "character_admission_started")
+			r.control.removalFailure = true
+			expect(runtime.dispose()):toBe(false)
+			expect(runtime.isAdmitted(r.subject)):toBe(false)
+			expect(r.control.releases):toBe(0)
+			r.control.removalFailure = false
+			expect(runtime.dispose()):toBe(true)
+			expect(r.control.releases):toBe(1)
+			local calls = #r.trace
+			expect(runtime.dispose()):toBe(true)
+			expect(#r.trace):toBe(calls)
+		end)
+		it("retries failed native unsubscribe handles without repeating successful ones", function()
+			local r = rig()
+			local removing, added = 0, 0
+			r.deps.players.connectRemoving = function(_callback)
+				return function()
+					removing += 1
+					if removing == 1 then
+						error("unsubscribe_unavailable", 0)
+					end
+				end
+			end
+			r.deps.players.connectAdded = function(_callback)
+				return function()
+					added += 1
+				end
+			end
+			local runtime = r.start()
+			assert(runtime.phase == "character_admission_started")
+			expect(runtime.dispose()):toBe(false)
+			expect(r.control.releases):toBe(1)
+			expect(runtime.dispose()):toBe(true)
+			expect(runtime.dispose()):toBe(true)
+			expect(removing):toBe(2)
+			expect(added):toBe(1)
+			expect(r.control.releases):toBe(1)
+		end)
+		it("does not overlap disposal while native cleanup is suspended", function()
+			local environment = Roblox.testEnvironment({ handlerErrors = "raise" })
+			local r = rig()
+			local held: thread? = nil
+			local removed = 0
+			local remove = r.deps.actor.removePlayer
+			r.deps.actor.removePlayer = function(subject)
+				removed += 1
+				environment.scheduler.block(function(pending)
+					held = pending
+				end)
+				return remove(subject)
+			end
+			local runtime = r.start()
+			assert(runtime.phase == "character_admission_started")
+			local completed: boolean? = nil
+			environment.scheduler.spawn(function()
+				completed = runtime.dispose()
+			end)
+			expect(held == nil):toBe(false)
+			expect(runtime.dispose()):toBe(false)
+			expect(removed):toBe(1)
+			environment.scheduler.resume(assert(held))
+			environment.step(0)
+			expect(completed):toBe(true)
+			expect(runtime.dispose()):toBe(true)
+			expect(removed):toBe(1)
+			expect(r.control.releases):toBe(1)
+			expect(environment.scheduler.failures):toEqual({})
+		end)
 		it("admits an opaque profile in order and unwinds its owners in reverse", function()
 			local r = rig()
 			local runtime = r.start()

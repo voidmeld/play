@@ -69,6 +69,8 @@ An unavailable or malformed startup read reports the failure and leaves the worl
 Admission retries read storage again; only a successful read can establish absence and create accounts.
 Scene disposal invokes its native close callback once, then cancels owned local work even when
 close is held. It preserves uncertain saved bytes and leases; teardown does not certify release.
+Shutdown may be retried after a known read failure recovers. Admission stays stopped while retained
+cleanup completes; a settled repeat succeeds without another lease release or stored mutation.
 
 This bounded example keeps at most eight accounts and its market book in one world record.
 Trade and market settlement can therefore commit all touched inventories, balances and receipts
