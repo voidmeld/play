@@ -14,6 +14,8 @@ Play has no content of its own: no quests, items, zones or classes. Your game su
 data and the server authority; Play applies the rules and returns new state or a refusal.
 
 First, run one fixture with the [quickstart](docs/quickstart.md).
+Second, [build a persistent world with Play](docs/spine.md): one server, two clients,
+saved progression, quests, loot, equipment, trade and chat, through headless and native hosts.
 
 ## What is inside
 
@@ -92,6 +94,7 @@ changed.
 | Task | Document |
 | --- | --- |
 | Run the first fixture | [Quickstart](docs/quickstart.md) |
+| Assemble a persistent world | [Reference world walkthrough](docs/spine.md) |
 | Find public calls, returns and failures | [API reference](docs/api.md) |
 | Bind storage, clocks and native resources | [Host operations](docs/api.md#host-operations) |
 | Choose a reusable boundary and pin a consumer | [Adoption](docs/adoption.md) |

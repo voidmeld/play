@@ -6,6 +6,7 @@ This file owns contribution rules. The [README](README.md) maps the tasks.
 
 First action: find the affected area in [the API](docs/api.md), then read its linked specification and current consumers.
 Read only the next required contract. For a first use, follow the [quickstart](docs/quickstart.md).
+Then follow the [persistent-world assembly](docs/spine.md) and its executable scenario.
 
 ## Rules
 

@@ -1,0 +1,239 @@
+--!strict
+
+local Bdd = require("../../.lute/dependencies/verify/src/bdd")
+local Protocol = require("./protocol")
+local Scene = require("./scene")
+local State = require("./state")
+local Verify = require("../../.lute/dependencies/verify/src/core")
+
+return function(suite: Verify.Harness)
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
+
+	describe("persistent world assembly", function()
+		it("runs two clients through admission, rewards, trade, chat and a recovered session", function()
+			local scene = Scene.new()
+			local first, player = scene.connect(11)
+			local second, partner = scene.connect(22)
+			expect(scene.mount.admission.isAdmitted(player)):toBe(true)
+			expect(scene.mount.admission.isAdmitted(partner)):toBe(true)
+			local function send(client: typeof(first), request: Protocol.Request): Protocol.Response
+				client.request(request)
+				local response = assert(client.latest())
+				assert(response.ok, request.kind .. ":" .. (response.reason or "refused"))
+				expect(response.ok):toBe(true)
+				return response
+			end
+			send(first, { kind = "accept" })
+			local equipRequest: Protocol.EquipRequest = { kind = "equip", itemId = "training_sword" }
+			local equipped = send(first, equipRequest)
+			expect(assert(equipped.view).equipment.hand):toBe("training_sword")
+			expect(scene.mount.world.hit(22, 5)):toBe(true)
+			expect(scene.mount.world.hit(11, 10)):toBe(true)
+			local health, target = scene.mount.world.enemy()
+			expect(health):toBe(15)
+			expect(target):toBe("11")
+			expect(scene.mount.world.hit(11, 15)):toBe(true)
+			local leveled = assert(send(first, { kind = "snapshot" }).view)
+			expect(leveled.level):toBe(2)
+			expect(leveled.counts):toEqual({ defeat = 1, collect = 0 })
+			expect(#leveled.loot):toBe(1)
+			local looted = assert(send(first, { kind = "loot", defeatId = leveled.loot[1] }).view)
+			expect(looted.counts):toEqual({ defeat = 1, collect = 1 })
+			expect(looted.inventory["copper_ore"]):toBe(1)
+			local rewarded = assert(send(first, { kind = "claim" }).view)
+			expect(rewarded.questStatus):toBe("completed")
+			expect(rewarded.xp):toBe(150)
+			expect(rewarded.coin):toBe(25)
+			local invited = send(first, { kind = "trade", targetId = 22 })
+			local revision = assert(invited.trade).revision
+			local offered = send(first, {
+				kind = "offer",
+				revision = revision,
+				offer = { coin = 0, items = { { itemId = "copper_ore", count = 1 } } },
+			})
+			revision = assert(offered.trade).revision
+			local counter = send(second, {
+				kind = "offer",
+				revision = revision,
+				offer = { coin = 0, items = { { itemId = "shield", count = 1 } } },
+			})
+			revision = assert(counter.trade).revision
+			send(first, { kind = "lock", revision = revision })
+			send(second, { kind = "lock", revision = revision })
+			send(first, { kind = "confirm", revision = revision })
+			scene.control.onUpdate = function()
+				first.request({ kind = "offer", revision = revision, offer = { coin = 0, items = {} } })
+				expect(assert(first.latest()).reason):toBe("busy")
+				expect(scene.mount.world.close(11)):toBe(false)
+			end
+			local settled = send(second, { kind = "confirm", revision = revision })
+			expect(assert(settled.trade).phase):toBe("settled")
+			expect(assert(settled.view).inventory["copper_ore"]):toBe(1)
+			expect(assert(scene.mount.world.view(11)).inventory.shield):toBe(2)
+			expect(assert(scene.mount.world.view(11)).inventory["copper_ore"]):toBeNil()
+			local chatRequest: Protocol.ChatRequest = { kind = "chat", text = "unfiltered fixture input" }
+			send(first, chatRequest)
+			expect(first.lines()[1].text):toBe("Hello Harbor")
+			expect(second.lines()[1].text):toBe("Hello Harbor")
+			local before = scene.mount.world.view(11)
+			expect(scene.disconnect(11)):toBe(true)
+			first.dispose()
+			local reconnected, returned = scene.connect(11)
+			expect(scene.mount.admission.isAdmitted(returned)):toBe(true)
+			expect(assert(send(reconnected, { kind = "snapshot" }).view)):toEqual(before)
+			expect(scene.mount.world.request(11, { kind = "claim" }).reason):toBe("quest_incomplete")
+			expect(scene.mount.world.request(11, { kind = "loot", defeatId = leveled.loot[1] }).reason):toBe(
+				"loot_missing"
+			)
+			scene.clock.advance(45)
+			expect(scene.mount.admission.isAdmitted(returned)):toBe(true)
+			expect(scene.mount.shutdown()):toBe(true)
+			reconnected.dispose()
+			second.dispose()
+			local restarted = Scene.new(scene.values, scene.clock.clock())
+			local restored, restoredPlayer = restarted.connect(11)
+			expect(restarted.mount.admission.isAdmitted(restoredPlayer)):toBe(true)
+			expect(assert(send(restored, { kind = "snapshot" }).view)):toEqual(before)
+			expect(restarted.mount.shutdown()):toBe(true)
+			restored.dispose()
+		end)
+
+		it("rejects forged requests, competing sessions, stale offers and sender floods", function()
+			local scene = Scene.new()
+			local client, player = scene.connect(11)
+			local partner = scene.connect(22)
+			local writes = scene.updates()
+			scene.rawRequest(player, { kind = "claim", userId = 22, xp = 900 })
+			expect(assert(client.latest()).reason):toBe("request_invalid")
+			expect(scene.updates()):toBe(writes)
+			local competitor = Scene.new(scene.values)
+			local refused, otherPlayer = competitor.connect(11)
+			expect(competitor.mount.admission.isAdmitted(otherPlayer)):toBe(false)
+			refused.request({ kind = "snapshot" })
+			expect(assert(refused.latest()).reason):toBe("not_admitted")
+			client.request({ kind = "trade", targetId = 22 })
+			client.request({ kind = "offer", revision = 1, offer = { coin = 0, items = {} } })
+			expect(assert(client.latest()).reason):toBe("revision_stale")
+			for _ = 1, 20 do
+				client.request({ kind = "snapshot" })
+			end
+			expect(assert(client.latest()).reason):toBe("rate_limited")
+			scene.clock.advance(2)
+			client.request({ kind = "snapshot" })
+			expect(assert(client.latest()).ok):toBe(true)
+			expect(scene.mount.shutdown()):toBe(true)
+			expect(competitor.mount.shutdown()):toBe(true)
+			client.dispose()
+			partner.dispose()
+			refused.dispose()
+		end)
+
+		it("holds an uncertain committed write and recovers it after its lease expires", function()
+			local scene = Scene.new()
+			local client = scene.connect(11)
+			scene.control.loseReply = true
+			client.request({ kind = "accept" })
+			expect(assert(client.latest()).reason):toBe("storage_held")
+			local attempts = scene.updates()
+			scene.control.loseReply = false
+			client.request({ kind = "accept" })
+			expect(assert(client.latest()).ok):toBe(false)
+			expect(scene.updates()):toBe(attempts)
+			expect(scene.mount.shutdown()):toBe(false)
+			local recovered = Scene.new(scene.values)
+			recovered.clock.advance(61)
+			local restored, player = recovered.connect(11)
+			expect(recovered.mount.admission.isAdmitted(player)):toBe(true)
+			restored.request({ kind = "snapshot" })
+			expect(assert(assert(restored.latest()).view).questStatus):toBe("active")
+			expect(recovered.mount.shutdown()):toBe(true)
+			client.dispose()
+			restored.dispose()
+		end)
+
+		it("reverses failed body admission and releases its durable lock", function()
+			local scene = Scene.new()
+			scene.control.denyBody = true
+			local refused, player = scene.connect(11)
+			expect(scene.mount.admission.isAdmitted(player)):toBe(false)
+			expect(scene.mount.world.context(11)):toBeNil()
+			scene.control.denyBody = false
+			expect(scene.disconnect(11)):toBe(true)
+			local admitted, returned = scene.connect(11)
+			expect(scene.mount.admission.isAdmitted(returned)):toBe(true)
+			expect(scene.mount.shutdown()):toBe(true)
+			refused.dispose()
+			admitted.dispose()
+		end)
+
+		it("recovers both sides of a trade after its settlement reply is lost", function()
+			local scene = Scene.new()
+			local first = scene.connect(11)
+			local second = scene.connect(22)
+			first.request({ kind = "trade", targetId = 22 })
+			first.request({
+				kind = "offer",
+				revision = 0,
+				offer = { coin = 0, items = { { itemId = "shield", count = 1 } } },
+			})
+			first.request({ kind = "lock", revision = 1 })
+			second.request({ kind = "lock", revision = 1 })
+			first.request({ kind = "confirm", revision = 1 })
+			scene.control.loseReply = true
+			second.request({ kind = "confirm", revision = 1 })
+			expect(assert(second.latest()).reason):toBe("storage_held")
+			scene.control.loseReply = false
+			expect(scene.mount.shutdown()):toBe(false)
+			local recovered = Scene.new(scene.values, 61)
+			local restoredFirst = recovered.connect(11)
+			local restoredSecond = recovered.connect(22)
+			restoredFirst.request({ kind = "snapshot" })
+			restoredSecond.request({ kind = "snapshot" })
+			expect(assert(assert(restoredFirst.latest()).view).inventory.shield):toBeNil()
+			expect(assert(assert(restoredSecond.latest()).view).inventory.shield):toBe(2)
+			expect(recovered.mount.shutdown()):toBe(true)
+			first.dispose()
+			second.dispose()
+			restoredFirst.dispose()
+			restoredSecond.dispose()
+		end)
+
+		it("refuses full stacks without clipping traded goods or consuming pending loot", function()
+			local seed = Scene.new()
+			local seedFirst = seed.connect(11)
+			local seedSecond = seed.connect(22)
+			expect(seed.mount.shutdown()):toBe(true)
+			local saved = assert(State.copy(seed.values["world:Harbor"]))
+			saved.players["22"].inventory.shield = 99
+			saved.players["11"].inventory.copper_ore = 99
+			seed.values["world:Harbor"] = saved
+			local scene = Scene.new(seed.values)
+			local first = scene.connect(11)
+			local second = scene.connect(22)
+			first.request({ kind = "trade", targetId = 22 })
+			first.request({
+				kind = "offer",
+				revision = 0,
+				offer = { coin = 0, items = { { itemId = "shield", count = 1 } } },
+			})
+			first.request({ kind = "lock", revision = 1 })
+			second.request({ kind = "lock", revision = 1 })
+			first.request({ kind = "confirm", revision = 1 })
+			second.request({ kind = "confirm", revision = 1 })
+			expect(assert(second.latest()).reason):toBe("stack_full")
+			expect(assert(scene.mount.world.view(11)).inventory.shield):toBe(1)
+			expect(assert(scene.mount.world.view(22)).inventory.shield):toBe(99)
+			expect(scene.mount.world.hit(11, 30)):toBe(true)
+			local before = assert(scene.mount.world.view(11))
+			first.request({ kind = "loot", defeatId = before.loot[1] })
+			expect(assert(first.latest()).reason):toBe("inventory_full")
+			expect(scene.mount.world.view(11)):toEqual(before)
+			expect(scene.mount.shutdown()):toBe(true)
+			seedFirst.dispose()
+			seedSecond.dispose()
+			first.dispose()
+			second.dispose()
+		end)
+	end)
+end
