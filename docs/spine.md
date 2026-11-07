@@ -72,6 +72,8 @@ This bounded example keeps at most eight accounts and its market book in one wor
 Trade and market settlement can therefore commit all touched inventories, balances and receipts
 atomically. Listing removes one carried shield; buying spends five coin, grants one shield,
 credits the seller and burns the configured fee. Receipt acknowledgement is in the same commit.
+The assembly specification pauses a fill while another buyer contends and the seller departs.
+It checks the single debit/grant, refused retry, conserved fee and goods, and saved proceeds on rejoin.
 The optional market field preserves admission of earlier example records. A malformed book refuses.
 For separate profile records, use the documented [trade](api.md#roblox-trade) and
 [market settlement](api.md#roblox-market-settlement) recovery adapters.
