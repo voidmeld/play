@@ -2567,6 +2567,30 @@ This example exercises: renews from the current profile and retries failures wit
 
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
 
+## roblox-profile-transaction
+
+`src/roblox/profile-transaction` exports `new`, returning `commit(context, change)`, and types
+`Outcome`, `Restoration`, `Result`, `SessionPort<C>` and `Dependencies<C, P>`. Bind the `save` and
+`isAdmitted` operations of `profile-sessions`, the existing live profile authority and a fresh durable
+readback. This coordinator adds no store. Supply owned `copy`, complete-profile `equal`, and `verify`
+for the action's exact expected fields, including revision and receipts where used.
+
+`replace(context, expected, candidate)` must atomically compare the complete live state by value
+against `expected`, check the current session, and install `candidate` only on equality. It must not
+yield. Callbacks receive borrowed inputs; `change` receives an owned copy. Per-key exclusion covers
+yielding saves/readbacks. Change-time interleavings refuse before installation.
+
+`commit` applies the candidate, saves through the admitted session, reads storage and verifies both
+live and durable expected fields. `committed` requires successful save and verification under the same
+session. On failure it restores the prior live profile only while the full live profile still equals
+the candidate. `rolled_back` additionally requires readback equal to the complete prior profile;
+`ambiguous` reports uncertain durability or superseded live state, even when live restoration succeeds.
+`rejected` means no candidate was installed. `restoration` explicitly reports `not_applied`, `restored`,
+`superseded` or `failed`; inspect `reason` and `saveReason`. Reconcile ambiguous storage before retrying;
+this coordinator never rewrites storage to erase an uncertain transaction. Confirmed rollback permits
+a corrected retry. Host exceptions return explicit uncertainty and release exclusion.
+Run `lute run tools/gate.luau --only specs --file src/roblox/profile-transaction.verify.luau`.
+
 ## roblox-profile-transfer
 
 Read and settle profiles under exact session identity and per-key exclusion.
@@ -21314,6 +21338,65 @@ drain = function drain(): { [string]: Outcome }
 isAdmitted = function isAdmitted(context: C): boolean
 ownedTaskCount = function ownedTaskCount(context: C): number
 dispose = function dispose()
+```
+
+## `roblox.profile-transaction`
+
+[Source](../src/roblox/profile-transaction.luau)
+
+```luau
+local Sessions = require("./profile-sessions")
+```
+
+### `roblox.profile-transaction.Outcome`
+
+```luau
+export type Outcome = "committed" | "rolled_back" | "ambiguous" | "rejected"
+```
+
+### `roblox.profile-transaction.Restoration`
+
+```luau
+export type Restoration = "not_applied" | "restored" | "superseded" | "failed"
+```
+
+### `roblox.profile-transaction.Result`
+
+```luau
+export type Result = { outcome: Outcome, restoration: Restoration, reason: string?, saveReason: string? }
+```
+
+### `roblox.profile-transaction.SessionPort`
+
+```luau
+export type SessionPort<C> = { isAdmitted: (C) -> boolean, save: (C) -> Sessions.Outcome }
+```
+
+### `roblox.profile-transaction.Dependencies`
+
+```luau
+export type Dependencies<C, P> = {
+	sessions: SessionPort<C>,
+	keyFor: (C) -> string,
+	live: (C) -> P?,
+	replace: (C, P, P) -> boolean,
+	readback: (C) -> (P?, string?),
+	copy: (P) -> P,
+	equal: (P, P) -> boolean,
+	verify: (P, P) -> boolean,
+}
+```
+
+### `roblox.profile-transaction.new`
+
+```luau
+function new<C, P>(deps: Dependencies<C, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+commit = function commit(context: C, change: (P) -> (P?, string?)): Result
 ```
 
 ## `roblox.profile-transfer`
