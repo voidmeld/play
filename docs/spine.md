@@ -56,6 +56,9 @@ Every player mutation checks the current session token and lease. A transaction 
 world, edits a detached candidate and compares the expected revision and complete contents.
 Only the actual committed readback becomes installed state. Missing or divergent replies hold
 authority and refuse further writes; a later session recovers from saved bytes after lease expiry.
+The specification also pauses a reply after its craft has committed, expires the old lease and
+admits another server before resuming it. The old caller refuses success and leaves the new owner's
+record unchanged; recovery observes the actual crafted inventory without applying it again.
 Renewal, departure and shutdown use the same persistence and profile-session contracts.
 Failed reads refuse account creation and value changes without saving a default or overwriting
 earned state. A closing session retains its leased profile for save retries while refusing gameplay;

@@ -91,6 +91,7 @@ local function new(
 		loseReply: boolean,
 		denyBody: boolean,
 		onUpdate: (() -> ())?,
+		afterUpdate: (() -> ())?,
 		onObserve: ((number) -> ())?,
 	} =
 		{
@@ -99,6 +100,7 @@ local function new(
 			loseReply = false,
 			denyBody = false,
 			onUpdate = nil,
+			afterUpdate = nil,
 			onObserve = nil,
 		}
 	local queue: { Stores.QueuedWrite } = {}
@@ -170,6 +172,11 @@ local function new(
 			local nextValue = transform(copy(values[key]))
 			if nextValue ~= nil then
 				values[key] = copy(nextValue)
+			end
+			local after = control.afterUpdate
+			control.afterUpdate = nil
+			if after ~= nil then
+				after()
 			end
 			if control.loseReply then
 				error("reply_lost")
