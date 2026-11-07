@@ -2650,6 +2650,8 @@ This example exercises: renews from the current profile and retries failures wit
 ### Invariants
 
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
+Replacing an admitted key retires its predecessor's local renewal tasks and owner without a
+durable release or `onReleased` receipt. The host must acquire the replacement lease lawfully.
 Overlapping writes retain only the current generation's returned lease expiry. A delayed reply
 from an older write returns `operation_cancelled` and cannot shorten or revive the newer lease.
 `drain` captures each admitted context before starting closes. Interleaved removal is replayed

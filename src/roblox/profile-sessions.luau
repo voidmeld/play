@@ -130,7 +130,9 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 	end
 
 	local function admit(context: C, leaseExpiresAt: number, profile: () -> P?, onReleased: () -> ())
-		released[deps.keyFor(context)] = nil
+		local key = deps.keyFor(context)
+		local previous = entries[key]
+		released[key] = nil
 		local entry: Entry<C, P> = {
 			context = context,
 			profile = profile,
@@ -142,13 +144,19 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 			owner = owner.createChild(),
 			scheduledDetach = nil,
 		}
-		entries[deps.keyFor(context)] = entry
+		entries[key] = entry
+		if previous ~= nil then
+			previous.scheduleGeneration += 1
+			previous.writeGeneration += 1
+			detachScheduled(previous)
+			previous.owner.dispose()
+		end
 		local ok, reason = pcall(function()
-			scheduleEntry(deps.keyFor(context), entry, jittered(deps.renewalDelay))
+			scheduleEntry(key, entry, jittered(deps.renewalDelay))
 			return nil
 		end)
 		if not ok then
-			entries[deps.keyFor(context)] = nil
+			entries[key] = nil
 			entry.owner.dispose()
 			error(reason, 0)
 		end
