@@ -4,9 +4,13 @@ local Crafting = require("./professions/crafting")
 local Fishing = require("./professions/fishing")
 local Gathering = require("./professions/gathering")
 local Harvest = require("./professions/harvest")
+local Milestones = require("./professions/milestones")
+local Progression = require("./professions/progression")
 local Session = require("./professions/session")
 local Skills = require("./professions/skills")
+local Tokens = require("./professions/tokens")
 local Types = require("./professions/types")
+local WorkOrders = require("./orders/work")
 
 export type CraftingPlan = Crafting.Plan
 export type CraftingOutcome = Crafting.Outcome
@@ -26,6 +30,23 @@ export type GatheringResult = Gathering.Result
 export type HarvestYield = Harvest.Yield
 export type HarvestOutcome = Harvest.Outcome
 export type HarvestConfig = Harvest.Config
+export type MilestonesReceipt = Milestones.Receipt
+export type MilestonesDefinition = Milestones.Definition
+export type MilestonesConfig = Milestones.Config
+export type MilestonesState = Milestones.State
+export type ProgressionTokens = Progression.Tokens
+export type ProgressionWorkOrder = Progression.WorkOrder
+export type ProgressionState = Progression.State
+export type ProgressionConfig = Progression.Config
+export type TokensTokens = Tokens.Tokens
+export type TokensConfig = Tokens.Config
+export type WorkOrdersPhase = WorkOrders.Phase
+export type WorkOrdersWorkOrderStep = WorkOrders.WorkOrderStep
+export type WorkOrdersWorkOrder = WorkOrders.WorkOrder
+export type WorkOrdersState = WorkOrders.State
+export type WorkOrdersCommandKind = WorkOrders.CommandKind
+export type WorkOrdersCommand = WorkOrders.Command
+export type WorkOrdersResult = WorkOrders.Result
 export type SessionKind = Session.Kind
 export type SessionSession = Session.Session
 export type SessionSample = Session.Sample
@@ -51,9 +72,13 @@ export type API = {
 	read fishing: typeof(Fishing),
 	read gathering: typeof(Gathering),
 	read harvest: typeof(Harvest),
+	read milestones: typeof(Milestones),
+	read progression: typeof(Progression),
 	read session: typeof(Session),
 	read skills: typeof(Skills),
+	read tokens: typeof(Tokens),
 	read types: typeof(Types),
+	read workOrders: typeof(WorkOrders),
 }
 
 local api: API = {
@@ -61,9 +86,13 @@ local api: API = {
 	fishing = Fishing,
 	gathering = Gathering,
 	harvest = Harvest,
+	milestones = Milestones,
+	progression = Progression,
 	session = Session,
 	skills = Skills,
+	tokens = Tokens,
 	types = Types,
+	workOrders = WorkOrders,
 }
 
 return table.freeze(api)
