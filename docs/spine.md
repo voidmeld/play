@@ -60,6 +60,9 @@ Renewal, departure and shutdown use the same persistence and profile-session con
 Failed reads refuse account creation and value changes without saving a default or overwriting
 earned state. A closing session retains its leased profile for save retries while refusing gameplay;
 after storage recovers, its committed close can release the lease.
+The scene removes a departing player and body even when saving fails; server-side save custody
+remains retryable. Profile unload and lease release bind the acquisition identity, so delayed
+cleanup from an earlier departure cannot close a newly arrived session for the same account.
 An unavailable or malformed startup read reports the failure and leaves the world uninstalled.
 Admission retries read storage again; only a successful read can establish absence and create accounts.
 

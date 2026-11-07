@@ -345,12 +345,12 @@ local function new(ports: Ports)
 		end)
 		return { ok = true, profile = assert(State.copyProfile(profile)), context = context, lease = { revision = 1 } }
 	end
-	local function close(userId: number): boolean
+	local function close(userId: number, acquisitionId: string?): boolean
 		if busy then
 			return false
 		end
 		local entry = active[userId]
-		if entry == nil then
+		if entry == nil or (acquisitionId ~= nil and entry.context.acquisitionId ~= acquisitionId) then
 			return true
 		end
 		local outcome = sessions.unload(entry.context)

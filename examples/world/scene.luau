@@ -401,15 +401,13 @@ local function new(
 		for callback in removing do
 			ok = callback(player) and ok
 		end
-		if ok then
-			players[userId] = nil
-			instances[userId]:Destroy()
-			instances[userId] = nil
-			bodies[userId]:Destroy()
-			bodies[userId] = nil
-			if network ~= nil then
-				assert(network.disconnect(tostring(userId)).ok)
-			end
+		players[userId] = nil
+		instances[userId]:Destroy()
+		instances[userId] = nil
+		bodies[userId]:Destroy()
+		bodies[userId] = nil
+		if network ~= nil then
+			assert(network.disconnect(tostring(userId)).ok)
 		end
 		return ok
 	end
