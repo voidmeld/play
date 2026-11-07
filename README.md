@@ -24,7 +24,7 @@ First, run one fixture with the [quickstart](docs/quickstart.md).
 | Quests | Journal, objectives, counters, claims, markers, lifecycle and runs | [`quest`](docs/api.md#quest) |
 | Items | Stacks, equipment slots, carried cargo | [`inventory`](docs/api.md#inventory) |
 | Loot | Roll tables and loot decisions | [`loot`](docs/api.md#loot) |
-| Economy | Player trade with receipts, mail with attachments, order book market with wallets and conservation, vendors, work orders, bank vaults, double-entry ledger | [`trade`](docs/api.md#trade), [`mail`](docs/api.md#mail), [`market`](docs/api.md#market), [`vendors`](docs/api.md#vendors), [`orders`](docs/api.md#orders), [`bank`](docs/api.md#bank), [`ledger`](docs/api.md#ledger) |
+| Economy | Player trade with receipts, mail with attachments, order book market with wallets and conservation, vendors, work orders, bank vaults | [`trade`](docs/api.md#trade), [`mail`](docs/api.md#mail), [`market`](docs/api.md#market), [`vendors`](docs/api.md#vendors), [`orders`](docs/api.md#orders), [`bank`](docs/api.md#bank) |
 | Professions | Skills, gathering, harvest, fishing, crafting sessions, recipes | [`professions`](docs/api.md#professions), [`craft`](docs/api.md#craft) |
 | Combat | Threat tables and contribution, cast queues, contact resolution, timed effects, crowd control with diminishing returns | [`threat`](docs/api.md#threat), [`cast`](docs/api.md#cast), [`combat`](docs/api.md#combat), [`effects`](docs/api.md#effects), [`control`](docs/api.md#control) |
 | Social | Groups, parties, fellowships, warbands, formations, membership, guild bank, guild home, guild ledger, allies, notes, chronicle | [`social`](docs/api.md#social) |

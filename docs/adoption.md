@@ -38,11 +38,5 @@ example and invariants. The API owns signatures, returns, failures and import pa
 The [host-operation contract](api.md#host-operations) and
 [compatibility policy](../README.md#compatibility) apply throughout the cutover.
 
-## Consumer proof limits
-
-Pure cargo rules have a game consumer. The native cargo and material-ledger coordinators currently
-have executable test-scene consumers; their live adopter integration is not established. A game
-must supply and prove the authoritative persistence path before claiming adoption of those adapters.
-
 Keep private deployment identities and cutover status outside this library. Shared guides describe
 the current reusable contract; adopter-specific plans and historical line counts do not define it.
