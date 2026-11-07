@@ -111,7 +111,7 @@ lute run tools/gate.luau --only specs --file src/kernel/codec.verify.luau
 The [specification](../src/kernel/codec.verify.luau) proves migration before version
 admission, detached field policy, decoder refusals, shared-reference copying, rejection
 of invalid graphs and complete equality. Account and character records use versioned
-admission; storage hosts, material ledgers and cargo use the same data primitives.
+admission; storage hosts use the same data primitives.
 
 ## kernel-lease
 
@@ -165,22 +165,17 @@ not freeze payloads or decode untrusted data; domain codecs still own admission.
 Use it when failure should abort the caller, such as fixture setup. Runtime bindings
 that must return a refusal should branch on `ok` instead.
 
-Material ledger append and snapshot operations use this contract, as does the
-adopting game's character repository binding. Store-port envelopes move with the
-atomic Store primitive; other domain responses remain described by their respective
-areas on this page.
+Atomic storage and lease operations use this contract. Other domain responses
+remain described by their respective areas on this page.
 
-Run the [cargo and ledger specification](../src/roblox/cargo.verify.luau):
+Run the [atomic store specification](../src/kernel/store.verify.luau):
 
 ```sh
-lute run tools/gate.luau --only specs --file src/roblox/cargo.verify.luau
+lute run tools/gate.luau --only specs --file src/kernel/store.verify.luau
 ```
 
-It exercises the real coordinator against fake storage ports: retained receipts
-replay without applying twice, old unverifiable receipts refuse, divergent committed
-readbacks fail closed, and a speculative callback cannot supply a success after
-the final callback refuses. Success carries the append or snapshot payload; refusal
-carries its required reason.
+It exercises successful absent reads, required refusal reasons, malformed backend
+envelopes and divergent committed readbacks against fake storage ports.
 
 ## kernel-store
 
@@ -262,7 +257,7 @@ lute run tools/gate.luau --only specs --file src/kernel/value.verify.luau
 The [specification](../src/kernel/value.verify.luau) checks that copying fields
 does not retain a metatable or virtual fields, while plain-record admission still
 rejects the original table. It also checks finite numbers, nonempty strings and
-whole-number bounds. Inventory cargo, material ledgers and identity records consume
+whole-number bounds. Inventory cargo and identity records consume
 these same operations; their system specifications own domain invariants.
 
 ## bank
@@ -836,45 +831,6 @@ closed; valid projections are detached and immutable. Settled transient losses c
 Wear follows a particular copy through equipment, bag and bank operations. Plans preserve their input maps.
 Broken items contribute no active equipment. A changed quote or insufficient funds cannot produce a repair.
 
-## ledger
-
-Record value events, reservations and grouped economic operations.
-
-### State shape
-
-`State` stores events and derived balances/reservations; `Journal` projects grouped history and torn groups.
-
-Types and configuration are exported from [src/core/ledger.luau](../src/core/ledger.luau).
-
-### Operations
-
-| Component | Operations | Exported types |
-| --- | --- | --- |
-| [ledger](../src/core/ledger/ledger.luau) | `apply`, `available`, `balances`, `emptyState`, `ledger`, `projectEvent`, `projectState`, `tornGroups` | `EventKind`, `Event`, `State`, `ApplyResult`, `TornGroup`, `Config`, `Journal` |
-
-Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
-
-### Required host operations
-
-Supply earning/spending kinds, identity and quantity bounds, group policy and event timestamps. Durable event append belongs to the game.
-
-### Runnable example
-
-From the repository root after [tool setup](validation.md#tools):
-
-```sh
-lute run tools/gate.luau --file src/core/ledger/ledger.verify.luau --name "settles grants immediately and derives balances"
-```
-
-The [executable specification](../src/core/ledger/ledger.verify.luau) supplies complete configured inputs, fake host
-operations where needed and expected results. The gate runs it through Verify; a module load alone is not a test.
-
-This example exercises: settles grants immediately and derives balances.
-
-### Invariants
-
-Identical event replay does not regrant value. Conflicting identities refuse. Group accounting exposes incomplete settlement.
-
 ## loot
 
 Draw configured loot and settle party need/greed/pass choices.
@@ -1440,64 +1396,6 @@ This example exercises: settles without overshoot and is stable across frame rat
 ### Invariants
 
 Spring motion stays stable across frame rates. Obstruction pulls inward immediately and eases outward.
-
-## roblox-cargo
-
-The host store is the kernel `store.Port`: uncached `read` and atomic `update` return the kernel
-`Result`. Reads never submit update callbacks. Cancelled cargo and settlement replays require a
-fresh complete-record confirmation before acknowledgement. Bind native stores with
-`roblox/persistence/store.new`; staged ledger transforms use the same port inside the atomic write.
-
-Coordinate carried claims, recoverable drops and durable extraction through configured cargo rules.
-Import [roblox/cargo](../src/roblox/cargo.luau), `configure` the rules/policy, then call `mount` with
-camp loading, store and key ports. `mountFromContent` additionally reports missing source/store wiring.
-
-### State shape
-
-A zone record contains `schemaVersion`, `zoneId` and the configured cargo state: monotonic clock,
-claims, drops and extraction receipts. Each claim is carried, dropped, banked or lost. Camps contain
-identity, realm, center and safe radius. Outcome projections report custody counts, intent receipts,
-replay state and the adopter-owned boundary label.
-
-### Operations and required host operations
-
-`carry`, `release`, `recover` and `expire` validate request envelopes and commit one cargo transition.
-`extract` additionally checks the configured realm's camp and radius, commits banked custody, then
-settles every produced material intent inside one ledger-record transform. A tear between cargo and
-ledger leaves a replayable extraction receipt; retrying the same identity heals its grants without
-duplicating them. `read`, `campFor`, `campIds`, `emptyState` and `admitsExtraction` expose projections
-and admission facts. Read operations cancel their transforms and require explicit cancellation replies.
-
-Supply a pure cargo core, configured material-ledger API, known realms, schema/text/clock bounds,
-carried/banked space labels, banked-space refusal, drop expiry and boundary label. Supply camp rows,
-`store.update`, `keyForHaul` and `keyForLedger`. The ledger API must use the provided staged store and
-perform no external I/O inside a cargo settlement transform. The backend returns actual committed
-readbacks; uncertainty must remain observable. Caller-supplied time must be authoritative.
-
-The game owns authenticated actors, world/content projection, native presence/location/death signals,
-camp/realm policy, storage namespaces, migrations, retention and deployment. The host operates on data
-positions, not native geometry. It does not discover services or infer that an actor is at its claimed position.
-
-### Runnable example
-
-```sh
-lute run tools/gate.luau --file src/roblox/cargo.verify.luau
-```
-
-The [fixture](../src/roblox/cargo.verify.luau) uses short expiry, different space labels, one neutral
-realm, schema seven and small bounds. It exercises two-material custody/recovery, torn settlement and
-replay, exact-radius admission, expiry, callback retries and divergent readbacks at all write boundaries.
-
-### Invariants
-
-- A material claim has exactly one custody state.
-- Banked-space yields cannot enter carried custody.
-- Extraction requires the caller's configured realm camp and accepts the exact radius boundary.
-- Cargo custody commits before ledger grants; a replay receipt heals the two-record tear.
-- All extraction grants are staged inside one atomic ledger transform.
-- Callback retries discard earlier speculative results.
-- Cargo and ledger writes require exact desired committed readbacks before reporting success.
-- Divergent readbacks remain reconcilable through the original claim/extraction receipts.
 
 ## roblox-character-admission
 
@@ -2350,55 +2248,6 @@ merchant prices, refused filters, permission loss and cache readmission.
 - Search filters are decoded and results come from server-owned cached books.
 - Recovery failure remains pending and observes the configured retry interval.
 - Display projections never write authoritative profiles.
-
-## roblox-material-ledger
-
-Persist configured material-journal transitions with bounded replay receipts and exact readback.
-Import [roblox/material-ledger](../src/roblox/material-ledger.luau) and call `configure` with ledger
-rules, saved schema version, receipt-window size, text bound and an adopter-owned boundary label.
-
-### State shape
-
-A saved record contains `schemaVersion`, the full material event journal, recent event IDs and the
-timestamp floor preceding that receipt window. `NO_FLOOR` is the negative sentinel used before the
-window fills. Event amounts/kinds/group rules come from the supplied ledger core. Snapshot outcomes
-carry existence, balances, torn groups, event count, replay floor and the configured boundary label.
-
-### Operations and required host operations
-
-`append(store, keyForLedger, ledgerId, event)` validates through the configured core, checks replay
-admission and applies the event inside an atomic transform. A retained exact replay cancels the write
-and acknowledges the existing receipt only after a fresh read confirms the complete expected record. An event outside the retained window at or below its floor is
-refused as unverifiable. A successful write requires the exact desired committed record in its reply.
-
-`snapshot` validates and projects a fresh `store.read` result without submitting an update.
-Supply the kernel `store.Port` with uncached `read` and atomic `update`, both returning the kernel
-`Result`, and an owned key function. Native callers can use `roblox/persistence/store.new`.
-Transforms can repeat: speculative results are cleared on every invocation.
-Core operations must be pure. The host owns schema migrations, storage scope, admission/authentication,
-native scheduling, backend budgets and eventual reconciliation after uncertainty.
-
-The journal itself is not pruned by the receipt window. The window limits replay evidence, rather than
-total storage growth. Keep retention and backend size policy in the adopter.
-
-### Runnable example
-
-```sh
-lute run tools/gate.luau --file src/roblox/cargo.verify.luau
-```
-
-The [fixture](../src/roblox/cargo.verify.luau) uses schema seven, a two-receipt window and a fake
-atomic store. It exercises retained and expired replay evidence, final-transform refusal, divergent
-readback and cargo-to-ledger reconciliation. It does not establish native multi-server interleaving.
-
-### Invariants
-
-- Malformed records and unrecognized schemas fail closed.
-- The saved receipt window and floor must match the validated journal.
-- Speculative results from earlier callback invocations cannot authorize a final refusal.
-- Backend success with a divergent readback is uncertainty, rather than a granted result.
-- Replayed receipts never apply a second material grant and require committed readback.
-- A snapshot operation cannot silently write a record or interpret transport failure as absence.
 
 ## roblox-messaging
 
@@ -3614,7 +3463,6 @@ The area table links each configured rule family and native adapter. Read only t
 | events | [Contract](#events) |
 | identity | [Contract](#identity) |
 | inventory | [Contract](#inventory) |
-| ledger | [Contract](#ledger) |
 | loot | [Contract](#loot) |
 | mail | [Contract](#mail) |
 | map | [Contract](#map) |
@@ -3627,7 +3475,6 @@ The area table links each configured rule family and native adapter. Read only t
 | quest | [Contract](#quest) |
 | roblox-bank | [Contract](#roblox-bank) |
 | roblox-camera | [Contract](#roblox-camera) |
-| roblox-cargo | [Contract](#roblox-cargo) |
 | roblox-character-admission | [Contract](#roblox-character-admission) |
 | roblox-chat | [Contract](#roblox-chat) |
 | roblox-consumables | [Contract](#roblox-consumables) |
@@ -3648,7 +3495,6 @@ The area table links each configured rule family and native adapter. Read only t
 | roblox-market-profile-wallet | [Contract](#roblox-market-profile-wallet) |
 | roblox-market-settlement | [Contract](#roblox-market-settlement) |
 | roblox-market | [Contract](#roblox-market) |
-| roblox-material-ledger | [Contract](#roblox-material-ledger) |
 | roblox-messaging | [Contract](#roblox-messaging) |
 | roblox-movement-intake | [Contract](#roblox-movement-intake) |
 | roblox-movement-sender | [Contract](#roblox-movement-sender) |
@@ -7762,172 +7608,6 @@ Exported value; see its declaration in [source](../src/core/inventory.luau).
 ### `core.inventory.stacks`
 
 Exported value; see its declaration in [source](../src/core/inventory.luau).
-
-## `core.ledger.ledger`
-
-[Source](../src/core/ledger/ledger.luau)
-
-```luau
-local Value = require("../../kernel/value")
-```
-
-### `core.ledger.ledger.EventKind`
-
-```luau
-export type EventKind = "grant" | "craft_consume" | "craft_yield" | "trade_out" | "trade_in"
-```
-
-### `core.ledger.ledger.Event`
-
-```luau
-export type Event = {
-	eventId: string,
-	kind: EventKind,
-	materialId: string,
-	count: number,
-	actorId: string,
-	at: number,
-	groupId: string?,
-	groupSize: number?,
-}
-```
-
-### `core.ledger.ledger.State`
-
-```luau
-export type State = {
-	events: { Event },
-}
-```
-
-### `core.ledger.ledger.ApplyResult`
-
-```luau
-export type ApplyResult = {
-	state: State,
-	replayed: boolean,
-	settled: boolean,
-	groupId: string?,
-}
-```
-
-### `core.ledger.ledger.TornGroup`
-
-```luau
-export type TornGroup = {
-	groupId: string,
-	groupSize: number,
-	memberCount: number,
-}
-```
-
-### `core.ledger.ledger.Config`
-
-```luau
-export type Config = {
-	maxText: number,
-	maxCount: number,
-	maxAt: number,
-	minGroupSize: number,
-	maxGroupSize: number,
-}
-```
-
-### `core.ledger.ledger.Journal`
-
-```luau
-export type Journal = {
-	emptyState: () -> State,
-	projectEvent: (unknown) -> (Event?, string?),
-	projectState: (unknown) -> (State?, string?),
-	apply: (unknown, unknown) -> (ApplyResult?, string?),
-	balances: (unknown) -> ({ [string]: { [string]: number } }?, string?),
-	available: (unknown, unknown, unknown) -> (number?, string?),
-	tornGroups: (unknown) -> ({ TornGroup }?, string?),
-	REASONS: { string },
-	KINDS: { [string]: boolean },
-}
-```
-
-### `core.ledger.ledger.ledger`
-
-```luau
-function Ledger.ledger(config: Config): Journal
-```
-
-Returned operations and values (declarations; unannotated results are inferred):
-
-```luau
-emptyState = function Journal.emptyState(): State
-projectEvent = function Journal.projectEvent(value: unknown): (Event?, string?)
-projectState = function Journal.projectState(value: unknown): (State?, string?)
-apply = function Journal.apply(stateValue: unknown, eventValue: unknown): (ApplyResult?, string?)
-balances = function Journal.balances(stateValue: unknown): ({ [string]: { [string]: number } }?, string?)
-available = function Journal.available(stateValue: unknown, actorIdValue: unknown, materialIdValue: unknown): (number?, string?)
-tornGroups = function Journal.tornGroups(stateValue: unknown): ({ TornGroup }?, string?)
-```
-
-## `core.ledger`
-
-[Source](../src/core/ledger.luau)
-
-```luau
-local Ledger = require("./ledger/ledger")
-```
-
-### `core.ledger.LedgerEventKind`
-
-```luau
-export type LedgerEventKind = Ledger.EventKind
-```
-
-### `core.ledger.LedgerEvent`
-
-```luau
-export type LedgerEvent = Ledger.Event
-```
-
-### `core.ledger.LedgerState`
-
-```luau
-export type LedgerState = Ledger.State
-```
-
-### `core.ledger.LedgerApplyResult`
-
-```luau
-export type LedgerApplyResult = Ledger.ApplyResult
-```
-
-### `core.ledger.LedgerTornGroup`
-
-```luau
-export type LedgerTornGroup = Ledger.TornGroup
-```
-
-### `core.ledger.LedgerConfig`
-
-```luau
-export type LedgerConfig = Ledger.Config
-```
-
-### `core.ledger.LedgerJournal`
-
-```luau
-export type LedgerJournal = Ledger.Journal
-```
-
-### `core.ledger.API`
-
-```luau
-export type API = {
-	read ledger: typeof(Ledger),
-}
-```
-
-### `core.ledger.ledger`
-
-Exported value; see its declaration in [source](../src/core/ledger.luau).
 
 ## `core.loot.decision`
 
@@ -18546,203 +18226,6 @@ fovTarget = function Camera.fovTarget(widen: number): number
 yields = function Camera.yields(cameraIsCustom: boolean, scriptedStateActive: boolean, classic: boolean): boolean
 ```
 
-## `roblox.cargo`
-
-[Source](../src/roblox/cargo.luau)
-
-```luau
-local CoreTypes = require("../core/inventory/cargo")
-```
-
-```luau
-local Atomic = require("../kernel/store")
-```
-
-```luau
-local LedgerTypes = require("./material-ledger")
-```
-
-```luau
-local Result = require("../kernel/result")
-```
-
-```luau
-local Value = require("../kernel/value")
-```
-
-### `roblox.cargo.State`
-
-```luau
-export type State = CoreTypes.State
-```
-
-### `roblox.cargo.Intent`
-
-```luau
-export type Intent = CoreTypes.Intent
-```
-
-### `roblox.cargo.StoreOutcome`
-
-```luau
-export type StoreOutcome = LedgerTypes.StoreOutcome
-```
-
-### `roblox.cargo.Store`
-
-```luau
-export type Store = LedgerTypes.Store
-```
-
-### `roblox.cargo.Position`
-
-```luau
-export type Position = { x: number, y: number, z: number }
-```
-
-### `roblox.cargo.Camp`
-
-```luau
-export type Camp = {
-	read campId: string,
-	read realmId: string,
-	read center: Position,
-	read radiusStuds: number,
-}
-```
-
-### `roblox.cargo.Dependencies`
-
-```luau
-export type Dependencies = {
-	loadCamps: () -> unknown,
-	store: Store,
-	keyForHaul: (string) -> string,
-	keyForLedger: (string) -> string,
-}
-```
-
-### `roblox.cargo.Outcome`
-
-```luau
-export type Outcome = {
-	read ok: boolean,
-	read reason: string?,
-	read replayed: boolean,
-	read carriedCount: number,
-	read droppedCount: number,
-	read recoveredCount: number,
-	read expiredCount: number,
-	read bankedCount: number,
-	read ledgerReplayed: boolean,
-	read dropId: string?,
-	read extractionId: string?,
-	read intents: { Intent },
-	read boundary: string,
-}
-```
-
-### `roblox.cargo.ReadOutcome`
-
-```luau
-export type ReadOutcome = {
-	read ok: boolean,
-	read reason: string?,
-	read found: boolean,
-	read census: { CoreTypes.CensusRow },
-	read carried: { CoreTypes.Total },
-	read openDrops: { CoreTypes.Drop },
-	read boundary: string,
-}
-```
-
-### `roblox.cargo.Service`
-
-```luau
-export type Service = {
-	read campIds: { string },
-	read campFor: (campId: string) -> Camp?,
-	read emptyState: () -> State,
-	read admitsExtraction: (campId: string, realmId: string, position: unknown) -> (boolean, string?),
-	read carry: (request: unknown) -> Outcome,
-	read release: (request: unknown) -> Outcome,
-	read recover: (request: unknown) -> Outcome,
-	read expire: (request: unknown) -> Outcome,
-	read extract: (request: unknown) -> Outcome,
-	read read: (zoneId: string, actorId: string, nowSec: number) -> ReadOutcome,
-}
-```
-
-### `roblox.cargo.MountResult`
-
-```luau
-export type MountResult = {
-	read ok: boolean,
-	read service: Service?,
-	read reason: string?,
-}
-```
-
-### `roblox.cargo.CorePort`
-
-```luau
-export type CorePort = {
-	read emptyState: () -> State,
-	read projectState: (unknown) -> (State?, string?),
-	read step: (unknown, unknown, unknown) -> (CoreTypes.Result?, string?),
-	read carriedOf: (unknown, unknown) -> ({ CoreTypes.Total }?, string?),
-	read census: (unknown) -> ({ CoreTypes.CensusRow }?, string?),
-	read openDrops: (unknown, unknown) -> ({ CoreTypes.Drop }?, string?),
-}
-```
-
-### `roblox.cargo.Config`
-
-```luau
-export type Config = {
-	read core: CorePort,
-	read ledger: LedgerTypes.API,
-	read schemaVersion: number,
-	read maxText: number,
-	read maxAt: number,
-	read carriedSpaceKind: string,
-	read bankedSpaceKind: string,
-	read bankedSpaceReason: string,
-	read dropExpirySeconds: number,
-	read realms: { [string]: boolean },
-	read boundary: string,
-}
-```
-
-### `roblox.cargo.API`
-
-```luau
-export type API = {
-	read mount: (Dependencies?) -> MountResult,
-	read mountFromContent: (Dependencies?) -> MountResult,
-	read SCHEMA_VERSION: number,
-	read CARRIED_SPACE_KIND: string,
-	read BANKED_SPACE_KIND: string,
-	read DROP_EXPIRY_SECONDS: number,
-	read REALMS: { [string]: boolean },
-	read BOUNDARY: string,
-	read REASONS: { string },
-}
-```
-
-### `roblox.cargo.configure`
-
-```luau
-function configure(config: Config): API
-```
-
-Returned operations and values (declarations; unannotated results are inferred):
-
-```luau
-mount = function HaulService.mount(dependencies: Dependencies?): MountResult
-mountFromContent = function HaulService.mountFromContent(sources: Dependencies?): MountResult
-```
-
 ## `roblox.character-admission`
 
 [Source](../src/roblox/character-admission.luau)
@@ -20669,142 +20152,6 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 mount = function MarketService.mount(raw: Dependencies<R>): (Service<R>?, string?)
-```
-
-## `roblox.material-ledger`
-
-[Source](../src/roblox/material-ledger.luau)
-
-```luau
-local CoreTypes = require("../core/ledger/ledger")
-```
-
-```luau
-local Atomic = require("../kernel/store")
-```
-
-```luau
-local Result = require("../kernel/result")
-```
-
-```luau
-local Shape = require("../core/social/shape")
-```
-
-```luau
-local Value = require("../kernel/value")
-```
-
-### `roblox.material-ledger.State`
-
-```luau
-export type State = CoreTypes.State
-```
-
-### `roblox.material-ledger.Event`
-
-```luau
-export type Event = CoreTypes.Event
-```
-
-### `roblox.material-ledger.AppendValue`
-
-```luau
-export type AppendValue = { replayed: boolean, settled: boolean, groupId: string? }
-```
-
-### `roblox.material-ledger.SnapshotValue`
-
-```luau
-export type SnapshotValue = {
-	found: boolean,
-	balances: { [string]: { [string]: number } },
-	tornGroups: { CoreTypes.TornGroup },
-	eventCount: number,
-	windowFloorAt: number,
-	boundary: string,
-}
-```
-
-### `roblox.material-ledger.Failure`
-
-```luau
-export type Failure = Result.Failure
-```
-
-### `roblox.material-ledger.StoreOutcome`
-
-```luau
-export type StoreOutcome = Result.Result<Atomic.Readback>
-```
-
-### `roblox.material-ledger.Store`
-
-```luau
-export type Store = Atomic.Port
-```
-
-### `roblox.material-ledger.Outcome`
-
-```luau
-export type Outcome<T> = Result.Result<T>
-```
-
-### `roblox.material-ledger.CorePort`
-
-```luau
-export type CorePort = {
-	read emptyState: () -> State,
-	read projectEvent: (unknown) -> (Event?, string?),
-	read projectState: (unknown) -> (State?, string?),
-	read apply: (unknown, unknown) -> (CoreTypes.ApplyResult?, string?),
-	read balances: (unknown) -> ({ [string]: { [string]: number } }?, string?),
-	read tornGroups: (unknown) -> ({ CoreTypes.TornGroup }?, string?),
-}
-```
-
-### `roblox.material-ledger.Config`
-
-```luau
-export type Config = {
-	read core: CorePort,
-	read schemaVersion: number,
-	read windowLimit: number,
-	read maxText: number,
-	read boundary: string,
-}
-```
-
-### `roblox.material-ledger.API`
-
-```luau
-export type API = {
-	read append: (Store, (string) -> string, string, unknown) -> Outcome<AppendValue>,
-	read snapshot: (Store, (string) -> string, string) -> Outcome<SnapshotValue>,
-	read SCHEMA_VERSION: number,
-	read WINDOW_LIMIT: number,
-	read NO_FLOOR: number,
-	read BOUNDARY: string,
-	read REASONS: { string },
-}
-```
-
-### `roblox.material-ledger.configure`
-
-```luau
-function configure(config: Config): API
-```
-
-Returned operations and values (declarations; unannotated results are inferred):
-
-```luau
-append = function Service.append(
-		store: Store,
-		keyForLedger: (string) -> string,
-		ledgerId: string,
-		eventValue: unknown
-	): Outcome<AppendValue>
-snapshot = function Service.snapshot(store: Store, keyForLedger: (string) -> string, ledgerId: string): Outcome<SnapshotValue>
 ```
 
 ## `roblox.messaging`
