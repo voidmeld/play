@@ -65,6 +65,8 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	local enemyBody = engine.createInstance("Humanoid", { Parent = enemy, Health = 30 })
 	local instances: { [number]: Roblox.Instance } = {}
 	local bodies: { [number]: Roblox.Instance } = {}
+	local bodyEpochs: { [Roblox.Instance]: number } = {}
+	local bodySerial = 0
 	local clock = Engine.clock(engine)
 	clock.advance(startTime or 0)
 	local values: { [string]: unknown } = saved or {}
@@ -76,8 +78,14 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	local serial = 0
 	local updates = 0
 	local reports: { string } = {}
-	local control: { failWrite: boolean, loseReply: boolean, denyBody: boolean, onUpdate: (() -> ())? } =
-		{ failWrite = false, loseReply = false, denyBody = false, onUpdate = nil }
+	local control: {
+		failWrite: boolean,
+		loseReply: boolean,
+		denyBody: boolean,
+		onUpdate: (() -> ())?,
+		onObserve: ((number) -> ())?,
+	} =
+		{ failWrite = false, loseReply = false, denyBody = false, onUpdate = nil, onObserve = nil }
 	local queue: { Stores.QueuedWrite } = {}
 	local circuitSerial = 0
 	local circuit: Stores.Circuit = {
@@ -193,16 +201,42 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 			return "Hello Harbor"
 		end,
 		contact = function(userId)
-			local body = bodies[userId]
-			local root = if body ~= nil then body:FindFirstChild("Root") else nil
-			if root == nil then
+			if control.onObserve ~= nil then
+				control.onObserve(userId)
+			end
+			local player = instances[userId]
+			local character = if player ~= nil then player.Character else nil
+			if not Roblox.isInstance(character) then
+				return nil
+			end
+			local body = Roblox.assertInstance(character)
+			if not engine.isAlive(body) or not body:IsDescendantOf(stage) then
+				return nil
+			end
+			local root = body:FindFirstChild("Root")
+			local humanoid = body:FindFirstChildOfClass("Humanoid")
+			if root == nil or not root:IsA("BasePart") or humanoid == nil then
 				return nil
 			end
 			local first, second = root.Position, enemyRoot.Position
-			assert(Roblox.typeName(first) == "Vector3" and Roblox.typeName(second) == "Vector3", "position_required")
+			if Roblox.typeName(first) ~= "Vector3" or Roblox.typeName(second) ~= "Vector3" then
+				return nil
+			end
 			local distance = Roblox.value.invoke(Roblox.value.value(separation), first, second)
 			assert(type(distance) == "number", "distance_required")
-			return { distance = distance, clear = body ~= nil and body:GetAttribute("Blocked") ~= true }
+			local epoch = bodyEpochs[body]
+			if epoch == nil then
+				bodySerial += 1
+				epoch = bodySerial
+				bodyEpochs[body] = epoch
+			end
+			local health = humanoid.Health
+			return {
+				distance = distance,
+				clear = body:GetAttribute("Blocked") ~= true,
+				bodyEpoch = epoch,
+				alive = type(health) == "number" and health > 0,
+			}
 		end,
 		remote = {
 			connectRequest = function(callback)

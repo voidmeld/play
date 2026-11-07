@@ -2,6 +2,7 @@
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Protocol = require("./protocol")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Scene = require("./scene")
 local State = require("./state")
 local Verify = require("../../.lute/dependencies/verify/src/core")
@@ -11,6 +12,142 @@ return function(suite: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("persistent world assembly", function()
+		it("fences pending contact when the native source dies or changes bodies", function()
+			for _, replace in { false, true } do
+				local scene = Scene.new()
+				local client = scene.connect(11)
+				local equip: Protocol.EquipRequest = { kind = "equip", itemId = "training_sword" }
+				client.request(equip)
+				local body = scene.bodies[11]
+				local function replacement()
+					local nextBody =
+						scene.engine.createInstance("Model", { Name = "Replacement", Parent = body.Parent })
+					scene.engine.createInstance(
+						"Part",
+						{ Name = "Root", Parent = nextBody, Anchored = true, Position = Roblox.datatypes.Vector3.zero }
+					)
+					scene.engine.createInstance("Humanoid", { Parent = nextBody })
+					scene.engine.poke(scene.instances[11], "Character", nextBody)
+				end
+				client.request({ kind = "attack" })
+				if replace then
+					replacement()
+				else
+					assert(body:FindFirstChild("Humanoid")).Health = 0
+				end
+				scene.clock.advance(0.25)
+				local health, target = scene.mount.world.enemy()
+				expect(health):toBe(30)
+				expect(target):toBe("")
+				expect(assert(scene.mount.world.view(11)).xp):toBe(0)
+				scene.clock.advance(0.3)
+				if not replace then
+					replacement()
+				end
+				client.request({ kind = "attack" })
+				scene.clock.advance(0.25)
+				expect((scene.mount.world.enemy())):toBe(20)
+				expect(scene.mount.shutdown()):toBe(true)
+				client.dispose()
+				scene.dispose()
+			end
+		end)
+		it("rechecks the target generation after a yielding contact observation", function()
+			local scene = Scene.new()
+			local first = scene.connect(11)
+			local second = scene.connect(22)
+			local equip: Protocol.EquipRequest = { kind = "equip", itemId = "training_sword" }
+			first.request(equip)
+			second.request(equip)
+			expect(scene.mount.world.hit(22, 20)):toBe(true)
+			first.request({ kind = "attack" })
+			local held: thread? = nil
+			scene.control.onObserve = function(userId: number): ()
+				if userId == 11 then
+					scene.engine.scheduler.block(function(pending)
+						held = pending
+					end)
+				end
+			end
+			scene.clock.advance(0.25)
+			expect(held == nil):toBe(false)
+			second.request({ kind = "attack" })
+			scene.clock.advance(0.25)
+			expect((scene.mount.world.enemy())):toBe(0)
+			scene.clock.advance(3)
+			expect((scene.mount.world.enemy())):toBe(30)
+			scene.control.onObserve = nil
+			scene.engine.scheduler.resume(assert(held))
+			scene.clock.advance(0)
+			local health, target = scene.mount.world.enemy()
+			expect(health):toBe(30)
+			expect(target):toBe("")
+			expect(assert(scene.mount.world.view(11)).xp):toBe(0)
+			expect(assert(scene.mount.world.view(22)).xp):toBe(100)
+			expect(scene.mount.shutdown()):toBe(true)
+			first.dispose()
+			second.dispose()
+			scene.dispose()
+		end)
+		it("discards an old intention when its session changes during admission observation", function()
+			local scene = Scene.new()
+			local first = scene.connect(11)
+			local equip: Protocol.EquipRequest = { kind = "equip", itemId = "training_sword" }
+			first.request(equip)
+			local held: thread? = nil
+			scene.control.onObserve = function(_userId: number): ()
+				scene.engine.scheduler.block(function(pending)
+					held = pending
+				end)
+			end
+			scene.engine.scheduler.spawn(function()
+				first.request({ kind = "attack" })
+			end)
+			expect(held == nil):toBe(false)
+			expect(scene.disconnect(11)):toBe(true)
+			first.dispose()
+			local second = scene.connect(11)
+			scene.control.onObserve = nil
+			scene.engine.scheduler.resume(assert(held))
+			scene.clock.advance(0.25)
+			expect(assert(second.latest()).reason):toBe("attack_unavailable")
+			expect((scene.mount.world.enemy())):toBe(30)
+			expect(assert(scene.mount.world.view(11)).xp):toBe(0)
+			expect(scene.mount.shutdown()):toBe(true)
+			second.dispose()
+			scene.dispose()
+		end)
+		it("refuses failed native observations without wedging later attacks", function()
+			local scene = Scene.new()
+			local client = scene.connect(11)
+			local equip: Protocol.EquipRequest = { kind = "equip", itemId = "training_sword" }
+			client.request(equip)
+			local function unavailable(_userId: number): ()
+				error("observation_unavailable", 0)
+			end
+			scene.control.onObserve = unavailable
+			client.request({ kind = "attack" })
+			expect(assert(client.latest()).reason):toBe("contact_unavailable")
+			scene.control.onObserve = nil
+			client.request({ kind = "attack" })
+			scene.clock.advance(0.25)
+			expect((scene.mount.world.enemy())):toBe(20)
+			scene.clock.advance(0.3)
+			client.request({ kind = "attack" })
+			scene.control.onObserve = unavailable
+			scene.clock.advance(0.25)
+			expect((scene.mount.world.enemy())):toBe(20)
+			scene.control.onObserve = nil
+			scene.clock.advance(0.3)
+			client.request({ kind = "attack" })
+			scene.clock.advance(0.25)
+			expect((scene.mount.world.enemy())):toBe(10)
+			expect(scene.reports()):toEqual({ "contact_unavailable", "contact_unavailable" })
+			expect(scene.engine.scheduler.failures):toEqual({})
+			expect(scene.mount.shutdown()):toBe(true)
+			client.dispose()
+			scene.dispose()
+		end)
 		it("runs two clients through admission, rewards, trade, chat and a recovered session", function()
 			local scene = Scene.new()
 			local first, player = scene.connect(11)

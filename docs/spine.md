@@ -69,8 +69,12 @@ For separate profile records, use the documented [trade](api.md#roblox-trade) an
 The server owns recipe inputs, output, attack damage and reward amounts. Clients send only an
 intention. Crafting projects a Play recipe, checks and removes its materials and validates the
 output bag before committing. Combat admits a Play contact plan, waits through anticipation,
-then rechecks the source session, equipment, current Part positions and the host's obstruction
-observation. One resolved contact applies damage. Recovery blocks repeated attacks; the scene
+then rechecks the source session, native body epoch and health, equipment, current Part positions
+and the host's obstruction observation. Observation can yield: admission rechecks its session,
+and resolution uses the current target generation rather than the captured target identity.
+Failed native observations refuse admission or cancel contact and finish recovery; they report
+`contact_unavailable` through the host's reporting port.
+One resolved contact applies damage. Recovery blocks repeated attacks; the scene
 respawns the enemy after three seconds. Disconnection fences an outstanding contact.
 Integer wall time serves saved records and leases; an injected elapsed clock serves combat.
 

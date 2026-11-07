@@ -16,6 +16,7 @@ local Threat = require("../../src/core/threat/table")
 local Trade = require("../../src/core/trade/exchange")
 local Value = require("../../src/kernel/value")
 
+export type ContactEvidence = { distance: number, clear: boolean, bodyEpoch: number, alive: boolean }
 export type Ports = {
 	store: Records.Store,
 	owner: Sessions.Owner,
@@ -26,7 +27,7 @@ export type Ports = {
 	filter: (number, string, number) -> string?,
 	deliver: (number, Protocol.Response) -> (),
 	report: (string) -> (),
-	contact: ((number) -> { distance: number, clear: boolean }?)?,
+	contact: ((number) -> ContactEvidence?)?,
 	elapsed: (() -> number)?,
 }
 type Active = { context: Admission.Context, token: string, session: ProfileSession.State }
@@ -429,6 +430,18 @@ local function new(ports: Ports)
 			ports.deliver(userId, response(userId, true, nil))
 		end
 	end
+	local function observe(userId: number): ContactEvidence?
+		local callback = ports.contact
+		if callback == nil then
+			return nil
+		end
+		local read, evidence = pcall(callback, userId)
+		if not read then
+			ports.report("contact_unavailable")
+			return nil
+		end
+		return evidence
+	end
 	local function attack(userId: number): (boolean, string?)
 		local profile = current(userId)
 		if profile == nil or profile.equipment.hand == nil or enemy.health <= 0 then
@@ -437,21 +450,36 @@ local function new(ports: Ports)
 		if attacks[userId] then
 			return false, "recovering"
 		end
-		local observe = ports.contact
-		if observe == nil then
+		local observed = observe(userId)
+		if observed == nil then
 			return false, "contact_unavailable"
+		end
+		local refreshed = current(userId)
+		if
+			refreshed == nil
+			or refreshed.acquisitionId ~= profile.acquisitionId
+			or refreshed.characterId ~= profile.characterId
+			or refreshed.equipment.hand == nil
+			or not observed.alive
+			or enemy.health <= 0
+		then
+			return false, "attack_unavailable"
 		end
 		attackSerial += 1
 		local sequence = attackSerial
 		local elapsed = ports.elapsed or ports.clock
 		local started = elapsed()
-		local identity: Contact.Identity =
-			{ id = tostring(userId), characterId = profile.characterId, contentId = profile.acquisitionId }
+		local identity: Contact.Identity = {
+			id = tostring(userId),
+			characterId = refreshed.characterId,
+			contentId = refreshed.acquisitionId,
+			epoch = observed.bodyEpoch,
+		}
 		local target: Contact.Identity = { id = "enemy", contentId = enemy.defeatId }
 		local admitted = contact.admit({
 			source = identity,
 			target = target,
-			equipmentToken = profile.equipment.hand,
+			equipmentToken = refreshed.equipment.hand,
 			sequence = sequence,
 			startedTick = 0,
 			anticipationSec = 0.25,
@@ -465,20 +493,25 @@ local function new(ports: Ports)
 		end
 		attacks[userId] = true
 		ports.owner.own(ports.schedule(0.25, function()
+			local evidence = observe(userId)
 			local latest = current(userId)
 			local source = {
 				identity = if latest ~= nil
-					then { id = tostring(userId), characterId = latest.characterId, contentId = latest.acquisitionId }
+					then {
+						id = tostring(userId),
+						characterId = latest.characterId,
+						contentId = latest.acquisitionId,
+						epoch = if evidence ~= nil then evidence.bodyEpoch else nil,
+					}
 					else identity,
-				alive = latest ~= nil,
+				alive = latest ~= nil and evidence ~= nil and evidence.alive,
 				blocked = false,
 				equipmentToken = if latest ~= nil then latest.equipment.hand else nil,
 			}
 			local advanced = contact.advance(admitted.value, { tick = 1, dt = elapsed() - started, source = source })
-			local evidence = observe(userId)
 			local resolved = contact.resolve(advanced.next, {
 				source = source,
-				target = { identity = target, alive = enemy.health > 0 },
+				target = { identity = { id = "enemy", contentId = enemy.defeatId }, alive = enemy.health > 0 },
 				distanceStuds = if evidence ~= nil then evidence.distance else nil,
 				spatial = if evidence ~= nil
 					then { clear = evidence.clear, distanceStuds = evidence.distance }
