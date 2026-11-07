@@ -2734,8 +2734,10 @@ The fake session ports do not certify native storage durability or an adopter's 
 
 ## roblox-remote-admission
 
-`src/roblox/remote-admission` exports `new`, with `Handler<P>`, `Options<P>`, `Dispatch` and
-`Dependencies<E, P>`. Its operations are `serve`, `receive`, `forget`, `served` and `dispose`.
+`src/roblox/remote-admission` exports `new`, with `Handler<P>`, `InvokeHandler<P>`, `Refusal<P>`,
+`Options<P>`, `Invoker<P>`, `Lane<P>`, `Dispatch` and `Dependencies<E, P>`. Its operations include
+`serve`, `register`, `registerRaw`, `serveInvoke`, `lane`, `receive`, `dispatch`, `forget`, `served`
+and `dispose`.
 Supply a monotonic clock, authenticated sender key, per-channel aggregate budget, bounded payload
 configuration, channel/handler/sender/text limits, native connect/ownership and refusal notification.
 `serve` uses `remote-events.transport`, retaining one connection per channel and disconnecting the
@@ -2753,7 +2755,46 @@ them. Dispatch snapshots registrations, skips released handlers and defers new r
 next invocation. One invocation per sender/channel runs at once, including across yielding handlers.
 `forget(key)` clears budgets and notices, fences the remaining dispatch and preserves active exclusion
 until the invocation returns. `dispose` releases every native connection and fences dispatch.
-Limits refuse excess senders until the host forgets departed keys. Run
+Limits refuse excess senders until the host forgets departed keys.
+
+`register(name, handler, options)` registers without a native connection and returns an idempotent
+removal function. `registerRaw` instead supplies the player and decoded argument varargs.
+`serveInvoke(name, handler, options)` registers one synchronous request/response handler and returns
+an `Invoker<P>` with `call(player, ...)` and idempotent `remove()`. Bind `call` to the host's native
+invoke callback and remove that binding when releasing it. Invoke and event handlers cannot share a
+channel; duplicate invoke setup refuses without disturbing the original registration. Calls share
+aggregate admission, optional handler budgets, decoding, exclusion and per-key forget with events.
+Replies preserve multiple values and nil slots. A refused or removed call returns nil unless
+`refusedArgs` supplies a refusal reply. Removal fences old invokers even after channel reuse;
+owner cleanup and disposal also fence calls.
+
+`Options.refusedRecord(record)` receives a frozen record containing `player`, the original `handler`,
+stable numeric `handlerId`, `channel`, `reason` and `payloadSize` (the original argument count,
+including nil slots). The existing `refused(player, reason)` hook is unchanged and both can run.
+`refusedArgs(player, ...)` receives original argument varargs and can return an invoke refusal reply.
+Each hook is isolated from exceptions in the others. Hook calls are per refusal; notification
+deduplication does not suppress them.
+
+`lane(name, options)` supplies standalone `admit(player, ...)` and idempotent `remove()` operations.
+It consumes only its optional handler budget, uses the same refusal hooks and per-key forget, and
+does not register a dispatched handler or consume aggregate tokens. Standalone lanes count toward
+the configured per-channel handler ceiling. `dispatch(name, player, ...)` invokes the same pipeline
+as `receive` but returns the aggregate-admission boolean, even if all handler lanes refuse.
+
+Optional `decode(...)` replaces payload decoding with a host-owned kernel result of packed
+arguments. With it, `payload` can be omitted; decoder policy and ownership belong to the host.
+Without it, the existing bounded `payload` decoder is unchanged. Omitted channel, handler, sender
+and text ceilings disable those ceilings; supplied finite ceilings retain their existing behavior.
+`retainBudgets = true` retains aggregate sender state after the final handler or lane is removed.
+The default still releases that state. `noticePolicy = "streak"` deduplicates channel and individual
+handler rate refusals until successful consumption of the corresponding bucket; the default
+`"window"` retains the existing notification window. An omitted `refusalWindow` defaults to one
+second. Optional `spawn(run)` schedules event handlers and `refusedArgs` event hooks; accepted
+counts then describe scheduled callbacks, whose later errors belong to the host. Invoke callbacks
+and their refusal replies stay synchronous. Without `spawn`, existing synchronous protected event
+dispatch is unchanged.
+
+Run
 `lute run tools/gate.luau --only specs --file src/roblox/remote-admission.verify.luau`.
 
 ## roblox-remote-events
@@ -21870,6 +21911,10 @@ local RateLimit = require("../core/net/rate-limit")
 ```
 
 ```luau
+local Result = require("../kernel/result")
+```
+
+```luau
 local Value = require("../kernel/value")
 ```
 
@@ -21879,10 +21924,46 @@ local Value = require("../kernel/value")
 export type Handler<P> = (P, Payload.Arguments) -> ()
 ```
 
+### `roblox.remote-admission.InvokeHandler`
+
+```luau
+export type InvokeHandler<P> = (P, ...unknown) -> ...unknown
+```
+
+### `roblox.remote-admission.Refusal`
+
+```luau
+export type Refusal<P> = {
+	read player: P,
+	read handler: Handler<P> | InvokeHandler<P>,
+	read handlerId: number,
+	read channel: string,
+	read reason: string,
+	read payloadSize: number,
+}
+```
+
 ### `roblox.remote-admission.Options`
 
 ```luau
-export type Options<P> = { lane: RateLimit.Config?, refused: ((P, string) -> ())? }
+export type Options<P> = {
+	lane: RateLimit.Config?,
+	refused: ((P, string) -> ())?,
+	refusedRecord: ((Refusal<P>) -> ())?,
+	refusedArgs: InvokeHandler<P>?,
+}
+```
+
+### `roblox.remote-admission.Invoker`
+
+```luau
+export type Invoker<P> = { read call: (P, ...unknown) -> ...unknown, read remove: () -> () }
+```
+
+### `roblox.remote-admission.Lane`
+
+```luau
+export type Lane<P> = { read admit: (P, ...unknown) -> boolean, read remove: () -> () }
 ```
 
 ### `roblox.remote-admission.Dispatch`
@@ -21898,12 +21979,16 @@ export type Dependencies<E, P> = {
 	clock: () -> number,
 	keyFor: (P) -> string,
 	budget: (string) -> RateLimit.Config,
-	payload: Payload.Config,
-	maxChannels: number,
-	maxHandlers: number,
-	maxKeys: number,
-	maxText: number,
-	refusalWindow: number,
+	payload: Payload.Config?,
+	decode: ((...unknown) -> Result.Result<Payload.Arguments>)?,
+	maxChannels: number?,
+	maxHandlers: number?,
+	maxKeys: number?,
+	maxText: number?,
+	refusalWindow: number?,
+	noticePolicy: ("window" | "streak")?,
+	retainBudgets: boolean?,
+	spawn: ((() -> ()) -> ())?,
 	connect: (E, (P, ...unknown) -> ()) -> () -> (),
 	own: (() -> ()) -> (),
 	notify: (string, P, string) -> (),
@@ -21920,6 +22005,11 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 serve = function serve(name: string, event: E, handler: Handler<P>, options: Options<P>?): () -> ()
+register = function register(name: string, handler: Handler<P>, supplied: Options<P>?): () -> ()
+registerRaw = function registerRaw(name: string, handler: InvokeHandler<P>, options: Options<P>?): () -> ()
+serveInvoke = function serveInvoke(name: string, handler: InvokeHandler<P>, options: Options<P>?): Invoker<P>
+lane = function lane(name: string, options: Options<P>?): Lane<P>
+dispatch = function dispatchAdmitted(name: string, player: P, ...: unknown): boolean
 receive = function receive(name: string, player: P, ...: unknown): Dispatch
 forget = function forget(key: string)
 served = function served(name: string): number
