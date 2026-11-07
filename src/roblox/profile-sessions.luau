@@ -130,6 +130,9 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 	end
 
 	local function admit(context: C, leaseExpiresAt: number, profile: () -> P?, onReleased: () -> ())
+		if disposed then
+			return
+		end
 		local key = deps.keyFor(context)
 		local previous = entries[key]
 		released[key] = nil
