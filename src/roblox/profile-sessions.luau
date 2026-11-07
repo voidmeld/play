@@ -185,31 +185,31 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 	end
 
 	local function drain(): { [string]: Outcome }
-		local owners: { string } = {}
-		for owner in entries do
-			table.insert(owners, owner)
+		local owners: { { key: string, context: C } } = {}
+		for key, entry in entries do
+			table.insert(owners, { key = key, context = entry.context })
 		end
 		local outcomes: { [string]: Outcome } = {}
 		if deps.spawn == nil or deps.wait == nil then
 			for _, owner in owners do
-				outcomes[owner] = unload(entries[owner].context)
+				outcomes[owner.key] = unload(owner.context)
 			end
 			return outcomes
 		end
 		local remaining = #owners
 		local deadline = deps.clock() + deps.drainBudget
 		drainDeadline = deadline
-		for _, ownerKey in owners do
-			local entry = entries[ownerKey]
+		for _, admitted in owners do
+			local ownerKey = admitted.key
 			local cancel = deps.spawn(function()
 				local ran, result = pcall(function(): Outcome
-					return unload(entry.context)
+					return unload(admitted.context)
 				end)
 				if ran then
 					outcomes[ownerKey] = result
 				else
 					outcomes[ownerKey] = { ok = false, reason = "drain_failed" }
-					deps.report("drain", deps.keyFor(entry.context), nil)
+					deps.report("drain", ownerKey, nil)
 				end
 				remaining -= 1
 			end)
@@ -218,13 +218,14 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 		while remaining > 0 and deps.clock() < deadline do
 			assert(deps.wait)()
 		end
-		for _, ownerKey in owners do
+		for _, admitted in owners do
+			local ownerKey = admitted.key
 			if outcomes[ownerKey] == nil then
 				outcomes[ownerKey] = { ok = false, reason = "drain_held" }
 				deps.report("held", ownerKey, nil)
 			end
 		end
-		return outcomes
+		return table.clone(outcomes)
 	end
 
 	local function isAdmitted(context: C): boolean

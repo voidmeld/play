@@ -2652,6 +2652,11 @@ This example exercises: renews from the current profile and retries failures wit
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
 Overlapping writes retain only the current generation's returned lease expiry. A delayed reply
 from an older write returns `operation_cancelled` and cannot shorten or revive the newer lease.
+`drain` captures each admitted context before starting closes. Interleaved removal is replayed
+against that context; a replacement sharing its key is never closed on its predecessor's behalf.
+With `spawn` and `wait`, a result still pending at the injected deadline is `drain_held`. Returned
+results are a snapshot and never turn into success after return. A late write can still complete
+under its current generation; reconcile that actual completion through a fresh operation.
 
 ## roblox-profile-transaction
 
