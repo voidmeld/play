@@ -466,6 +466,9 @@ local function new(ports: Ports)
 		then
 			return false, "attack_unavailable"
 		end
+		if attacks[userId] then
+			return false, "recovering"
+		end
 		attackSerial += 1
 		local sequence = attackSerial
 		local elapsed = ports.elapsed or ports.clock

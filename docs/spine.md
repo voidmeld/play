@@ -73,7 +73,8 @@ The server owns recipe inputs, output, attack damage and reward amounts. Clients
 intention. Crafting projects a Play recipe, checks and removes its materials and validates the
 output bag before committing. Combat admits a Play contact plan, waits through anticipation,
 then rechecks the source session, native body epoch and health, equipment, current Part positions
-and the host's obstruction observation. Observation can yield: admission rechecks its session,
+and the host's obstruction observation. Observation can yield: admission rechecks its session
+and recovery gate before reserving an attack,
 and resolution uses the current target generation rather than the captured target identity.
 Failed native observations refuse admission or cancel contact and finish recovery; they report
 `contact_unavailable` through the host's reporting port.
