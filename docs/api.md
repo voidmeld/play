@@ -77,7 +77,7 @@ Headless fixtures prove their configured hosts; they prove no native rendering, 
 ## kernel-event-log
 
 `src/kernel/event-log` exposes `create` with `Config<E, P>`, `State<E>`, `Projection<E, P>`
-and `Change<E, P>`. Supply bounded event count and identity length, an owned event decoder,
+and `Change<E, P>`. Supply an optional event ceiling and bounded identity length, an owned event decoder,
 identity and complete equality functions, a fresh projection seed and an ordered `apply` callback.
 `apply` receives the projection, decoded event and prior admitted events; it can refuse time
 regression, session ordering, negative balances or other domain invariants. Callbacks are pure and
@@ -92,6 +92,18 @@ an owned, validated state for persistence. All four return explicit kernel refus
 rejected inputs leave caller state unchanged. Keep the previous state for corrected retries.
 Ledger balances use a material/actor projection and signed deltas; reputation uses a standing
 projection and credit events. Neither requires encoding domain fields as a different event type.
+
+`duplicateIds = "refuse"` rejects every duplicate stored ID with `state_invalid`, including equal
+events. The default `"deduplicate"` retains equal-event deduplication and conflicting-ID refusals.
+Append retries still replay an identical event under either policy. Optional `projectRecord(raw)`
+runs before validation of state records, event arrays and individual events, including appended
+events. It can strip metadata and metatables from existing stored shapes; its output must pass the
+normal exact-record, dense-array and event-decoder checks. Projector exceptions normalize to nil
+and follow those checks' usual refusals. Keep it pure and return owned data. The decoder can freeze
+its detached events. Without a projector, plain-table validation is unchanged.
+Omit `maxEvents` for no event ceiling, or supply a positive finite integer; a configured ceiling
+continues to apply before replay deduplication and to new appends.
+
 Run `lute run tools/gate.luau --only specs --file src/kernel/event-log.verify.luau`.
 
 ## kernel-codec
@@ -18030,8 +18042,10 @@ export type Change<E, P> = { state: State<E>, value: P, replayed: boolean }
 
 ```luau
 export type Config<E, P> = {
-	maxEvents: number,
+	maxEvents: number?,
 	maxId: number,
+	duplicateIds: ("deduplicate" | "refuse")?,
+	projectRecord: ((unknown) -> unknown)?,
 	decode: Codec.Decoder<E>,
 	identity: (E) -> string,
 	equal: (E, E) -> boolean,

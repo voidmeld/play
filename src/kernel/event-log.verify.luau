@@ -20,7 +20,7 @@ local function decode(raw: unknown): (Event?, string?)
 	end
 	return { id = id, actor = actor, delta = delta, at = at }, nil
 end
-local log = Log.create({
+local config: Log.Config<Event, Balances> = {
 	maxEvents = 3,
 	maxId = 16,
 	decode = decode,
@@ -45,12 +45,85 @@ local log = Log.create({
 		nextBalances[event.actor] = total
 		return nextBalances, nil
 	end,
-})
+}
+local log = Log.create(config)
 
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("typed event log", function()
+		it("refuses every duplicate stored ID only when configured and keeps append retries", function()
+			local options = table.clone(config)
+			options.duplicateIds = "refuse"
+			local strict = Log.create(options)
+			local event: Event = { id = "first", actor = "a", delta = 1, at = 1 }
+			local conflict: Event = { id = "first", actor = "a", delta = 2, at = 1 }
+			for _, duplicate in { event, conflict } do
+				local refused = strict.project({ events = { event, duplicate } })
+				expect(refused.ok):toBe(false)
+				if not refused.ok then
+					expect(refused.reason):toBe("state_invalid")
+				end
+			end
+			local state = Result.unwrap(strict.replay({ event })).state
+			expect(Result.unwrap(strict.append(state, event)).replayed):toBe(true)
+			expect(strict.append(state, conflict).ok):toBe(false)
+			expect(Result.unwrap(log.replay({ event, event })).value.a):toBe(1)
+		end)
+		it("projects metatable records and lists into detached frozen events without stored metadata", function()
+			local options = table.clone(config)
+			options.projectRecord = function(raw: unknown): unknown
+				if type(raw) ~= "table" then
+					return raw
+				end
+				local owned: Value.Raw = {}
+				for key, value in next, raw do
+					if key ~= "metadata" then
+						owned[key] = value
+					end
+				end
+				return owned
+			end
+			options.decode = function(raw: unknown): (Event?, string?)
+				local event, reason = decode(raw)
+				if event == nil then
+					return nil, reason
+				end
+				Value.freezeDeep(event)
+				return event, nil
+			end
+			local projected = Log.create(options)
+			local event = setmetatable({ id = "first", actor = "a", delta = 1, at = 1, metadata = "extra" }, {})
+			local events = setmetatable({ event }, {})
+			local stored = setmetatable({ events = events, metadata = "extra" }, {})
+			expect(log.project(stored).ok):toBe(false)
+			local result = Result.unwrap(projected.project(stored))
+			expect(result.value.a):toBe(1)
+			expect(table.isfrozen(result.state.events[1])):toBe(true)
+			expect(getmetatable(result.state.events[1])):toBeNil()
+			event.delta = 5
+			expect(result.state.events[1].delta):toBe(1)
+			expect(projected.replay({ [2] = event }).ok):toBe(false)
+			options.projectRecord = function(_raw: unknown): unknown
+				error("projection failed")
+			end
+			expect(Log.create(options).project(stored).ok):toBe(false)
+		end)
+		it("permits omitted or larger event ceilings while retaining configured bounds", function()
+			local options = table.clone(config)
+			options.maxEvents = nil
+			local unbounded = Log.create(options)
+			local events = {}
+			for index = 1, 4 do
+				table.insert(events, { id = tostring(index), actor = "a", delta = 1, at = index })
+			end
+			expect(log.replay(events).ok):toBe(false)
+			expect(#Result.unwrap(unbounded.replay(events)).state.events):toBe(4)
+			local before = Result.unwrap(unbounded.replay({ events[1], events[2], events[3] })).state
+			expect(#Result.unwrap(unbounded.append(before, events[4])).state.events):toBe(4)
+			options.maxEvents = 1000001
+			expect(Log.create(options).replay(events).ok):toBe(true)
+		end)
 		it("appends typed events, projects balances and replays snapshots without aliasing", function()
 			local initial: Log.State<Event> = { events = {} }
 			local event: Event = { id = "first", actor = "a", delta = 3, at = 1 }

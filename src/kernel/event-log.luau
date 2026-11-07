@@ -8,8 +8,10 @@ export type State<E> = { events: { E } }
 export type Projection<E, P> = { state: State<E>, value: P }
 export type Change<E, P> = { state: State<E>, value: P, replayed: boolean }
 export type Config<E, P> = {
-	maxEvents: number,
+	maxEvents: number?,
 	maxId: number,
+	duplicateIds: ("deduplicate" | "refuse")?,
+	projectRecord: ((unknown) -> unknown)?,
 	decode: Codec.Decoder<E>,
 	identity: (E) -> string,
 	equal: (E, E) -> boolean,
@@ -18,10 +20,24 @@ export type Config<E, P> = {
 }
 
 local function create<E, P>(config: Config<E, P>)
-	assert(Value.whole(config.maxEvents, 1, 1000000) ~= nil, "invalid event bound")
+	assert(config.maxEvents == nil or Value.whole(config.maxEvents, 1, math.huge) ~= nil, "invalid event bound")
 	assert(Value.whole(config.maxId, 1, 1000000) ~= nil, "invalid identity bound")
+	assert(
+		config.duplicateIds == nil or config.duplicateIds == "deduplicate" or config.duplicateIds == "refuse",
+		"invalid duplicate policy"
+	)
+	local function normalize(raw: unknown): unknown
+		if config.projectRecord == nil then
+			return raw
+		end
+		local ok, record = pcall(config.projectRecord, raw)
+		return if ok then record else nil
+	end
+	local function decode(raw: unknown): (E?, string?)
+		return config.decode(normalize(raw))
+	end
 	local function replay(raw: unknown): Result.Result<Projection<E, P>>
-		local source = Value.dense(raw, config.maxEvents)
+		local source = Value.dense(normalize(raw), config.maxEvents or math.huge)
 		if source == nil then
 			return Result.fail("events_invalid")
 		end
@@ -29,7 +45,7 @@ local function create<E, P>(config: Config<E, P>)
 		local ids: { [string]: E } = {}
 		local value = config.seed()
 		for _, item in source do
-			local event, problem = config.decode(item)
+			local event, problem = decode(item)
 			if event == nil then
 				return Result.fail(problem or "event_invalid")
 			end
@@ -39,6 +55,9 @@ local function create<E, P>(config: Config<E, P>)
 			end
 			local prior = ids[id]
 			if prior ~= nil then
+				if config.duplicateIds == "refuse" then
+					return Result.fail("state_invalid")
+				end
 				if not config.equal(prior, event) then
 					return Result.fail("event_id_conflict")
 				end
@@ -55,7 +74,7 @@ local function create<E, P>(config: Config<E, P>)
 		return Result.ok({ state = { events = rows }, value = value })
 	end
 	local function project(raw: unknown): Result.Result<Projection<E, P>>
-		local record = Value.record(raw, { events = true }, true)
+		local record = Value.record(normalize(raw), { events = true }, true)
 		return if record == nil then Result.fail("state_invalid") else replay(record.events)
 	end
 	local function append(state: State<E>, raw: unknown): Result.Result<Change<E, P>>
@@ -63,7 +82,7 @@ local function create<E, P>(config: Config<E, P>)
 		if not current.ok then
 			return Result.fail(current.reason)
 		end
-		local event, problem = config.decode(raw)
+		local event, problem = decode(raw)
 		if event == nil then
 			return Result.fail(problem or "event_invalid")
 		end
@@ -79,7 +98,7 @@ local function create<E, P>(config: Config<E, P>)
 					else Result.fail("event_id_conflict")
 			end
 		end
-		if #owned.state.events >= config.maxEvents then
+		if config.maxEvents ~= nil and #owned.state.events >= config.maxEvents then
 			return Result.fail("events_full")
 		end
 		local value, reason = config.apply(owned.value, event, owned.state.events)
