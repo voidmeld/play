@@ -23,7 +23,8 @@ The `game-canon` producer checks runtime modules, specifications and fake hosts 
 world, faction, class and group identities. It also checks `examples/world`, including its scenario.
 Use neutral fixture identifiers; keep adopter content in the adopter.
 
-The `examples` producer runs the standalone threat, input-binding, thumbstick and character-lease examples:
+The `examples` producer runs the standalone threat, input-binding, thumbstick, character-lease
+and three-client world demo commands:
 
 ```sh
 lute run tools/run-examples.luau

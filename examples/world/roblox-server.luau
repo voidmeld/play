@@ -27,6 +27,8 @@ export type NativePorts = {
 	newId: () -> string,
 	report: (string) -> (),
 	filter: (number, string, number) -> string?,
+	contact: index<Server.Ports, "contact">,
+	elapsed: index<Server.Ports, "elapsed">,
 	remote: Protocol.ServerPorts<Subject>,
 	players: index<Admission.NativePorts<Subject, State.Profile>, "players">,
 	clear: (Subject) -> boolean,
@@ -72,6 +74,8 @@ local function start(native: NativePorts)
 		filter = native.filter,
 		deliver = deliver,
 		report = native.report,
+		contact = native.contact,
+		elapsed = native.elapsed,
 	})
 	local routing = Routing.create({
 		realms = { harbor = "Harbor" },

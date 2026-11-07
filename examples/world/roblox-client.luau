@@ -3,9 +3,19 @@
 local Events = require("../../src/roblox/remote-events")
 local Protocol = require("./protocol")
 
-local function start(ports: Protocol.ClientPorts)
+export type Handle = {
+	read request: (Protocol.Request) -> (),
+	read latest: () -> Protocol.Response?,
+	read lines: () -> { Protocol.Line },
+	read subscribe: ((Protocol.Response) -> ()) -> () -> (),
+	read dispose: () -> (),
+}
+
+local function start(ports: Protocol.ClientPorts): Handle
 	local latest: Protocol.Response? = nil
 	local lines: { Protocol.Line } = {}
+	local listeners: { [(Protocol.Response) -> ()]: boolean } = {}
+	local disposed = false
 	local function receive(response: Protocol.Response)
 		latest = response
 		if response.line ~= nil then
@@ -13,6 +23,9 @@ local function start(ports: Protocol.ClientPorts)
 			if #lines > 20 then
 				table.remove(lines, 1)
 			end
+		end
+		for listener in listeners do
+			listener(response)
 		end
 	end
 	local handler: ((Protocol.Response) -> ())? = nil
@@ -54,7 +67,21 @@ local function start(ports: Protocol.ClientPorts)
 		lines = function(): { Protocol.Line }
 			return table.clone(lines)
 		end,
-		dispose = detach,
+		subscribe = function(listener: (Protocol.Response) -> ()): () -> ()
+			assert(not disposed, "client_disposed")
+			listeners[listener] = true
+			if latest ~= nil then
+				listener(latest)
+			end
+			return function()
+				listeners[listener] = nil
+			end
+		end,
+		dispose = function()
+			disposed = true
+			table.clear(listeners)
+			detach()
+		end,
 	})
 end
 

@@ -8,6 +8,7 @@ for _, path in
 		"tools/examples/input-bindings.luau",
 		"tools/examples/thumbstick.luau",
 		"tools/examples/character-leases.luau",
+		"examples/world/run.luau",
 	}
 do
 	local result = process.run({ "lute", "run", path })

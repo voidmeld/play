@@ -1,11 +1,13 @@
 --!strict
 
+local Books = require("../../src/core/market/book")
 local Equipment = require("../../src/core/inventory/equipment")
 local Journal = require("../../src/core/quest/journal")
 local Levels = require("../../src/core/progression/levels")
 local Loot = require("../../src/core/loot/roll")
 local Objectives = require("../../src/core/quest/objectives")
 local Policy = require("../../src/core/identity/policy")
+local Recipes = require("../../src/core/craft/recipes")
 local Roster = require("../../src/core/identity/roster")
 local Stacks = require("../../src/core/inventory/stacks")
 local Trade = require("../../src/core/trade/exchange")
@@ -115,6 +117,37 @@ local exchange = Trade.exchange({
 	idLimit = 64,
 })
 
+local recipes =
+	Recipes.catalog({ sources = { carried = true }, rungs = { basic = { carried = { min = 1, max = 1 } } } })
+local recipe = assert(recipes.projectRecipe({
+	id = "shield",
+	rung = "basic",
+	outputItemId = "shield",
+	inputs = { { materialId = "copper_ore", source = "carried", quantity = 1 } },
+}))
+local market = Books.book({
+	listingTtlSec = 3600,
+	minFeeBps = 500,
+	maxFeeBps = 500,
+	defaultFeeBps = 500,
+	maxListings = 32,
+	maxReceipts = 128,
+	operationRetentionSec = 86400,
+	actorWindowSec = 3600,
+	maxReceiptsPerOwner = 32,
+	maxOperations = 512,
+	maxOperationsPerActor = 64,
+	maxListingsPerSeller = 8,
+	maxCount = 99,
+	maxPrice = 1000,
+	maxId = 128,
+	maxTime = 1000000000000,
+	maxCoin = 100000,
+	categoryPrefix = "category.",
+	maxSearch = 16,
+	realms = { Harbor = true },
+})
+
 return table.freeze({
 	roster = Roster.create(policy),
 	stacks = stacks,
@@ -125,6 +158,8 @@ return table.freeze({
 	journal = journal,
 	levels = levels,
 	exchange = exchange,
+	recipe = recipe,
+	market = market,
 	loot = Loot.roll({ receiptPrefix = "loot:" }),
 	lootTables = {
 		{

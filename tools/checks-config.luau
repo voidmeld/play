@@ -135,7 +135,11 @@ local config: {
 		cleanClone = {
 			prefix = "play-clean-clone",
 			command = { "lute", "run", "tools/gate.luau", "--tier", "fast" },
-			env = { VERIFY_SOURCE = tostring(process.cwd()) .. "/.lute/dependencies/verify" },
+			env = {
+				VERIFY_SOURCE = tostring(process.cwd()) .. "/.lute/dependencies/verify",
+				COMPOSE_SOURCE = tostring(process.cwd()) .. "/.lute/dependencies/compose",
+				FACET_SOURCE = tostring(process.cwd()) .. "/.lute/dependencies/facet",
+			},
 			requiredPaths = { ".lute/dependencies" },
 		},
 		noAny = { untracked = true },

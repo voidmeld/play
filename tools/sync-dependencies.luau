@@ -5,7 +5,6 @@ local process = require("@std/process")
 
 local Lock = require("../dependencies.lock")
 
-local CACHE = ".lute/dependencies/verify"
 assert(
 	#process.args == 1 or (#process.args == 2 and process.args[2] == "--check"),
 	"usage: sync-dependencies.luau [--check]"
@@ -20,51 +19,62 @@ local function git(path: string, arguments: { string }): (boolean, string)
 	return result.ok, string.match(result.stdout, "^%s*(.-)%s*$") or ""
 end
 
-local function matches(path: string): boolean
+type Dependency = {
+	read repository: string,
+	read commit: string,
+	read tree: string,
+	read role: string,
+	read surfaces: { string },
+}
+
+local function matches(path: string, dependency: Dependency): boolean
 	if not fs.exists(path) then
 		return false
 	end
 	local commitOk, commit = git(path, { "rev-parse", "HEAD" })
 	local treeOk, tree = git(path, { "rev-parse", "HEAD^{tree}" })
 	local statusOk, status = git(path, { "status", "--porcelain" })
-	return commitOk
-		and treeOk
-		and statusOk
-		and commit == Lock.verify.commit
-		and tree == Lock.verify.tree
-		and status == ""
+	return commitOk and treeOk and statusOk and commit == dependency.commit and tree == dependency.tree and status == ""
 end
 
-local function source(): string
-	local override = process.env["VERIFY_SOURCE"]
+local function source(name: string, dependency: Dependency): string
+	local override = process.env[string.upper(name) .. "_SOURCE"]
 	if override ~= nil and override ~= "" then
 		return override
 	end
-	if fs.exists("../verify") then
-		return "../verify"
+	if fs.exists("../" .. name) then
+		return "../" .. name
 	end
-	return Lock.verify.repository
+	return dependency.repository
 end
 
-local function sync()
-	if matches(CACHE) then
+local function sync(name: string, dependency: Dependency)
+	local cache = ".lute/dependencies/" .. name
+	if matches(cache, dependency) then
 		return
 	end
-	if fs.exists(CACHE) then
-		fs.removeDirectory(CACHE, { recursive = true })
+	if fs.exists(cache) then
+		fs.removeDirectory(cache, { recursive = true })
 	end
 	fs.createDirectory(".lute/dependencies", { makeParents = true })
-	local cloned = process.run({ "git", "clone", "--quiet", "--no-checkout", source(), CACHE })
+	local cloned = process.run({ "git", "clone", "--quiet", "--no-checkout", source(name, dependency), cache })
 	assert(cloned.ok, "sync-dependencies: clone failed: " .. cloned.stderr)
-	local checkedOut = process.run({ "git", "-C", CACHE, "checkout", "--quiet", "--detach", Lock.verify.commit })
+	local checkedOut = process.run({ "git", "-C", cache, "checkout", "--quiet", "--detach", dependency.commit })
 	assert(checkedOut.ok, "sync-dependencies: the pinned commit is not available: " .. checkedOut.stderr)
-	process.run({ "git", "-C", CACHE, "remote", "set-url", "origin", Lock.verify.repository })
-	assert(matches(CACHE), "sync-dependencies: the checkout does not match the pinned commit and tree")
+	process.run({ "git", "-C", cache, "remote", "set-url", "origin", dependency.repository })
+	assert(matches(cache, dependency), "sync-dependencies: the checkout does not match the pinned commit and tree")
 end
 
-if process.args[2] == "--check" then
-	assert(matches(CACHE), "sync-dependencies: the dependency cache does not match the pinned commit and tree")
-else
-	sync()
+local dependencies: { [string]: Dependency } = { verify = Lock.verify, compose = Lock.compose, facet = Lock.facet }
+for name, dependency in dependencies do
+	assert(dependency.role == "example" or dependency.role == "verification", "development dependency role required")
+	if process.args[2] == "--check" then
+		assert(matches(".lute/dependencies/" .. name, dependency), "sync-dependencies: cache mismatch: " .. name)
+	else
+		sync(name, dependency)
+	end
+	for _, surface in dependency.surfaces do
+		assert(fs.exists(".lute/dependencies/" .. name .. "/" .. surface), "dependency surface missing: " .. surface)
+	end
+	print("sync-dependencies: " .. name .. " (" .. dependency.role .. ") at " .. dependency.commit)
 end
-print("sync-dependencies: verify at " .. Lock.verify.commit)

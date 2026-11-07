@@ -6,12 +6,15 @@ This file owns contribution rules. The [README](README.md) maps the tasks.
 
 First action: find the affected area in [the API](docs/api.md), then read its linked specification and current consumers.
 Read only the next required contract. For a first use, follow the [quickstart](docs/quickstart.md).
-Then follow the [persistent-world assembly](docs/spine.md) and its executable scenario.
+Then follow the [persistent-world assembly](docs/spine.md).
+Run `lute run examples/world/run.luau` for its server and three simulated client screens;
+the demo and persistence scenarios are in the Gate manifest.
 
 ## Rules
 
 - Keep core rules deterministic. Inject clocks, observations and host operations.
 - Keep consumer identities, content, credentials and destinations in the consumer.
+- Keep UI dependencies in examples. Core, kernel, Roblox and world runtime surfaces must stay UI independent.
 - Start every maintained Luau file with `--!strict`. Use no explicit `any` or type assertions.
 - Write tools in Lute Luau. Add no comments except compiler directives and required license notices.
 - Change a contract with its consumers. Preserve ownership, refusal meanings and stored schemas.

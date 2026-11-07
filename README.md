@@ -13,9 +13,17 @@ and input.
 Play has no content of its own: no quests, items, zones or classes. Your game supplies the
 data and the server authority; Play applies the rules and returns new state or a refusal.
 
-First, run one fixture with the [quickstart](docs/quickstart.md).
-Second, [build a persistent world with Play](docs/spine.md): one server, two clients,
-saved progression, quests, loot, equipment, trade and chat, through headless and native hosts.
+Start with the [persistent-world demo](docs/spine.md): one server, three client screens,
+saved characters, inventory, quests, combat, crafting, market, trade and chat.
+The client UI uses Compose and Facet as example-only dependencies. Play's runtime stays UI independent.
+
+```console
+lute run examples/world/run.luau
+```
+
+After [tool setup](docs/quickstart.md#prepare-the-tools), this command runs the complete headless
+tour in Verify's simulator and saves UI trees and committed state under `.lute/tmp/world-demo`.
+For one small pure-rules fixture, follow the [quickstart](docs/quickstart.md).
 
 ## What is inside
 
@@ -76,6 +84,7 @@ refusals of each call.
 | `src/kernel` | Shared values, results, codecs, leases and atomic store contracts. |
 | `src/core/<family>` | Configured rules and engine-independent coordinators. Each entry exports an `API` type and component aliases. |
 | `src/roblox/<adapter>` | Typed Roblox adapters over supplied operations. |
+| `examples/world` | Runnable server and three simulated clients with an optional Compose and Facet UI. |
 | `tools/fixtures` | Deterministic fixtures for verification. Exclude this surface from shipped runtime trees. |
 
 Verification uses Verify's simulated Instances, signals and virtual scheduler.
@@ -97,6 +106,7 @@ changed.
 
 | Task | Document |
 | --- | --- |
+| Run the server and client UI demo | [Persistent-world spine](docs/spine.md) |
 | Run the first fixture | [Quickstart](docs/quickstart.md) |
 | Assemble a persistent world | [Reference world walkthrough](docs/spine.md) |
 | Find public calls, returns and failures | [API reference](docs/api.md) |
