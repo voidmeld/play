@@ -2602,7 +2602,8 @@ Renewal uses the current profile. Failed saves preserve dirty work. Close does n
 
 ## roblox-profile-transaction
 
-`src/roblox/profile-transaction` exports `new`, returning `commit(context, change)`, and types
+`src/roblox/profile-transaction` exports `new`, returning `commit(context, change)` and
+`finalize(context, previous, expected)`, and types
 `Outcome`, `Restoration`, `Result`, `SessionPort<C>` and `Dependencies<C, P>`. Bind the `save` and
 `isAdmitted` operations of `profile-sessions`, the existing live profile authority and a fresh durable
 readback. This coordinator adds no store. Supply owned `copy`, complete-profile `equal`, and `verify`
@@ -2622,6 +2623,16 @@ the candidate. `rolled_back` additionally requires readback equal to the complet
 `superseded` or `failed`; inspect `reason` and `saveReason`. Reconcile ambiguous storage before retrying;
 this coordinator never rewrites storage to erase an uncertain transaction. Confirmed rollback permits
 a corrected retry. Host exceptions return explicit uncertainty and release exclusion.
+`finalize` accepts a baseline captured before installation and the actual already-installed candidate.
+It snapshots both, verifies the expected fields against live state before saving, saves without
+reinstalling, reads back on successful save, and verifies both live and stored state. It shares the
+same per-key exclusion and conditional restoration checks as `commit`. A pre-save verification
+failure refuses persistence and restores only if the complete installed candidate still matches.
+Refused or throwing saves attempt restoration immediately without readback; their outcome is
+`ambiguous` because a failed save may already have written. The original `commit` retains its
+installation and readback-after-refusal ordering. Callers own fresh transition evaluation and must
+capture the previous profile before installation, rather than reconstructing it from live state.
+
 Run `lute run tools/gate.luau --only specs --file src/roblox/profile-transaction.verify.luau`.
 
 ## roblox-profile-transfer
@@ -21544,6 +21555,7 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 commit = function commit(context: C, change: (P) -> (P?, string?)): Result
+finalize = function finalize(context: C, previous: P, expected: P): Result
 ```
 
 ## `roblox.profile-transfer`

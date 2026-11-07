@@ -19,7 +19,11 @@ export type Dependencies<C, P> = {
 
 local function new<C, P>(deps: Dependencies<C, P>)
 	local busy: { [string]: boolean } = {}
-	local function commit(context: C, change: (P) -> (P?, string?)): Result
+	local function transact(
+		context: C,
+		change: ((P) -> (P?, string?))?,
+		installed: { previous: P, candidate: P }?
+	): Result
 		local key = deps.keyFor(context)
 		if busy[key] then
 			return { outcome = "rejected", restoration = "not_applied", reason = "transaction_busy" }
@@ -50,24 +54,52 @@ local function new<C, P>(deps: Dependencies<C, P>)
 			if live == nil then
 				return { outcome = "rejected", restoration = "not_applied", reason = "profile_missing" }
 			end
-			local before = deps.copy(live)
-			previous = before
-			local changed, problem = change(deps.copy(before))
-			if changed == nil then
-				return { outcome = "rejected", restoration = "not_applied", reason = problem or "change_rejected" }
+			local before: P
+			if installed ~= nil then
+				before = deps.copy(installed.previous)
+			else
+				before = deps.copy(live)
 			end
-			local expected = deps.copy(changed)
+			previous = before
+			local expected: P
+			if installed ~= nil then
+				expected = deps.copy(installed.candidate)
+			else
+				assert(change ~= nil)
+				local changed, problem = change(deps.copy(before))
+				if changed == nil then
+					return { outcome = "rejected", restoration = "not_applied", reason = problem or "change_rejected" }
+				end
+				expected = deps.copy(changed)
+			end
 			candidate = expected
 			if not deps.sessions.isAdmitted(context) then
 				return { outcome = "rejected", restoration = "not_applied", reason = "live_changed" }
 			end
 			applied = true
-			if not deps.replace(context, before, deps.copy(expected)) then
+			if installed ~= nil then
+				if not deps.verify(expected, live) then
+					local restoration = restore()
+					return {
+						outcome = if restoration == "restored" then "rolled_back" else "ambiguous",
+						restoration = restoration,
+						reason = "verification_failed",
+					}
+				end
+			elseif not deps.replace(context, before, deps.copy(expected)) then
 				applied = false
 				return { outcome = "rejected", restoration = "not_applied", reason = "live_changed" }
 			end
 			local saved, save = pcall(deps.sessions.save, context)
 			local saveReason: string? = if saved then save.reason else "save_failed"
+			if installed ~= nil and (not saved or not save.ok) then
+				return {
+					outcome = "ambiguous",
+					restoration = restore(),
+					reason = saveReason or "save_refused",
+					saveReason = saveReason,
+				}
+			end
 			local read, stored, readReason = pcall(deps.readback, context)
 			local current = deps.live(context)
 			local admitted = deps.sessions.isAdmitted(context)
@@ -109,7 +141,13 @@ local function new<C, P>(deps: Dependencies<C, P>)
 		busy[key] = nil
 		return result
 	end
-	return table.freeze({ commit = commit })
+	local function commit(context: C, change: (P) -> (P?, string?)): Result
+		return transact(context, change, nil)
+	end
+	local function finalize(context: C, previous: P, expected: P): Result
+		return transact(context, nil, { previous = previous, candidate = expected })
+	end
+	return table.freeze({ commit = commit, finalize = finalize })
 end
 
 return table.freeze({ new = new })
