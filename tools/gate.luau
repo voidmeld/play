@@ -46,11 +46,9 @@ assert(#specs > 0, "test corpus is empty")
 local analyze: { string } =
 	{ "luau-lsp", "analyze", "--platform=standard", "--flag:LuauSolverV2=true", "--ignore=**/.lute/**" }
 local format: { string } = { "stylua", "--check" }
-local lint: { string } = { "lute", "lint", "--verbose", "-c", "lint.config.luau" }
 for _, path in luauFiles do
 	table.insert(analyze, path)
 	table.insert(format, path)
-	table.insert(lint, path)
 end
 
 local function command(id: string, argv: { string }): Gate.ProducerDraft
@@ -92,7 +90,7 @@ local producers: { Gate.ProducerDraft } = {
 	},
 	script("comments", "tools/check-code-comments.luau"),
 	command("format", format),
-	command("lint", lint),
+	script("lint", "tools/run-lint.luau"),
 	command("verify-check", {
 		"lute",
 		"run",
