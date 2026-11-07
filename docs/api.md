@@ -3461,6 +3461,9 @@ This example exercises: occupied arrival selects the first clear supported floor
 ### Invariants
 
 Placement commits only a clear supported candidate. Search is bounded. An unsafe or absent floor cannot produce a destination.
+The host supplies a practical nonnegative whole `count`; `2 * count + 1` must fit the safe integer
+range. Both searches capture that count before observations. Invalid counts return nil without
+calling geometry or commit ports; exhausted searches return nil without committing a destination.
 
 ## route-admission
 
@@ -24088,6 +24091,10 @@ create = function TradeService.create(depsValue: Deps): (Service?, string?)
 ## `roblox.travel-placement`
 
 [Source](../src/roblox/travel-placement.luau)
+
+```luau
+local Value = require("../kernel/value")
+```
 
 ### `roblox.travel-placement.PlacementHost`
 

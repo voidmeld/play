@@ -1,6 +1,9 @@
 --!strict
 
+local Value = require("../kernel/value")
+
 local Travel = {}
+local maxCount = (9007199254740991 - 1) / 2
 
 export type PlacementHost<Frame, Floor> = {
 	count: number,
@@ -13,8 +16,12 @@ export type PlacementHost<Frame, Floor> = {
 }
 
 function Travel.place<Frame, Floor>(host: PlacementHost<Frame, Floor>): Frame?
-	local ground = if host.count > 0 then host.ground() else nil
-	for index = 0, host.count * 2 do
+	local count = Value.whole(host.count, 0, maxCount)
+	if count == nil then
+		return nil
+	end
+	local ground = if count > 0 then host.ground() else nil
+	for index = 0, count * 2 do
 		local candidate = host.candidate(index)
 		local clear = host.clear(candidate)
 		local floor = if clear and index > 0 and ground ~= nil then host.floor(candidate) else nil
@@ -37,7 +44,11 @@ export type EntranceHost<Frame, Point, Floor> = {
 }
 
 function Travel.entrance<Frame, Point, Floor>(host: EntranceHost<Frame, Point, Floor>): Frame?
-	for index = 0, host.count * 2 do
+	local count = Value.whole(host.count, 0, maxCount)
+	if count == nil then
+		return nil
+	end
+	for index = 0, count * 2 do
 		local point = host.point(index)
 		if not host.clear(point) then
 			continue
