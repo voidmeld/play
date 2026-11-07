@@ -76,7 +76,11 @@ refusals of each call.
 | `src/kernel` | Shared values, results, codecs, leases and atomic store contracts. |
 | `src/core/<family>` | Configured rules and engine-independent coordinators. Each entry exports an `API` type and component aliases. |
 | `src/roblox/<adapter>` | Typed Roblox adapters over supplied operations. |
-| `src/test-scene` | Deterministic fixtures for verification. Exclude this surface from shipped runtime trees. |
+| `tools/fixtures` | Deterministic fixtures for verification. Exclude this surface from shipped runtime trees. |
+
+Verification uses Verify's simulated Instances, signals and virtual scheduler.
+The fixtures configure Play rules and storage faults; they do not implement an engine.
+Advancing time delivers due work at that simulated frame, including delayed wakeups.
 
 Import only the public entries. Keep authoritative state transitions on the server.
 [Architecture](docs/architecture.md) explains the boundaries between the layers.

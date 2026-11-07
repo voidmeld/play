@@ -1,15 +1,15 @@
 --!strict
 
-local Clock = require("./clock")
-local Lease = require("../core/identity/character-lease")
-local Leases = require("../core/identity/character-lease-store")
+local Engine = require("./engine")
+local Lease = require("../../src/core/identity/character-lease")
+local Leases = require("../../src/core/identity/character-lease-store")
 local StoreScene = require("./persistence/store")
 
 export type Config = Lease.Config
 export type Options = StoreScene.Options
 
 local function new(config: Config, options: Options?)
-	local clock = Clock.new()
+	local clock = Engine.clock()
 	local storage = StoreScene.new(clock.clock, options)
 	local record = Lease.create(config)
 	local repository = Leases.create({

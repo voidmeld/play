@@ -2,7 +2,7 @@
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Chat = require("./chat")
-local Clock = require("../test-scene/clock")
+local Engine = require("../../tools/fixtures/engine")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 return function(suite: Verify.Harness)
@@ -26,7 +26,7 @@ return function(suite: Verify.Harness)
 			expect(refusals):toEqual({ "off:chat_off_or_absent", "throws:denied" })
 		end)
 		it("platform privacy fails closed and permission retries are bounded", function()
-			local clock = Clock.new()
+			local clock = Engine.clock()
 			local calls = 0
 			local function denied(): boolean
 				calls += 1

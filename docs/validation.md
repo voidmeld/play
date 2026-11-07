@@ -44,7 +44,7 @@ gate producer runs this check. Core system entries are `src/core/<system>.luau`,
 exported `API` type and component-prefixed aliases for their exported types. Existing
 component imports remain compatible. Domain helpers live under `src/core/internal`;
 shared value operations live only at `src/kernel/value`. Kernel boundary checks reject
-imports from domain, native host, client and test-scene layers.
+imports from domain, native host, client and verification layers.
 
 For a focused check, select a producer:
 

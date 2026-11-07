@@ -4,7 +4,7 @@ local Atomic = require("./character-lease-store")
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Lease = require("./character-lease")
 local Result = require("../../kernel/result")
-local Scene = require("../../test-scene/character-leases")
+local Scene = require("../../../tools/fixtures/character-leases")
 local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 

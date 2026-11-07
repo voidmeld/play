@@ -4,7 +4,7 @@ local Value = require("../../kernel/value")
 type Raw = Value.Raw
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
-local Policy = require("../../test-scene/identity")
+local Policy = require("../../../tools/fixtures/identity")
 local Roster = require("./roster")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 

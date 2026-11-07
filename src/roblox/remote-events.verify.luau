@@ -2,7 +2,7 @@
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Events = require("./remote-events")
-local Signal = require("../test-scene/signal")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 return function(suite: Verify.Harness)
@@ -11,7 +11,8 @@ return function(suite: Verify.Harness)
 
 	describe("remote events", function()
 		it("one dispatcher per channel survives partial release and disconnects the last", function(own)
-			local signal = Signal.new()
+			local engine = Roblox.testEnvironment({ handlerErrors = "raise" })
+			local signal: Roblox.Signal<unknown> = engine.newSignal()
 			local handlers: { [(number) -> ()]: boolean } = {}
 			local owned: { () -> () } = {}
 			local transport = Events.transport({
@@ -29,11 +30,14 @@ return function(suite: Verify.Harness)
 					return count
 				end,
 				connect = function(_event: string, callback: (number, ...unknown) -> ()): () -> ()
-					return signal.connect(function(value: unknown)
+					local connection = signal:Connect(function(value: unknown)
 						if type(value) == "number" then
 							callback(value)
 						end
 					end)
+					return function()
+						connection:Disconnect()
+					end
 				end,
 				receive = function(_name: string, player: number, ...: unknown)
 					for handler in handlers do
@@ -51,22 +55,22 @@ return function(suite: Verify.Harness)
 			transport.serve("event", "event", function(_player: number)
 				count += 10
 			end, nil)
-			expect(signal.count()):toBe(1)
-			signal.fire(1)
+			expect(engine.connectionsOf(signal)):toBe(1)
+			signal:Fire(1)
 			expect(count):toBe(11)
-			signal.fire(2)
+			signal:Fire(2)
 			expect(count):toBe(22)
 			first()
 			first()
-			expect(signal.count()):toBe(1)
-			signal.fire(1)
+			expect(engine.connectionsOf(signal)):toBe(1)
+			signal:Fire(1)
 			expect(count):toBe(32)
-			signal.fire(1)
+			signal:Fire(1)
 			expect(count):toBe(42)
 			for _, release in owned do
 				release()
 			end
-			expect(signal.count()):toBe(0)
+			expect(engine.connectionsOf(signal)):toBe(0)
 		end)
 	end)
 end

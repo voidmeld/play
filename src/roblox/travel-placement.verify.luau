@@ -1,7 +1,7 @@
 --!strict
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
-local Clock = require("../test-scene/clock")
+local Engine = require("../../tools/fixtures/engine")
 local Travel = require("./travel-placement")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
@@ -11,7 +11,7 @@ return function(suite: Verify.Harness)
 
 	describe("travel placement", function()
 		it("occupied arrival selects the first clear supported floor before committing", function()
-			local clock = Clock.new()
+			local clock = Engine.clock()
 			local commits: { number } = {}
 			local result = Travel.place({
 				count = 2,

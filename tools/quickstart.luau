@@ -1,6 +1,6 @@
 --!strict
 
-local ThreatScene = require("../src/test-scene/threat")
+local ThreatScene = require("./fixtures/threat")
 
 local scene = ThreatScene.new({ meleeTakeover = 1.1, rangedTakeover = 1.3, tauntLead = 1 })
 scene.add("guard", 100, true)

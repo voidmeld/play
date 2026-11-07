@@ -43,6 +43,6 @@ lute run tools/gate.luau --file src/core/threat/table.verify.luau
 ## Bind a consumer
 
 Pin an exact commit and tree. Preserve relative paths between `src/kernel`, `src/core` and `src/roblox`.
-Keep `src/test-scene` in verification only.
+Keep `tools/fixtures` in verification only.
 Read [adoption](adoption.md) for dependency setup and [the API](api.md#host-operations) for host duties.
 Use the task table in the API to select the next contract.

@@ -1,6 +1,6 @@
 --!strict
 
-local Policy = require("../core/identity/policy")
+local Policy = require("../../src/core/identity/policy")
 
 local function validate(raw: unknown): (boolean, string?, string?)
 	if type(raw) ~= "string" then

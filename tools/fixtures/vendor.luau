@@ -1,12 +1,12 @@
 --!strict
 
-local Clock = require("./clock")
-local Exchange = require("../core/vendors/exchange")
+local Engine = require("./engine")
+local Exchange = require("../../src/core/vendors/exchange")
 
 local Scene = {}
 
 function Scene.new()
-	local clock = Clock.new()
+	local clock = Engine.clock()
 	local prices: { [string]: number } = { food = 2, tool = 5, prize = 0 }
 	local vendor: Exchange.Vendor = {
 		id = "merchant",

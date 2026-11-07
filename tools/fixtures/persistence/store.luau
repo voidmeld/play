@@ -1,9 +1,9 @@
 --!strict
 
-local Atomic = require("../../roblox/persistence/store")
-local Host = require("../../core/persistence/store-host")
-local Kernel = require("../../kernel/store")
-local Retry = require("../../roblox/data-store")
+local Atomic = require("../../../src/roblox/persistence/store")
+local Host = require("../../../src/core/persistence/store-host")
+local Kernel = require("../../../src/kernel/store")
+local Retry = require("../../../src/roblox/data-store")
 
 export type Options = Host.TestOptions
 export type Scene = {

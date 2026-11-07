@@ -1,12 +1,12 @@
 --!strict
 
-local Clock = require("./clock")
-local Diminishing = require("../core/control/diminishing")
+local Diminishing = require("../../src/core/control/diminishing")
+local Engine = require("./engine")
 
 local Scene = {}
 
 function Scene.new(config: Diminishing.Config)
-	local clock = Clock.new()
+	local clock = Engine.clock()
 	local law = Diminishing.rules(config)
 	local state = Diminishing.empty()
 	return {

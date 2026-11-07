@@ -130,6 +130,7 @@ return table.freeze {
 	"src/roblox/target-selection.verify.luau",
 	"src/roblox/trade.verify.luau",
 	"src/roblox/travel-placement.verify.luau",
+	"tools/fixtures/engine.verify.luau",
 	"tools/lib/api-reference.verify.luau",
 	"tools/lib/lint-batches.verify.luau",
 	"examples/world/world.verify.luau",

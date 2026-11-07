@@ -1,9 +1,9 @@
 --!strict
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
-local Clock = require("../test-scene/clock")
+local Engine = require("../../tools/fixtures/engine")
 local Messaging = require("./messaging")
-local Signal = require("../test-scene/signal")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 return function(suite: Verify.Harness)
@@ -12,8 +12,9 @@ return function(suite: Verify.Harness)
 
 	describe("messaging", function()
 		it("fanout decodes notices, isolates unavailable service and disconnects", function()
-			local clock = Clock.new()
-			local signal = Signal.new()
+			local clock = Engine.clock()
+			local engine = Roblox.testEnvironment({ handlerErrors = "raise" })
+			local signal: Roblox.Signal<unknown> = engine.newSignal()
 			local available = true
 			local failPublish = false
 			local warnings: { string } = {}
@@ -31,10 +32,13 @@ return function(suite: Verify.Harness)
 						if failPublish then
 							error("offline", 0)
 						end
-						signal.fire(value)
+						signal:Fire(value)
 					end,
 					subscribe = function(_topic: string, callback: (unknown) -> ()): () -> ()
-						return signal.connect(callback)
+						local connection = signal:Connect(callback)
+						return function()
+							connection:Disconnect()
+						end
 					end,
 					warn = function(operation: string, _failure: string)
 						table.insert(warnings, operation)
@@ -52,14 +56,14 @@ return function(suite: Verify.Harness)
 			expect(received):toEqual({})
 			clock.advance(0)
 			expect(received):toEqual({ "notice" })
-			signal.fire(false)
+			signal:Fire(false)
 			expect(#received):toBe(1)
 			failPublish = true
 			transport.publish("fails")
 			clock.advance(0)
 			expect(warnings):toEqual({ "publish" })
 			stop()
-			expect(signal.count()):toBe(0)
+			expect(engine.connectionsOf(signal)):toBe(0)
 			available = false
 			expect(transport.subscribe(function(_value: string) end)):toBeNil()
 			transport.publish("ignored")
