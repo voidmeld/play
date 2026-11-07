@@ -79,13 +79,14 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	local updates = 0
 	local reports: { string } = {}
 	local control: {
+		failRead: boolean,
 		failWrite: boolean,
 		loseReply: boolean,
 		denyBody: boolean,
 		onUpdate: (() -> ())?,
 		onObserve: ((number) -> ())?,
 	} =
-		{ failWrite = false, loseReply = false, denyBody = false, onUpdate = nil, onObserve = nil }
+		{ failRead = false, failWrite = false, loseReply = false, denyBody = false, onUpdate = nil, onObserve = nil }
 	local queue: { Stores.QueuedWrite } = {}
 	local circuitSerial = 0
 	local circuit: Stores.Circuit = {
@@ -134,6 +135,9 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	}
 	local raw: Stores.RawStore = {
 		GetAsync = function(_self, key)
+			if control.failRead then
+				error("storage_unavailable")
+			end
 			return copy(values[key])
 		end,
 		SetAsync = function(_self, _key, _value)

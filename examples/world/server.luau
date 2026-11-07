@@ -103,12 +103,12 @@ local function new(ports: Ports)
 		return ok, reason
 	end
 
-	local function live(profile: State.Profile?, entry: Active?): boolean
+	local function live(profile: State.Profile?, entry: Active?, closing: boolean?): boolean
 		return profile ~= nil
 			and entry ~= nil
 			and not held
 			and not stopped
-			and not entry.session.closed
+			and (not entry.session.closed or closing == true)
 			and not entry.session.leaseLost
 			and Lock.isLocked(profile.lock, entry.token, ports.clock())
 	end
@@ -311,7 +311,8 @@ local function new(ports: Ports)
 		})
 		active[userId] = { context = context, token = token, session = session }
 		sessions.admit(context, profile.lock.lockExpiry, function()
-			return current(userId)
+			local saved = world.players[tostring(userId)]
+			return if live(saved, active[userId], true) then saved else nil
 		end, function()
 			active[userId] = nil
 			enemy.threat = Threat.remove(enemy.threat, tostring(userId))
