@@ -93,6 +93,7 @@ local function new(
 		onUpdate: (() -> ())?,
 		afterUpdate: (() -> ())?,
 		onObserve: ((number) -> ())?,
+		onFilter: ((number, string, number) -> string?)?,
 	} =
 		{
 			failRead = faults ~= nil and faults.failRead == true,
@@ -102,6 +103,7 @@ local function new(
 			onUpdate = nil,
 			afterUpdate = nil,
 			onObserve = nil,
+			onFilter = nil,
 		}
 	local queue: { Stores.QueuedWrite } = {}
 	local circuitSerial = 0
@@ -227,7 +229,10 @@ local function new(
 		report = function(reason)
 			table.insert(reports, reason)
 		end,
-		filter = function(_sender, _text, _listener)
+		filter = function(sender, text, listener)
+			if control.onFilter ~= nil then
+				return control.onFilter(sender, text, listener)
+			end
 			return "Hello Harbor"
 		end,
 		contact = function(userId)

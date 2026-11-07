@@ -543,6 +543,8 @@ This example exercises: membership preserves proximity, realm, group and private
 ### Invariants
 
 Private pair identities are deterministic. Realm/group/proximity filters do not leak membership. Rate refusal does not invent budget.
+The [example chat specification](../examples/world/chat.verify.luau) covers native filter failures
+and sender/recipient session changes during filtering at the consumer's transport boundary.
 
 ## combat
 

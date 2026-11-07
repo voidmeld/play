@@ -21,10 +21,10 @@ Run the scenarios through Gate:
 
 ```console
 lute run tools/gate.luau --file examples/world/demo.verify.luau --file examples/world/world.verify.luau
-lute run tools/gate.luau --file examples/world/recovery.verify.luau
+lute run tools/gate.luau --file examples/world/recovery.verify.luau --file examples/world/chat.verify.luau
 ```
 
-All three specifications are in the committed manifest. Gate also runs the standalone command.
+All example specifications are in the committed manifest. Gate also runs the standalone command.
 The original scenario retains its assertions for trade, admission, stack capacity, competing
 sessions, renewal, restart and uncertain writes.
 
@@ -105,6 +105,10 @@ One resolved contact applies damage. Recovery blocks repeated attacks; the scene
 respawns the enemy after three seconds. Disconnection fences an outstanding contact.
 Completed combat timers detach from their owner; shutdown cancels timers that have not fired.
 Integer wall time serves saved records and leases; an injected elapsed clock serves combat.
+
+Chat captures recipient acquisitions and gathers bounded platform-filtered text before delivery.
+A native filter exception reports `chat_unavailable` without partial delivery or raw-text fallback.
+Sender changes during filtering cancel the broadcast; replaced recipients are skipped.
 
 ## Subscribe from any UI
 

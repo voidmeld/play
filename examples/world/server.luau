@@ -31,6 +31,7 @@ export type Ports = {
 	elapsed: (() -> number)?,
 }
 type Active = { context: Admission.Context, token: string, session: ProfileSession.State }
+type Recipient = { userId: number, acquisitionId: string }
 local sessionRules = ProfileSession.create({
 	leaseSeconds = Content.leaseSeconds,
 	renewBeforeSeconds = 20,
@@ -611,13 +612,24 @@ local function new(ports: Ports)
 			if not allowed then
 				return response(userId, false, "chat_limited")
 			end
+			local sender = current(userId)
+			if sender == nil then
+				return response(userId, false, "not_admitted")
+			end
+			local acquisitionId = sender.acquisitionId
+			local function sameSender(): boolean
+				local profile = current(userId)
+				return profile ~= nil and profile.acquisitionId == acquisitionId
+			end
+			local listeners: { Recipient } = {}
 			for listenerId in active do
+				local profile = current(listenerId)
 				local member: Chat.Member =
 					{ id = listenerId, realm = "harbor", party = false, guild = false, warband = false }
 				local speaker: Chat.Member =
 					{ id = userId, realm = "harbor", party = false, guild = false, warband = false }
 				if
-					current(listenerId) ~= nil
+					profile ~= nil
 					and Chat.allows(
 						{ audience = "say", sameRealm = true, selfDelivery = true },
 						speaker,
@@ -626,13 +638,37 @@ local function new(ports: Ports)
 						nil
 					)
 				then
-					local filtered = ports.filter(userId, intent.text, listenerId)
-					if filtered ~= nil and #filtered > 0 and #filtered <= 120 then
-						ports.deliver(
-							listenerId,
-							{ ok = true, line = { senderId = userId, text = filtered, at = ports.clock() } }
-						)
-					end
+					table.insert(listeners, { userId = listenerId, acquisitionId = profile.acquisitionId })
+				end
+			end
+			table.sort(listeners, function(first: Recipient, second: Recipient): boolean
+				return first.userId < second.userId
+			end)
+			local lines: { [number]: string } = {}
+			for _, listener in listeners do
+				local filtered, line = pcall(ports.filter, userId, intent.text, listener.userId)
+				if not filtered then
+					ports.report("chat_unavailable")
+					return response(userId, false, "chat_unavailable")
+				end
+				if not sameSender() then
+					return response(userId, false, "chat_unavailable")
+				end
+				if type(line) == "string" and #line > 0 and #line <= 120 then
+					lines[listener.userId] = line
+				end
+			end
+			for _, listener in listeners do
+				if not sameSender() then
+					return response(userId, false, "chat_unavailable")
+				end
+				local profile = current(listener.userId)
+				local line = lines[listener.userId]
+				if profile ~= nil and profile.acquisitionId == listener.acquisitionId and line ~= nil then
+					ports.deliver(
+						listener.userId,
+						{ ok = true, line = { senderId = userId, text = line, at = ports.clock() } }
+					)
 				end
 			end
 			return response(userId, true, nil)
