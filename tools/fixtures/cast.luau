@@ -1,12 +1,12 @@
 --!strict
 
-local Clock = require("./clock")
-local Queue = require("../core/cast/queue")
+local Engine = require("./engine")
+local Queue = require("../../src/core/cast/queue")
 
 local Scene = {}
 
 function Scene.new(config: Queue.Config)
-	local clock = Clock.new()
+	local clock = Engine.clock()
 	local law = Queue.rules(config)
 	local state: Queue.State<string> = { nextToken = 1 }
 	local fired: { Queue.Entry<string> } = {}

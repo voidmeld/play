@@ -14,3 +14,18 @@ for _, layer in { "core", "roblox", "client", "test%-scene" } do
 	)
 end
 Finish("check-kernel-boundary", Checks.boundary(kernel))
+for _, root in { "src/core", "src/kernel", "src/roblox", "src/world" } do
+	Finish(
+		"check-ui-boundary",
+		Checks.boundary({
+			root = root,
+			allowMissing = true,
+			rules = {
+				{ pattern = "%f[%w_]Compose%f[^%w_]", why = "UI dependencies belong in examples" },
+				{ pattern = "%f[%w_]Facet%f[^%w_]", why = "UI dependencies belong in examples" },
+				{ pattern = "[/\"']compose[/\"']", why = "UI dependencies belong in examples" },
+				{ pattern = "[/\"']facet[/\"']", why = "UI dependencies belong in examples" },
+			},
+		})
+	)
+end

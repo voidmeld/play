@@ -3,7 +3,7 @@
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Host = require("./social-warband")
 local Membership = require("../core/social/membership")
-local Scene = require("../test-scene/social")
+local Scene = require("../../tools/fixtures/social")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 local Warband = require("../core/social/warband")
 

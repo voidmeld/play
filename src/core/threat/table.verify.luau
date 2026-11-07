@@ -1,7 +1,7 @@
 --!strict
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
-local Scene = require("../../test-scene/threat")
+local Scene = require("../../../tools/fixtures/threat")
 local Threat = require("./table")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 

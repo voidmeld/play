@@ -2,7 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Diminishing = require("./diminishing")
-local Scene = require("../../test-scene/diminishing")
+local Scene = require("../../../tools/fixtures/diminishing")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 local function config(): Diminishing.Config

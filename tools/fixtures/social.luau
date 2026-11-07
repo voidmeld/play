@@ -1,9 +1,9 @@
 --!strict
 
-local Fellowship = require("../core/social/fellowship")
-local Formation = require("../core/social/formation")
-local Records = require("../roblox/social-records")
-local Warband = require("../core/social/warband")
+local Fellowship = require("../../src/core/social/fellowship")
+local Formation = require("../../src/core/social/formation")
+local Records = require("../../src/roblox/social-records")
+local Warband = require("../../src/core/social/warband")
 
 local Social = {}
 

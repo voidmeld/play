@@ -1,26 +1,18 @@
 --!strict
 
 local Client = require("./roblox-client")
-local Clock = require("../../src/test-scene/clock")
 local Codec = require("../../src/kernel/codec")
+local Engine = require("../../tools/fixtures/engine")
 local Mount = require("./roblox-server")
-local Owner = require("../../src/test-scene/owner")
 local Protocol = require("./protocol")
-local Signal = require("../../src/test-scene/signal")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Stores = require("../../src/core/persistence/store-host")
 local sceneSerial = 0
 local fixtureUniverse = 101
 local fixtureDestination = 202
 local fixtureSource = 303
 
-type ResponseSignal = {
-	connect: ((Protocol.Response) -> ()) -> () -> (),
-	fire: (Protocol.Response) -> (),
-	count: () -> number,
-}
-local responseSignal: () -> ResponseSignal = Signal.new
-local playerSignal: () -> { connect: ((Mount.Subject) -> ()) -> () -> (), fire: (Mount.Subject) -> (), count: () -> number } =
-	Signal.new
+type ResponseSignal = Roblox.Signal<Protocol.Response>
 local function copy(value: unknown): unknown
 	local result = Codec.copyData(value)
 	assert(result.ok, "fixture_copy_failed")
@@ -30,12 +22,13 @@ end
 local function new(saved: { [string]: unknown }?, startTime: number?)
 	sceneSerial += 1
 	local serverId = "fixture-server-" .. tostring(sceneSerial)
-	local clock = Clock.new()
+	local engine = Roblox.testEnvironment({ handlerErrors = "raise" })
+	local clock = Engine.clock(engine)
 	clock.advance(startTime or 0)
 	local values: { [string]: unknown } = saved or {}
 	local players: { [number]: Mount.Subject } = {}
 	local removing: { [(Mount.Subject) -> boolean]: boolean } = {}
-	local added = playerSignal()
+	local added: Roblox.Signal<Mount.Subject> = engine.newSignal()
 	local responses: { [number]: ResponseSignal } = {}
 	local requestHandler: ((Mount.Subject, ...unknown) -> ())? = nil
 	local serial = 0
@@ -141,7 +134,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 			end,
 		},
 		circuit = circuit,
-		owner = Owner.new(),
+		owner = Engine.owner(engine),
 		clock = clock.clock,
 		schedule = clock.schedule,
 		newId = function(): string
@@ -164,7 +157,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 			sendResponse = function(player, response)
 				local signal = responses[player.UserId]
 				if signal ~= nil then
-					signal.fire(response)
+					signal:Fire(response)
 				end
 			end,
 		},
@@ -188,7 +181,12 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 					removing[callback] = nil
 				end
 			end,
-			connectAdded = added.connect,
+			connectAdded = function(callback)
+				local connection = added:Connect(callback)
+				return function()
+					connection:Disconnect()
+				end
+			end,
 		},
 		clear = function()
 			return true
@@ -223,7 +221,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 		},
 	})
 	local function connect(userId: number)
-		local signal = responseSignal()
+		local signal: ResponseSignal = engine.newSignal()
 		responses[userId] = signal
 		local player: Mount.Subject = { UserId = userId, Name = "Traveler" .. tostring(userId), Character = false }
 		local client = Client.start({
@@ -231,10 +229,15 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 				local handler = assert(requestHandler)
 				handler(player, request)
 			end,
-			connectResponse = signal.connect,
+			connectResponse = function(callback)
+				local connection = signal:Connect(callback)
+				return function()
+					connection:Disconnect()
+				end
+			end,
 		})
 		players[userId] = player
-		added.fire(player)
+		added:Fire(player)
 		return client, player
 	end
 	local function disconnect(userId: number): boolean

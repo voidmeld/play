@@ -1,8 +1,7 @@
 --!strict
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
-local Clock = require("../test-scene/clock")
-local Owner = require("../test-scene/owner")
+local Engine = require("../../tools/fixtures/engine")
 local Sessions = require("./profile-sessions")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
@@ -12,8 +11,8 @@ return function(suite: Verify.Harness)
 
 	describe("profile sessions", function()
 		local function fixture()
-			local clock = Clock.new()
-			local owner = Owner.new()
+			local clock = Engine.clock()
+			local owner = Engine.owner()
 			local writes: { { release: boolean, generation: number, profile: number } } = {}
 			local state = { fail = false, releases = 0, value = 1, warnings = 0 }
 			local sessions = Sessions.new(owner, {

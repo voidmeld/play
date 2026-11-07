@@ -4,7 +4,7 @@ local Account = require("./account")
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Creation = require("./creation")
 local Deletion = require("./deletion")
-local Policy = require("../../test-scene/identity")
+local Policy = require("../../../tools/fixtures/identity")
 local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 

@@ -30,7 +30,7 @@ paths while the migration proceeds; the [validation procedure](validation.md) ow
 | core | `src/core/<domain>/<system>` | Pure rules plus host-agnostic coordinators over kernel ports. |
 | roblox | `src/roblox/<domain>/<system>` | Binds kernel ports to Roblox services. No game rules. |
 | client | `src/client/<concern>` | Optional presentation and input helpers (camera, cues, labels, input bindings). Never authoritative. |
-| test-scene | `src/test-scene/<domain>` | Fake hosts for every system, used by specs and examples. |
+| verification fixture | `tools/fixtures/<domain>` | Fake hosts for every system, used by specs and examples. |
 
 Dependencies point downward only: client, then roblox, then core, then kernel. Core never
 imports roblox or client.
@@ -63,7 +63,7 @@ src/core/<domain>/<system>/
   policy.luau      policy schema, defaults and validation
   coordinator.luau optional: orchestration over kernel ports (lease, store, custody, clock)
 src/roblox/<domain>/<system>.luau  new(ports, policy) -> Service, binding ports to Roblox
-src/test-scene/<domain>/<system>.luau
+tools/fixtures/<domain>/<system>.luau
 docs/systems/<system>.md           one guide: adoption, policy, host ports, runnable example
 ```
 
@@ -131,8 +131,8 @@ Build gaps only when a consumer needs them, by moving and generalising code from
 
 A system ships only with: validated policy with defaults; pure rules; persistence codec and
 migration hook when it stores state; recovery path when it holds value; a roblox adapter; a
-test-scene host; a guide with a runnable example; specs covering adversarial input, concurrency
-and crash recovery. Two consumers (a game plus the test-scene) must use the same public API.
+verification host; a guide with a runnable example; specs covering adversarial input, concurrency
+and crash recovery. Two consumers (a game plus the verification fixture) must use the same public API.
 
 ## Migration order
 

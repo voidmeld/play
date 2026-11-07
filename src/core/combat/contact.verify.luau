@@ -2,7 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Codec = require("../../kernel/codec")
-local Scene = require("../../test-scene/combat")
+local Scene = require("../../../tools/fixtures/combat")
 local Value = require("../../kernel/value")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 return function(suite: Verify.Harness)

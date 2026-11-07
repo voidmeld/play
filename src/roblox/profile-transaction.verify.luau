@@ -1,8 +1,7 @@
 --!strict
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
-local Clock = require("../test-scene/clock")
-local Owner = require("../test-scene/owner")
+local Engine = require("../../tools/fixtures/engine")
 local Sessions = require("./profile-sessions")
 local Transaction = require("./profile-transaction")
 local Verify = require("../../.lute/dependencies/verify/src/core")
@@ -17,7 +16,7 @@ local function change(p: Profile): (Profile?, string?)
 	return p, nil
 end
 local function fixture()
-	local clock = Clock.new()
+	local clock = Engine.clock()
 	local state = {
 		live = { revision = 0, balance = 0, note = "a" },
 		stored = { revision = 0, balance = 0, note = "a" },
@@ -28,7 +27,7 @@ local function fixture()
 		duringSave = function() end,
 		duringRead = function() end,
 	}
-	local sessions = Sessions.new(Owner.new(), {
+	local sessions = Sessions.new(Engine.owner(), {
 		clock = clock.clock,
 		schedule = clock.schedule,
 		report = function(_kind: string, _key: string, _reason: string?) end,

@@ -3,7 +3,7 @@
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Notes = require("../core/social/notes")
 local Records = require("./social-records")
-local Social = require("../test-scene/social")
+local Social = require("../../tools/fixtures/social")
 local Value = require("../kernel/value")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 

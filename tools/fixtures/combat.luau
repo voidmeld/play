@@ -1,7 +1,7 @@
 --!strict
 
-local Contact = require("../core/combat/contact")
-local Value = require("../kernel/value")
+local Contact = require("../../src/core/combat/contact")
+local Value = require("../../src/kernel/value")
 export type Payload = { read impact: number, read tags: { [string]: number } }
 type Identity = { id: string, characterId: string?, epoch: number?, contentId: string? }
 local function copyPayload(raw: unknown): (Payload?, string?)

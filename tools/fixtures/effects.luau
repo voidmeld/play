@@ -1,7 +1,7 @@
 --!strict
 
-local Clock = require("./clock")
-local Timed = require("../core/effects/timed")
+local Engine = require("./engine")
+local Timed = require("../../src/core/effects/timed")
 
 local Scene = {}
 
@@ -13,7 +13,7 @@ export type Host = {
 }
 
 function Scene.new(epsilon: number): Host
-	local clock = Clock.new()
+	local clock = Engine.clock()
 	local effects: { [string]: Timed.Entry } = {}
 	local function apply(id: string, application: Timed.Application)
 		local updated = table.clone(effects)

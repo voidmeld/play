@@ -2,7 +2,7 @@
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Host = require("./social-host")
-local Social = require("../test-scene/social")
+local Social = require("../../tools/fixtures/social")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 local CHARTER = {

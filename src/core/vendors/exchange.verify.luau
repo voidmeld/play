@@ -2,7 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Exchange = require("./exchange")
-local Scene = require("../../test-scene/vendor")
+local Scene = require("../../../tools/fixtures/vendor")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 return function(suite: Verify.Harness)

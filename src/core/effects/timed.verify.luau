@@ -1,7 +1,7 @@
 --!strict
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
-local Scene = require("../../test-scene/effects")
+local Scene = require("../../../tools/fixtures/effects")
 local Timed = require("./timed")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 

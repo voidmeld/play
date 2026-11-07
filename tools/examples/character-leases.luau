@@ -1,6 +1,6 @@
 --!strict
 
-local Scene = require("../../src/test-scene/character-leases")
+local Scene = require("../../tools/fixtures/character-leases")
 
 local scene = Scene.new({
 	schemaVersion = 3,

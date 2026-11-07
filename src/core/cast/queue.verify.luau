@@ -2,7 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Queue = require("./queue")
-local Scene = require("../../test-scene/cast")
+local Scene = require("../../../tools/fixtures/cast")
 local Verify = require("../../../.lute/dependencies/verify/src/core")
 
 local config: Queue.Config = { windowSec = 0.4, minRetrySec = 0.05, maxRequeues = 4 }

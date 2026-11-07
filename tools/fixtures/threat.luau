@@ -1,12 +1,12 @@
 --!strict
 
-local Clock = require("./clock")
-local Threat = require("../core/threat/table")
+local Engine = require("./engine")
+local Threat = require("../../src/core/threat/table")
 
 local Scene = {}
 
 function Scene.new(config: Threat.Config)
-	local clock = Clock.new()
+	local clock = Engine.clock()
 	local law = Threat.rules(config)
 	local state = Threat.empty()
 	local pursuitRefreshes = 0

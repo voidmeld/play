@@ -2,7 +2,7 @@
 
 local Bdd = require("../../../.lute/dependencies/verify/src/bdd")
 local Creation = require("./creation")
-local Policy = require("../../test-scene/identity")
+local Policy = require("../../../tools/fixtures/identity")
 local Registry = require("./name-claims")
 local Roster = require("./roster")
 local Value = require("../../kernel/value")

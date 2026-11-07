@@ -1,8 +1,8 @@
 --!strict
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
-local Clock = require("../test-scene/clock")
 local DataStore = require("./data-store")
+local Engine = require("../../tools/fixtures/engine")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
 return function(suite: Verify.Harness)
@@ -11,7 +11,7 @@ return function(suite: Verify.Harness)
 
 	describe("data store", function()
 		it("retries transient failures on the fake host clock and returns the committed result", function()
-			local clock = Clock.new()
+			local clock = Engine.clock()
 			local retry = DataStore.retryPolicy({ attempts = 4, baseDelay = 0.5, maxDelay = 8 })
 			local calls = 0
 			local ok, result = retry.run(
@@ -31,7 +31,7 @@ return function(suite: Verify.Harness)
 			expect(retry.delay(10, 0.5)):toBe(4)
 		end)
 		it("exhausted attempts preserve failure instead of claiming a save", function()
-			local clock = Clock.new()
+			local clock = Engine.clock()
 			local retry = DataStore.retryPolicy({ attempts = 4, baseDelay = 0.5, maxDelay = 8 })
 			local calls = 0
 			local ok, result = retry.run(
