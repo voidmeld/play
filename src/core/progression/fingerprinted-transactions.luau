@@ -40,18 +40,12 @@ local function fingerprint(payload: unknown, bounds: Bounds): (string?, string?)
 			return Value.finite(value)
 				and emit("n" .. (if value == 0 then "0" else string.format("%.17g", value)) .. ";")
 		end
-		local raw = Value.raw(value)
-		if
-			type(value) ~= "table"
-			or raw == nil
-			or getmetatable(value) ~= nil
-			or active[value]
-			or depth >= bounds.maxDepth
-		then
+		if type(value) ~= "table" or getmetatable(value) ~= nil or active[value] or depth >= bounds.maxDepth then
 			return false
 		end
 		local keys: { string | number } = {}
-		for key in raw do
+		local raw: Value.Raw = {}
+		for key, child in value do
 			entries += 1
 			if entries > bounds.maxEntries or (type(key) ~= "string" and type(key) ~= "number") then
 				return false
@@ -59,7 +53,11 @@ local function fingerprint(payload: unknown, bounds: Bounds): (string?, string?)
 			if type(key) == "number" and not Value.finite(key) then
 				return false
 			end
+			if type(key) == "string" and #key > bounds.maxBytes then
+				return false
+			end
 			table.insert(keys, key)
+			raw[key] = child
 		end
 		table.sort(keys, function(a, b)
 			if type(a) == "number" and type(b) == "number" then

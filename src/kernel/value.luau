@@ -71,22 +71,20 @@ function Value.identifier(value: unknown, limit: number): string?
 end
 
 function Value.dense(value: unknown, maximum: number, plain: boolean?): { unknown }?
-	if type(value) ~= "table" or (plain ~= false and getmetatable(value) ~= nil) then
+	if type(value) ~= "table" or maximum < 0 or (plain ~= false and getmetatable(value) ~= nil) then
 		return nil
 	end
-	local found = Value.raw(value)
-	if found == nil then
-		return nil
-	end
+	local found: { [number]: unknown } = {}
 	local count = 0
-	for key in found do
-		if type(key) ~= "number" or key < 1 or key ~= math.floor(key) then
+	for key, entry in value do
+		if type(key) ~= "number" or key < 1 or key > maximum or key ~= math.floor(key) then
 			return nil
 		end
 		count += 1
-	end
-	if count > maximum then
-		return nil
+		if count > maximum then
+			return nil
+		end
+		found[key] = entry
 	end
 	local out: { unknown } = {}
 	for index = 1, count do

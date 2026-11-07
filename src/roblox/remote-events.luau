@@ -15,9 +15,14 @@ function Events.transport<Event, Player, Handler, Options>(host: Host<Event, Pla
 	local function serve(name: string, event: Event, handler: Handler, options: Options?): () -> ()
 		local remove = host.register(name, handler, options)
 		if dispatchers[name] == nil then
-			dispatchers[name] = host.connect(event, function(player: Player, ...: unknown)
+			local connected, disconnect = pcall(host.connect, event, function(player: Player, ...: unknown)
 				host.receive(name, player, ...)
 			end)
+			if not connected then
+				remove()
+				error(disconnect, 0)
+			end
+			dispatchers[name] = disconnect
 		end
 		local released = false
 		local function release()

@@ -1032,6 +1032,15 @@ Types and configuration are exported from [src/core/net.luau](../src/core/net.lu
 | Component | Operations | Exported types |
 | --- | --- | --- |
 | [rate-limit](../src/core/net/rate-limit.luau) | `consume`, `newBucket`, `tryConsume` | `Config`, `Bucket`, `KeyedState` |
+| [payload](../src/core/net/payload.luau) | `create`, `decode` | `Bounds`, `Arguments`, `Config` |
+
+`payload.create` captures bounds and returns a `decode(...unknown)` kernel result. It bounds argument
+count, unique graph entries, table depth, each string and string key. It copies plain acyclic tables,
+preserves shared aliases and nil argument positions through `Arguments.n`, and refuses function/thread
+values and non-finite numbers. The optional `atom` predicate admits immutable native values, such as
+vectors or Roblox value types, without traversing them. Omit it to accept only data values. This is
+graph admission; handlers still validate their own request schemas. Run
+`lute run tools/gate.luau --only specs --file src/core/net/payload.verify.luau`.
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
 
@@ -2687,6 +2696,30 @@ The fake session ports do not certify native storage durability or an adopter's 
 - Updates accepted during a save remain pending for a later flush.
 - Closing releases only after pending work drains; failed release remains retryable.
 - Old callbacks cannot advance a replacement attachment, and metatable payloads are refused.
+
+## roblox-remote-admission
+
+`src/roblox/remote-admission` exports `new`, with `Handler<P>`, `Options<P>`, `Dispatch` and
+`Dependencies<E, P>`. Its operations are `serve`, `receive`, `forget`, `served` and `dispose`.
+Supply a monotonic clock, authenticated sender key, per-channel aggregate budget, bounded payload
+configuration, channel/handler/sender/text limits, native connect/ownership and refusal notification.
+`serve` uses `remote-events.transport`, retaining one connection per channel and disconnecting the
+last released handler. Failed native setup removes its pending registration, permitting retry.
+The coordinator owns no native discovery or authentication.
+
+Each invocation consumes one aggregate channel token before decoding. `Options.lane` adds a
+per-handler sender bucket with capacity and refill no greater than the aggregate budget. Budget
+refusals call each affected handler's `refused` hook; `notify` deduplicates each sender/channel/reason
+within the positive `refusalWindow`. Refusals without admitted sender state deduplicate per channel.
+Handler and hook exceptions cannot retain invocation exclusion.
+`receive` returns accepted/refused handler counts and an optional channel refusal reason. Bounded
+payload admission precedes handlers; handlers receive borrowed decoded arguments and must not mutate
+them. Dispatch snapshots registrations, skips released handlers and defers new registrations until the
+next invocation. One invocation per sender/channel runs at once, including across yielding handlers.
+`forget(key)` clears budgets and notices, fences the remaining dispatch and preserves active exclusion
+until the invocation returns. `dispose` releases every native connection and fences dispatch.
+Limits refuse excess senders until the host forgets departed keys. Run
+`lute run tools/gate.luau --only specs --file src/roblox/remote-admission.verify.luau`.
 
 ## roblox-remote-events
 
@@ -9466,6 +9499,48 @@ Exported value; see its declaration in [source](../src/core/market.luau).
 
 Exported value; see its declaration in [source](../src/core/market.luau).
 
+## `core.net.payload`
+
+[Source](../src/core/net/payload.luau)
+
+```luau
+local Result = require("../../kernel/result")
+```
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `core.net.payload.Bounds`
+
+```luau
+export type Bounds = { maxArguments: number, maxEntries: number, maxDepth: number, maxString: number, maxKey: number }
+```
+
+### `core.net.payload.Arguments`
+
+```luau
+export type Arguments = { n: number, [number]: unknown }
+```
+
+### `core.net.payload.Config`
+
+```luau
+export type Config = { bounds: Bounds, atom: ((unknown) -> boolean)? }
+```
+
+### `core.net.payload.create`
+
+```luau
+function create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+decode = function decode(...: unknown): Result.Result<Arguments>
+```
+
 ## `core.net.rate-limit`
 
 [Source](../src/core/net/rate-limit.luau)
@@ -9511,6 +9586,10 @@ Exported value; see its declaration in [source](../src/core/net/rate-limit.luau)
 [Source](../src/core/net.luau)
 
 ```luau
+local Payload = require("./net/payload")
+```
+
+```luau
 local RateLimit = require("./net/rate-limit")
 ```
 
@@ -9532,13 +9611,36 @@ export type RateLimitBucket = RateLimit.Bucket
 export type RateLimitKeyedState = RateLimit.KeyedState
 ```
 
+### `core.net.PayloadBounds`
+
+```luau
+export type PayloadBounds = Payload.Bounds
+```
+
+### `core.net.PayloadArguments`
+
+```luau
+export type PayloadArguments = Payload.Arguments
+```
+
+### `core.net.PayloadConfig`
+
+```luau
+export type PayloadConfig = Payload.Config
+```
+
 ### `core.net.API`
 
 ```luau
 export type API = {
 	read rate_limit: typeof(RateLimit),
+	read payload: typeof(Payload),
 }
 ```
+
+### `core.net.payload`
+
+Exported value; see its declaration in [source](../src/core/net.luau).
 
 ### `core.net.rate_limit`
 
@@ -21692,6 +21794,79 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 new = function new(deps: Deps): Handle
+```
+
+## `roblox.remote-admission`
+
+[Source](../src/roblox/remote-admission.luau)
+
+```luau
+local Events = require("./remote-events")
+```
+
+```luau
+local Payload = require("../core/net/payload")
+```
+
+```luau
+local RateLimit = require("../core/net/rate-limit")
+```
+
+```luau
+local Value = require("../kernel/value")
+```
+
+### `roblox.remote-admission.Handler`
+
+```luau
+export type Handler<P> = (P, Payload.Arguments) -> ()
+```
+
+### `roblox.remote-admission.Options`
+
+```luau
+export type Options<P> = { lane: RateLimit.Config?, refused: ((P, string) -> ())? }
+```
+
+### `roblox.remote-admission.Dispatch`
+
+```luau
+export type Dispatch = { accepted: number, refused: number, reason: string? }
+```
+
+### `roblox.remote-admission.Dependencies`
+
+```luau
+export type Dependencies<E, P> = {
+	clock: () -> number,
+	keyFor: (P) -> string,
+	budget: (string) -> RateLimit.Config,
+	payload: Payload.Config,
+	maxChannels: number,
+	maxHandlers: number,
+	maxKeys: number,
+	maxText: number,
+	refusalWindow: number,
+	connect: (E, (P, ...unknown) -> ()) -> () -> (),
+	own: (() -> ()) -> (),
+	notify: (string, P, string) -> (),
+}
+```
+
+### `roblox.remote-admission.new`
+
+```luau
+function new<E, P>(deps: Dependencies<E, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+serve = function serve(name: string, event: E, handler: Handler<P>, options: Options<P>?): () -> ()
+receive = function receive(name: string, player: P, ...: unknown): Dispatch
+forget = function forget(key: string)
+served = function served(name: string): number
+dispose = function dispose()
 ```
 
 ## `roblox.remote-events`
