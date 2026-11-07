@@ -92,6 +92,7 @@ export type TalentRanksTier = TalentRanks.Tier
 export type TalentRanksLine = TalentRanks.Line
 export type TalentRanksSpec = TalentRanks.Spec
 export type TalentRanksBucket = TalentRanks.Bucket
+export type TalentRanksRoleReason = TalentRanks.RoleReason
 export type TalentsState = Talents.State
 export type TalentsLoadout = Talents.Loadout
 export type TalentsIntent = Talents.Intent

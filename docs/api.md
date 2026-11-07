@@ -1204,7 +1204,14 @@ Types and configuration are exported from [src/core/progression.luau](../src/cor
 | [season](../src/core/progression/season.luau) | `apply`, `claim`, `claimIn`, `definition`, `emptyState`, `projectState`, `projectTracks`, `projection`, `projectionIn`, `recordIn`, `season` | `Event`, `State`, `Result`, `PlaySource`, `Objective`, `Reward`, `AuthoredDefinition`, `Definition`, `ProjectionObjective`, `Projection`, `Config` |
 | [settlement](../src/core/progression/settlement.luau) | `applyPersonalReward`, `emptyRewardHistory`, `settlement` | `RewardReceipt`, `RewardHistory`, `RewardRequest`, `RewardGrant`, `RewardApplied`, `RewardRejected`, `RewardResult`, `GrantResult`, `Config` |
 | [standing-credit](../src/core/progression/standing-credit.luau) | `create` | `Outcome`, `Config` |
-| [talent-ranks](../src/core/progression/talent-ranks.luau) | `FULL_RANK`, `INVALID_STATE`, `NO_POINTS`, `TIER_LOCKED`, `UNKNOWN_TALENT`, `addRank`, `availablePoints`, `bucketOf`, `rankRefusal`, `respecRole`, `spendByLine`, `spentPoints`, `stateProblem` | `Loadout`, `Result`, `Node`, `Tier`, `Line`, `Spec`, `Bucket` |
+| [talent-ranks](../src/core/progression/talent-ranks.luau) | `FULL_RANK`, `INVALID_STATE`, `NO_POINTS`, `TIER_LOCKED`, `UNKNOWN_TALENT`, `addRank`, `availablePoints`, `bucketOf`, `rankRefusal`, `respecRole`, `spendByLine`, `spentPoints`, `stateProblem`, `specForRole` | `Loadout`, `Result`, `Node`, `Tier`, `Line`, `Spec`, `Bucket`, `RoleReason` |
+
+`talent_ranks.specForRole(specs, role)` returns the unique borrowed full specification, preserving
+the caller's enriched spec type and nested fields. It returns `nil, "unknown role"` when absent and
+`nil, "ambiguous role"` when multiple specs match. `RoleReason` names those two refusals. Lookup
+does not mutate the catalog; correcting a catalog permits a subsequent lookup. Rank and respec
+operations use this same lookup. Run
+`lute run tools/gate.luau --only specs --file src/core/progression/talent-ranks.verify.luau`.
 | [talents](../src/core/progression/talents.luau) | `change`, `decodeIntent`, `default`, `fromLoadout`, `load`, `normalize`, `rules`, `toLoadout` | `State`, `Loadout`, `Intent`, `Result` |
 | [tracking](../src/core/progression/tracking.luau) | `canTrack`, `tracking` | `Config` |
 | [transactions](../src/core/progression/transactions.luau) | `commit`, `isRecorded`, `ledgerKey`, `recordedKeys`, `transactions` | `CollectionSet`, `Outcome`, `Result`, `Config` |
@@ -12371,6 +12378,12 @@ export type Spec = { read class: string, read lines: List<Line>, read tiers: Lis
 export type Bucket = { ranks: { [string]: number }, respecCount: number }
 ```
 
+### `core.progression.talent-ranks.RoleReason`
+
+```luau
+export type RoleReason = "ambiguous role" | "unknown role"
+```
+
 ### `core.progression.talent-ranks.FULL_RANK`
 
 Exported value; see its declaration in [source](../src/core/progression/talent-ranks.luau).
@@ -12447,6 +12460,12 @@ Returned operations and values (declarations; unannotated results are inferred):
 ok = true
 state = nextLoadout
 reason = nil
+```
+
+### `core.progression.talent-ranks.specForRole`
+
+```luau
+function specForRole<S>(specs: List<S & Spec>, role: string): ((S & Spec)?, RoleReason?)
 ```
 
 ### `core.progression.talent-ranks.spendByLine`
@@ -13187,6 +13206,12 @@ export type TalentRanksSpec = TalentRanks.Spec
 
 ```luau
 export type TalentRanksBucket = TalentRanks.Bucket
+```
+
+### `core.progression.TalentRanksRoleReason`
+
+```luau
+export type TalentRanksRoleReason = TalentRanks.RoleReason
 ```
 
 ### `core.progression.TalentsState`
