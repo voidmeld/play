@@ -2,6 +2,7 @@
 
 local Admission = require("../../src/roblox/character-admission")
 local Chat = require("../../src/core/chat/channels")
+local Contact = require("../../src/core/combat/contact")
 local Content = require("./content")
 local Lock = require("../../src/core/persistence/session-lock")
 local Net = require("../../src/core/net/rate-limit")
@@ -25,6 +26,8 @@ export type Ports = {
 	filter: (number, string, number) -> string?,
 	deliver: (number, Protocol.Response) -> (),
 	report: (string) -> (),
+	contact: ((number) -> { distance: number, clear: boolean }?)?,
+	elapsed: (() -> number)?,
 }
 type Active = { context: Admission.Context, token: string, session: ProfileSession.State }
 local sessionRules = ProfileSession.create({
@@ -37,6 +40,13 @@ local sessionRules = ProfileSession.create({
 })
 local threatRules = Threat.rules({ meleeTakeover = 1.1, rangedTakeover = 1.3, tauntLead = 1 })
 local budget = { capacity = 16, refillPerSec = 8 }
+local contact = Contact.configure({
+	copyPayload = function(raw: unknown): (number?, string?)
+		return Value.whole(raw, 1, 30), nil
+	end,
+	epsilon = 1e-6,
+	idLimit = 128,
+})
 
 local function new(ports: Ports)
 	local snapshot = State.records.read(ports.store, function()
@@ -52,6 +62,8 @@ local function new(ports: Ports)
 	local chatBuckets: { [number]: Chat.Bucket } = {}
 	local exchange: Trade.State? = nil
 	local enemy = { health = 30, threat = Threat.empty(), defeatId = ports.newId() }
+	local attacks: { [number]: boolean } = {}
+	local attackSerial = 0
 
 	local function transact(edit: (State.World) -> (boolean, string?)): (boolean, string?)
 		if stopped or held or busy then
@@ -320,10 +332,22 @@ local function new(ports: Ports)
 		return outcome.ok
 	end
 	local function response(userId: number, ok: boolean, reason: string?): Protocol.Response
+		local listings: { Protocol.Listing } = {}
+		if world.market ~= nil then
+			for _, listing in assert(Content.market.search(world.market, {}, ports.clock())) do
+				table.insert(listings, {
+					id = listing.listingId,
+					sellerId = listing.sellerId,
+					count = listing.count,
+					unitPrice = listing.unitPrice,
+				})
+			end
+		end
 		return {
 			ok = ok,
 			reason = reason,
 			view = view(userId),
+			activity = { health = enemy.health, target = enemy.threat.targetActorId, listings = listings },
 			trade = if exchange ~= nil and table.find(exchange.players, userId) ~= nil
 				then Protocol.tradeView(exchange)
 				else nil,
@@ -369,6 +393,120 @@ local function new(ports: Ports)
 		end
 		return true, nil
 	end
+	local function hit(userId: number, damage: number): (boolean, string?)
+		if current(userId) == nil or enemy.health <= 0 or Value.whole(damage, 1, 30) == nil then
+			return false, "hit_invalid"
+		end
+		local candidates: { [string]: Threat.Candidate } = {}
+		for id in active do
+			candidates[tostring(id)] = { alive = current(id) ~= nil, eligible = true, insideLeash = true }
+		end
+		local pruned = Threat.prune(enemy.threat, candidates)
+		local nextThreat = threatRules.add(pruned, tostring(userId), damage, true)
+		local health = math.max(0, enemy.health - damage)
+		if health == 0 then
+			local winner = assert(tonumber(nextThreat.targetActorId))
+			local ok, reason = change(winner, function(_candidate, profile)
+				if profile.defeats[enemy.defeatId] then
+					return false, "defeat_recorded"
+				end
+				profile.defeats[enemy.defeatId] = true
+				local drop = assert(Content.loot.dropFor(Content.lootTables, "Warden", profile.characterId, 1))
+				profile.loot[enemy.defeatId] = { itemId = drop.itemId, count = drop.count }
+				xp(profile, 100)
+				credit(profile, { kind = "enemy_defeated", targets = { enemyId = "Warden" } })
+				return true, nil
+			end)
+			if not ok then
+				return false, reason
+			end
+		end
+		enemy.health, enemy.threat = health, nextThreat
+		return true, nil
+	end
+	local function publish()
+		for userId in active do
+			ports.deliver(userId, response(userId, true, nil))
+		end
+	end
+	local function attack(userId: number): (boolean, string?)
+		local profile = current(userId)
+		if profile == nil or profile.equipment.hand == nil or enemy.health <= 0 then
+			return false, "attack_unavailable"
+		end
+		if attacks[userId] then
+			return false, "recovering"
+		end
+		local observe = ports.contact
+		if observe == nil then
+			return false, "contact_unavailable"
+		end
+		attackSerial += 1
+		local sequence = attackSerial
+		local elapsed = ports.elapsed or ports.clock
+		local started = elapsed()
+		local identity: Contact.Identity =
+			{ id = tostring(userId), characterId = profile.characterId, contentId = profile.acquisitionId }
+		local target: Contact.Identity = { id = "enemy", contentId = enemy.defeatId }
+		local admitted = contact.admit({
+			source = identity,
+			target = target,
+			equipmentToken = profile.equipment.hand,
+			sequence = sequence,
+			startedTick = 0,
+			anticipationSec = 0.25,
+			contactSec = 0,
+			recoverySec = 0.3,
+			rangeStuds = 4,
+			payload = 10,
+		})
+		if not admitted.ok then
+			return false, admitted.reason
+		end
+		attacks[userId] = true
+		ports.owner.own(ports.schedule(0.25, function()
+			local latest = current(userId)
+			local source = {
+				identity = if latest ~= nil
+					then { id = tostring(userId), characterId = latest.characterId, contentId = latest.acquisitionId }
+					else identity,
+				alive = latest ~= nil,
+				blocked = false,
+				equipmentToken = if latest ~= nil then latest.equipment.hand else nil,
+			}
+			local advanced = contact.advance(admitted.value, { tick = 1, dt = elapsed() - started, source = source })
+			local evidence = observe(userId)
+			local resolved = contact.resolve(advanced.next, {
+				source = source,
+				target = { identity = target, alive = enemy.health > 0 },
+				distanceStuds = if evidence ~= nil then evidence.distance else nil,
+				spatial = if evidence ~= nil
+					then { clear = evidence.clear, distanceStuds = evidence.distance }
+					else nil,
+				spatialExempt = false,
+				allowed = evidence ~= nil,
+			})
+			if resolved.status == "contact" then
+				local ok, reason = hit(userId, admitted.value.plan.payload)
+				if not ok then
+					ports.deliver(userId, response(userId, false, reason))
+					attacks[userId] = nil
+					return
+				end
+				if ok and enemy.health == 0 then
+					ports.owner.own(ports.schedule(3, function()
+						enemy = { health = 30, threat = Threat.empty(), defeatId = ports.newId() }
+						publish()
+					end))
+				end
+			end
+			publish()
+			ports.owner.own(ports.schedule(0.3, function()
+				attacks[userId] = nil
+			end))
+		end))
+		return true, nil
+	end
 	local function request(userId: number, raw: unknown): Protocol.Response
 		local permitted
 		permitted, buckets = Net.consume(buckets, tostring(userId), budget, ports.clock())
@@ -387,6 +525,10 @@ local function new(ports: Ports)
 		end
 		if intent.kind == "snapshot" then
 			return response(userId, true, nil)
+		end
+		if intent.kind == "attack" then
+			local ok, reason = attack(userId)
+			return response(userId, ok, reason)
 		end
 		if intent.kind == "chat" then
 			local allowed, bucket = Chat.consume(chatBuckets[userId], { capacity = 2, refillPerSec = 1 }, ports.clock())
@@ -457,7 +599,7 @@ local function new(ports: Ports)
 			end
 			return response(userId, true, nil)
 		end
-		local ok, reason = change(userId, function(_candidate, profile)
+		local ok, reason = change(userId, function(candidate, profile)
 			local progress = profile.journal.quests[Content.quest.id]
 			if intent.kind == "accept" then
 				if progress.status ~= "offered" then
@@ -497,6 +639,91 @@ local function new(ports: Ports)
 				profile.inventory = nextBag
 				profile.loot[intent.defeatId] = nil
 				credit(profile, { kind = "item_collected", targets = { itemId = drop.itemId } })
+			elseif intent.kind == "craft" then
+				local recipe = Content.recipe
+				local bag = table.clone(profile.inventory)
+				for _, input in recipe.inputs do
+					local removed
+					bag, removed = Content.stacks.removeFromBag(bag, input.materialId, input.quantity)
+					if not removed then
+						return false, "materials_missing"
+					end
+				end
+				if (bag[recipe.outputItemId] or 0) >= 99 then
+					return false, "stack_full"
+				end
+				bag = Content.stacks.addToBag(bag, recipe.outputItemId, 1)
+				if not Content.stacks.fits(profile.inventory, bag, Content.stacks.capacity(nil)) then
+					return false, "inventory_full"
+				end
+				profile.inventory = bag
+			elseif intent.kind == "list" or intent.kind == "buy" then
+				local book = candidate.market or assert(Content.market.emptyState("Harbor", "shield"))
+				local outcome
+				if intent.kind == "list" then
+					local removed
+					profile.inventory, removed = Content.stacks.removeFromBag(profile.inventory, "shield", 1)
+					if not removed then
+						return false, "item_missing"
+					end
+					outcome = Content.market.apply(book, {
+						kind = "list",
+						opId = ports.newId(),
+						actorId = userId,
+						actorRealmId = "Harbor",
+						count = 1,
+						unitPrice = 5,
+					}, ports.clock())
+				else
+					if profile.coin < 5 then
+						return false, "insufficient_coin"
+					end
+					if (profile.inventory.shield or 0) >= 99 then
+						return false, "stack_full"
+					end
+					outcome = Content.market.apply(book, {
+						kind = "fill",
+						opId = ports.newId(),
+						actorId = userId,
+						actorRealmId = "Harbor",
+						quantity = 1,
+						ceilingUnitPrice = 5,
+						holdCoin = 5,
+					}, ports.clock())
+				end
+				if not outcome.ok then
+					return false, outcome.reason
+				end
+				book = assert(outcome.state)
+				for _, receipt in outcome.receipts or {} do
+					local recipient = candidate.players[tostring(receipt.ownerId)]
+					if not live(recipient, active[receipt.ownerId]) then
+						return false, "partner_unavailable"
+					end
+					if receipt.kind == "proceeds" then
+						if recipient.coin + receipt.coin > 100000 then
+							return false, "coin_full"
+						end
+						recipient.coin += receipt.coin
+					elseif receipt.kind == "purchase" then
+						recipient.coin -= receipt.coin
+						recipient.inventory = Content.stacks.addToBag(recipient.inventory, "shield", receipt.goods)
+						if Content.stacks.entries(recipient.inventory) > Content.stacks.capacity(nil) then
+							return false, "inventory_full"
+						end
+					end
+					local acknowledged = Content.market.apply(book, {
+						kind = "ack",
+						opId = ports.newId(),
+						actorId = receipt.ownerId,
+						receiptIds = { receipt.receiptId },
+					}, ports.clock())
+					if not acknowledged.ok then
+						return false, acknowledged.reason
+					end
+					book = assert(acknowledged.state)
+				end
+				candidate.market = book
 			elseif intent.kind == "claim" then
 				if progress.status ~= "active" or progress.step ~= 2 then
 					return false, "quest_incomplete"
@@ -510,38 +737,10 @@ local function new(ports: Ports)
 			end
 			return true, nil
 		end)
+		if ok and (intent.kind == "list" or intent.kind == "buy") then
+			publish()
+		end
 		return response(userId, ok, reason)
-	end
-	local function hit(userId: number, damage: number): (boolean, string?)
-		if current(userId) == nil or enemy.health <= 0 or Value.whole(damage, 1, 30) == nil then
-			return false, "hit_invalid"
-		end
-		local candidates: { [string]: Threat.Candidate } = {}
-		for id in active do
-			candidates[tostring(id)] = { alive = current(id) ~= nil, eligible = true, insideLeash = true }
-		end
-		local pruned = Threat.prune(enemy.threat, candidates)
-		local nextThreat = threatRules.add(pruned, tostring(userId), damage, true)
-		local health = math.max(0, enemy.health - damage)
-		if health == 0 then
-			local winner = assert(tonumber(nextThreat.targetActorId))
-			local ok, reason = change(winner, function(_candidate, profile)
-				if profile.defeats[enemy.defeatId] then
-					return false, "defeat_recorded"
-				end
-				profile.defeats[enemy.defeatId] = true
-				local drop = assert(Content.loot.dropFor(Content.lootTables, "Warden", profile.characterId, 1))
-				profile.loot[enemy.defeatId] = { itemId = drop.itemId, count = drop.count }
-				xp(profile, 100)
-				credit(profile, { kind = "enemy_defeated", targets = { enemyId = "Warden" } })
-				return true, nil
-			end)
-			if not ok then
-				return false, reason
-			end
-		end
-		enemy.health, enemy.threat = health, nextThreat
-		return true, nil
 	end
 	return table.freeze({
 		create = create,

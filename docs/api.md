@@ -9,6 +9,7 @@ The hand-written sections explain how to use those declarations.
 
 | Task | Reference |
 | --- | --- |
+| Assemble a server and client UI | [Persistent-world spine and runnable demo](spine.md), [presentation subscriptions](#presentation-subscriptions) |
 | Admit values and stored records | [Kernel value](#kernel-value), [codec](#kernel-codec) and [result](#kernel-result) |
 | Coordinate atomic writes and leases | [Kernel store](#kernel-store), [lease](#kernel-lease) and [persistence](#persistence) |
 | Bind clocks, storage and native effects | [Host operations](#host-operations) |
@@ -76,6 +77,20 @@ There is no universal native host interface. Supply only its requested capabilit
 Core rules discover no services. Adapters use injected operations.
 The consumer owns authentication, namespaces, content, policy and deployment.
 Headless fixtures prove their configured hosts; they prove no native rendering, live durability or consumer acceptance.
+
+## Presentation subscriptions
+
+Play events and networking use plain typed callbacks and caller-owned unsubscribe functions.
+Core, kernel, Roblox and world runtime surfaces import no UI library. A consumer decodes network
+responses before notifying a UI, projects only admitted state and disposes subscriptions with
+their owning screen. A notice or refusal grants no state.
+
+The [example client](../examples/world/roblox-client.luau) implements `subscribe(listener)`,
+replays its latest decoded response and returns an idempotent unsubscribe function. Client disposal
+disconnects transport and clears presentation listeners. The [example UI](../examples/world/ui.luau)
+subscribes into Compose cells and renders Facet controls. Those dependencies are example-only;
+another UI can subscribe to the same typed callback. The [spine](spine.md#subscribe-from-any-ui)
+shows the bridge and the one-command server/three-client simulation.
 
 ## kernel-event-log
 

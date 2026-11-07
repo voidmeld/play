@@ -1,0 +1,108 @@
+--!strict
+
+local Bdd = require("../../.lute/dependencies/verify/src/bdd")
+local Protocol = require("./protocol")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
+local Simulator = require("./simulator")
+local State = require("./state")
+local Tour = require("./tour")
+local Verify = require("../../.lute/dependencies/verify/src/core")
+
+return function(suite: Verify.Harness)
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
+
+	describe("simulated multiplayer UI", function()
+		it("drives three client screens through contact, quests, crafting and an atomic market fill", function(own)
+			local demo = Simulator.new()
+			own(function()
+				assert(demo.dispose())
+			end)
+			expect(Tour.run(demo)):toEqual({ sellerCoin = 29, buyerCoin = 20, burnedCoin = 1 })
+			local saved = assert(State.copy(demo.scene.values["world:Harbor"]))
+			expect(assert(saved.market).burnedCoin):toBe(1)
+			expect(#assert(saved.market).receipts):toBe(0)
+			for userId, actor in demo.clients do
+				expect(Roblox.isInstance(actor.ui.screen)):toBe(true)
+				expect(actor.bridge.environment.errors):toEqual({})
+				expect(actor.bridge.environment.scheduler.failures):toEqual({})
+				expect(demo.scene.bodies[userId]:FindFirstChild("Humanoid")).never:toBeNil()
+			end
+			expect(demo.network.pending()):toBe(0)
+			expect(demo.dispose()):toBe(true)
+			local restored = Simulator.new(demo.scene.values, demo.scene.clock.clock())
+			own(function()
+				assert(restored.dispose())
+			end)
+			expect(restored.clients[11].text("Coin")):toBe("Coin: 29")
+			expect(restored.clients[22].text("Coin")):toBe("Coin: 20")
+			expect(restored.clients[11].text("Quest")):toBe("completed · defeat 1/1 · collect 1/1")
+		end)
+		it("queues detached intentions, refuses forged damage and rechecks current contact evidence", function(own)
+			local demo = Simulator.new()
+			own(function()
+				assert(demo.dispose())
+			end)
+			local first = demo.clients[11]
+			local request = { kind = "accept" }
+			expect(demo.network.clients["11"].send({ channel = "world", payload = request }).ok):toBe(true)
+			request.kind = "claim"
+			expect(first.text("Quest")):toBe("offered · defeat 0/1 · collect 0/1")
+			demo.flush()
+			expect(first.text("Quest")):toBe("active · defeat 0/1 · collect 0/1")
+			local sent =
+				demo.network.clients["11"].send({ channel = "world", payload = { kind = "attack", damage = 30 } })
+			expect(sent.ok):toBe(true)
+			demo.flush()
+			expect(first.text("Status")):toBe("Refused: request_invalid")
+			demo.tap(11, "Equip")
+			demo.tap(11, "Attack")
+			demo.tap(11, "Attack")
+			expect(first.text("Status")):toBe("Refused: recovering")
+			local root = assert(demo.scene.bodies[11]:FindFirstChild("Root"))
+			root.Position = Roblox.datatypes.Vector3.new(100, 0, 0)
+			demo.step(0.25)
+			expect(first.text("Enemy")):toBe("Enemy health: 30")
+			demo.step(0.3)
+			root.Position = Roblox.datatypes.Vector3.zero
+			demo.tap(11, "Attack")
+			demo.step(0.25)
+			expect(first.text("Enemy")):toBe("Enemy health: 20")
+			expect(demo.clients[22].text("Enemy")):toBe("Enemy health: 20")
+			demo.step(0.3)
+			demo.tap(11, "Attack")
+			expect(demo.scene.disconnect(11)):toBe(true)
+			demo.step(0.25)
+			expect(demo.clients[22].text("Enemy")):toBe("Enemy health: 20")
+			expect(demo.dispose()):toBe(true)
+			for _, actor in demo.clients do
+				expect(actor.bridge.environment.isAlive(actor.ui.screen)):toBe(false)
+				expect(actor.bridge.environment.liveConnections()):toBe(0)
+				expect(actor.bridge.environment.scheduler.pending()):toBe(0)
+			end
+		end)
+		it("rejects malformed response projections before notifying presentation subscribers", function(own)
+			local demo = Simulator.new()
+			own(function()
+				assert(demo.dispose())
+			end)
+			local before = demo.clients[11].client.latest()
+			local notifications = 0
+			local stop = demo.clients[11].client.subscribe(function()
+				notifications += 1
+			end)
+			expect(notifications):toBe(1)
+			expect(Protocol.decodeResponse({ ok = true, activity = { health = 900, target = "", listings = {} } })):toBeNil()
+			expect(demo.network.server.send("11", {
+				channel = "world",
+				payload = { ok = true, activity = { health = 900, target = "", listings = {} } },
+			}).ok):toBe(true)
+			demo.flush()
+			expect(demo.clients[11].client.latest()):toEqual(before)
+			expect(notifications):toBe(1)
+			stop()
+			demo.tap(11, "Accept")
+			expect(notifications):toBe(1)
+		end)
+	end)
+end

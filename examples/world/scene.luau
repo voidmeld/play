@@ -3,26 +3,68 @@
 local Client = require("./roblox-client")
 local Codec = require("../../src/kernel/codec")
 local Engine = require("../../tools/fixtures/engine")
+local Lute = require("../../.lute/dependencies/verify/src/lute")
 local Mount = require("./roblox-server")
 local Protocol = require("./protocol")
 local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Stores = require("../../src/core/persistence/store-host")
+local Value = require("../../src/kernel/value")
 local sceneSerial = 0
 local fixtureUniverse = 101
 local fixtureDestination = 202
 local fixtureSource = 303
 
 type ResponseSignal = Roblox.Signal<Protocol.Response>
+type Payload = boolean | number | string | { Payload } | { [string]: Payload }
+local function wire(raw: unknown): Payload
+	if type(raw) == "boolean" or type(raw) == "number" or type(raw) == "string" then
+		return raw
+	end
+	local fields = assert(Value.raw(raw), "wire_record_required")
+	local list: { Payload } = {}
+	local record: { [string]: Payload } = {}
+	local array = false
+	for key, value in fields do
+		if type(key) == "number" then
+			array = true
+			list[key] = wire(value)
+		else
+			assert(type(key) == "string", "wire_key_invalid")
+			record[key] = wire(value)
+		end
+	end
+	return if array then list else record
+end
 local function copy(value: unknown): unknown
 	local result = Codec.copyData(value)
 	assert(result.ok, "fixture_copy_failed")
 	return result.value
 end
 
-local function new(saved: { [string]: unknown }?, startTime: number?)
+local function separation(first: Roblox.DatatypeVector3, second: Roblox.DatatypeVector3): number
+	return (first - second).Magnitude
+end
+
+local function new(saved: { [string]: unknown }?, startTime: number?, network: Roblox.Network?)
 	sceneSerial += 1
 	local serverId = "fixture-server-" .. tostring(sceneSerial)
-	local engine = Roblox.testEnvironment({ handlerErrors = "raise" })
+	local bridge = Lute.fixture.bridge(nil, { handlerErrors = "raise" })
+	local engine = bridge.environment
+	local native = bridge.placeEngine()
+	local runtime = Roblox.createPlaceRuntime(native, { root = native.game, scripts = {}, sources = {} }, {
+		aliases = {},
+		cache = Roblox.createPlaceCache(Lute.fixture.host),
+		host = Lute.fixture.host,
+	})
+	local stage = engine.createInstance("Model", { Name = "World", Parent = native.service("Workspace") })
+	local enemy = engine.createInstance("Model", { Name = "Enemy", Parent = stage })
+	local enemyRoot = engine.createInstance(
+		"Part",
+		{ Name = "Root", Parent = enemy, Anchored = true, Position = native.datatypes.Vector3.new(3, 0, 0) }
+	)
+	local enemyBody = engine.createInstance("Humanoid", { Parent = enemy, Health = 30 })
+	local instances: { [number]: Roblox.Instance } = {}
+	local bodies: { [number]: Roblox.Instance } = {}
 	local clock = Engine.clock(engine)
 	clock.advance(startTime or 0)
 	local values: { [string]: unknown } = saved or {}
@@ -135,7 +177,10 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 		},
 		circuit = circuit,
 		owner = Engine.owner(engine),
-		clock = clock.clock,
+		clock = function()
+			return math.floor(clock.clock())
+		end,
+		elapsed = clock.clock,
 		schedule = clock.schedule,
 		newId = function(): string
 			serial += 1
@@ -147,14 +192,47 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 		filter = function(_sender, _text, _listener)
 			return "Hello Harbor"
 		end,
+		contact = function(userId)
+			local body = bodies[userId]
+			local root = if body ~= nil then body:FindFirstChild("Root") else nil
+			if root == nil then
+				return nil
+			end
+			local first, second = root.Position, enemyRoot.Position
+			assert(Roblox.typeName(first) == "Vector3" and Roblox.typeName(second) == "Vector3", "position_required")
+			local distance = Roblox.value.invoke(Roblox.value.value(separation), first, second)
+			assert(type(distance) == "number", "distance_required")
+			return { distance = distance, clear = body ~= nil and body:GetAttribute("Blocked") ~= true }
+		end,
 		remote = {
 			connectRequest = function(callback)
+				if network ~= nil then
+					local connection = network.server.onMessage(function(sender, message)
+						local userId = tonumber(sender)
+						local player = if userId ~= nil then players[userId] else nil
+						if player ~= nil and message.channel == "world" then
+							callback(player, message.payload)
+						end
+					end)
+					return function()
+						connection:Disconnect()
+					end
+				end
 				requestHandler = callback
 				return function()
 					requestHandler = nil
 				end
 			end,
 			sendResponse = function(player, response)
+				if response.activity ~= nil then
+					enemyBody.Health = response.activity.health
+				end
+				if network ~= nil then
+					assert(
+						network.server.send(tostring(player.UserId), { channel = "world", payload = wire(response) }).ok
+					)
+					return
+				end
 				local signal = responses[player.UserId]
 				if signal ~= nil then
 					signal:Fire(response)
@@ -223,13 +301,39 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 	local function connect(userId: number)
 		local signal: ResponseSignal = engine.newSignal()
 		responses[userId] = signal
-		local player: Mount.Subject = { UserId = userId, Name = "Traveler" .. tostring(userId), Character = false }
+		local name = "Traveler" .. tostring(userId)
+		local instance = engine.createEngineInstance("Player", { Name = name, Parent = native.service("Players") })
+		engine.poke(instance, "UserId", userId)
+		local body = engine.createInstance("Model", { Name = "Character" .. tostring(userId), Parent = stage })
+		engine.createInstance(
+			"Part",
+			{ Name = "Root", Parent = body, Anchored = true, Position = native.datatypes.Vector3.zero }
+		)
+		engine.createInstance("Humanoid", { Parent = body })
+		engine.poke(instance, "Character", body)
+		instances[userId] = instance
+		bodies[userId] = body
+		local player: Mount.Subject = { UserId = userId, Name = name, Character = body }
 		local client = Client.start({
 			fireRequest = function(request)
+				if network ~= nil then
+					assert(network.clients[tostring(userId)].send({ channel = "world", payload = wire(request) }).ok)
+					return
+				end
 				local handler = assert(requestHandler)
 				handler(player, request)
 			end,
 			connectResponse = function(callback)
+				if network ~= nil then
+					local connection = network.clients[tostring(userId)].onMessage(function(message)
+						if message.channel == "world" then
+							callback(message.payload)
+						end
+					end)
+					return function()
+						connection:Disconnect()
+					end
+				end
 				local connection = signal:Connect(callback)
 				return function()
 					connection:Disconnect()
@@ -248,6 +352,13 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 		end
 		if ok then
 			players[userId] = nil
+			instances[userId]:Destroy()
+			instances[userId] = nil
+			bodies[userId]:Destroy()
+			bodies[userId] = nil
+			if network ~= nil then
+				assert(network.disconnect(tostring(userId)).ok)
+			end
 		end
 		return ok
 	end
@@ -256,6 +367,18 @@ local function new(saved: { [string]: unknown }?, startTime: number?)
 		disconnect = disconnect,
 		mount = mount,
 		clock = clock,
+		engine = engine,
+		instances = instances,
+		bodies = bodies,
+		enemy = enemy,
+		dispose = function()
+			for _, close in runtime.closeHandlers do
+				close()
+			end
+			bridge.close()
+			native.game:Destroy()
+			engine.root:Destroy()
+		end,
 		values = values,
 		control = control,
 		updates = function()

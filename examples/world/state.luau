@@ -1,5 +1,6 @@
 --!strict
 
+local Books = require("../../src/core/market/book")
 local Codec = require("../../src/kernel/codec")
 local Content = require("./content")
 local Journal = require("../../src/core/quest/journal")
@@ -28,6 +29,7 @@ export type World = {
 	subjectId: string,
 	revision: number,
 	players: { [string]: Profile },
+	market: Books.State?,
 }
 
 local function counts(raw: unknown): { [string]: number }?
@@ -190,7 +192,8 @@ local function profile(raw: unknown): Profile?
 end
 
 local function copy(raw: unknown): (World?, string?)
-	local row = Value.record(raw, { partitionId = true, subjectId = true, revision = true, players = true })
+	local row =
+		Value.record(raw, { partitionId = true, subjectId = true, revision = true, players = true, market = true })
 	if row == nil or row.partitionId ~= "Harbor" or row.subjectId ~= "world" then
 		return nil, "world_invalid"
 	end
@@ -212,7 +215,11 @@ local function copy(raw: unknown): (World?, string?)
 		end
 		players[tostring(player.userId)] = player
 	end
-	return { partitionId = "Harbor", subjectId = "world", revision = revision, players = players }, nil
+	local market = if row.market ~= nil then Content.market.projectState(row.market) else nil
+	if row.market ~= nil and (market == nil or market.realmId ~= "Harbor" or market.materialId ~= "shield") then
+		return nil, "market_invalid"
+	end
+	return { partitionId = "Harbor", subjectId = "world", revision = revision, players = players, market = market }, nil
 end
 
 local records = Records.configure({

@@ -7,7 +7,7 @@ local Value = require("../../src/kernel/value")
 export type EquipRequest = { read kind: "equip", read itemId: string }
 export type ChatRequest = { read kind: "chat", read text: string }
 export type Request =
-	{ read kind: "snapshot" | "accept" | "claim" }
+	{ read kind: "snapshot" | "accept" | "claim" | "attack" | "craft" | "list" | "buy" }
 	| EquipRequest
 	| { read kind: "loot", read defeatId: string }
 	| { read kind: "trade", read targetId: number }
@@ -36,7 +36,10 @@ export type TradeView = {
 	locks: { [string]: boolean },
 	confirms: { [string]: boolean },
 }
-export type Response = { ok: boolean, reason: string?, view: View?, trade: TradeView?, line: Line? }
+export type Listing = { id: string, sellerId: number, count: number, unitPrice: number }
+export type Activity = { health: number, target: string, listings: { Listing } }
+export type Response =
+	{ ok: boolean, reason: string?, view: View?, trade: TradeView?, line: Line?, activity: Activity? }
 export type ServerPorts<P> = {
 	connectRequest: ((P, ...unknown) -> ()) -> () -> (),
 	sendResponse: (P, Response) -> (),
@@ -53,7 +56,15 @@ local function decode(raw: unknown): Request?
 	end
 	local kind = row.kind
 	local fields: { [string]: boolean } = { kind = true }
-	if kind == "snapshot" or kind == "accept" or kind == "claim" then
+	if
+		kind == "snapshot"
+		or kind == "accept"
+		or kind == "claim"
+		or kind == "attack"
+		or kind == "craft"
+		or kind == "list"
+		or kind == "buy"
+	then
 		if Value.record(raw, fields) == nil then
 			return nil
 		end
@@ -256,13 +267,45 @@ local function decodeTrade(raw: unknown): TradeView?
 end
 
 local function decodeResponse(raw: unknown): Response?
-	local row = Value.record(raw, { ok = true, reason = true, view = true, trade = true, line = true })
+	local row = Value.record(raw, { ok = true, reason = true, view = true, trade = true, line = true, activity = true })
 	if row == nil or type(row.ok) ~= "boolean" or (row.reason ~= nil and type(row.reason) ~= "string") then
 		return nil
 	end
 	local view = if row.view ~= nil then decodeView(row.view) else nil
 	local trade = if row.trade ~= nil then decodeTrade(row.trade) else nil
 	local line: Line? = nil
+	local activity: Activity? = nil
+	if row.activity ~= nil then
+		local fields = Value.record(row.activity, { health = true, target = true, listings = true }, true)
+		if
+			fields == nil
+			or Value.whole(fields.health, 0, 30) == nil
+			or type(fields.health) ~= "number"
+			or type(fields.target) ~= "string"
+			or #fields.target > 64
+		then
+			return nil
+		end
+		local rows = Value.dense(fields.listings, 32, false)
+		if rows == nil then
+			return nil
+		end
+		local listings: { Listing } = {}
+		for _, value in rows do
+			local listing = Value.record(value, { id = true, sellerId = true, count = true, unitPrice = true }, true)
+			if listing == nil or type(listing.id) ~= "string" or #listing.id > 128 then
+				return nil
+			end
+			local sellerId = Value.whole(listing.sellerId, 1, 9007199254740991)
+			local count = Value.whole(listing.count, 1, 99)
+			local unitPrice = Value.whole(listing.unitPrice, 1, 1000)
+			if sellerId == nil or count == nil or unitPrice == nil then
+				return nil
+			end
+			table.insert(listings, { id = listing.id, sellerId = sellerId, count = count, unitPrice = unitPrice })
+		end
+		activity = { health = fields.health, target = fields.target, listings = listings }
+	end
 	if (row.view ~= nil and view == nil) or (row.trade ~= nil and trade == nil) then
 		return nil
 	end
@@ -283,6 +326,7 @@ local function decodeResponse(raw: unknown): Response?
 		view = view,
 		trade = trade,
 		line = line,
+		activity = activity,
 	}
 end
 
