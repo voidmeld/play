@@ -77,7 +77,7 @@ return function(suite: Verify.Harness)
 		return out
 	end
 	type Authority = { grantsByClass: Module.ProductionRegistry }
-	local ids = {
+	local ids: { string } = {
 		"class01",
 		"class02",
 		"class03",
