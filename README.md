@@ -1,209 +1,50 @@
 # Play
 
-Play is a strict Luau library of reusable MMORPG systems: authoritative state transitions,
-transaction recovery and host coordination. Share quests, inventory, combat participation,
-progression and social rules across games without sharing their worlds.
-Play is MIT licensed; access to this repository is private.
+Play supplies strict Luau state transitions, transaction recovery and host coordination.
+Consumers supply configuration, content, authority, clocks, storage and native operations.
+Core rules stay independent of an engine. Native adapters use injected ports.
 
-The game supplies content, configuration and host operations. Play does not supply world canon,
-item or ability catalogs, assets, credentials, deployment destinations or a running server.
-Compose builds interfaces, Generate produces authored outputs, Execute runs workflows and Verify
-checks behavior; Play owns reusable gameplay systems.
+First, run one fixture with the [quickstart](docs/quickstart.md).
 
-The [architecture](docs/architecture.md) defines the principles, target system shape, completeness
-bar and migration order. This README teaches the current adoption path.
-The [adoption guide](docs/adoption.md) defines the boundary between reusable systems and game bindings.
+## Documentation
 
-## Layers
+| Task | Document |
+| --- | --- |
+| Run the first fixture | [Quickstart](docs/quickstart.md) |
+| Find public calls, returns and failures | [API reference](docs/api.md) |
+| Bind storage, clocks and native resources | [Host operations](docs/api.md#host-operations) |
+| Choose a reusable boundary and pin a consumer | [Adoption](docs/adoption.md) |
+| Understand library boundaries | [Architecture](docs/architecture.md) |
+| Set up tools or diagnose checks | [Validation](docs/validation.md) |
+| Change this repository | [Maintainer guide](AGENTS.md) and [contributing](CONTRIBUTING.md) |
 
-| Layer | Responsibility | Deployment |
-| --- | --- | --- |
-| [kernel](docs/systems.md#kernel) | Shared value, result, codec, lease and atomic store primitives, independent of domain and host layers. | Runtime wherever a system consumes them. |
-| [core](src/core) | Engine-independent rules, validators, state machines and injected host coordinators. Pure transitions perform no host work. | Runtime under the game's authority boundary. |
-| [roblox](src/roblox) | Typed adapters over injected native, storage, scheduling and observation operations. | Runtime beside the game's engine bindings. |
-| [test-scene](src/test-scene) | Fake clocks, signals, ownership and small hosts exercising real rules. | Lute verification only; exclude from shipped Roblox trees. |
+## Packages
 
-Import systems directly. The game owns service discovery, remote wiring and lifetime.
-Keep authoritative decisions on the server.
+| Surface | Purpose |
+| --- | --- |
+| `src/kernel` | Shared values, results, codecs, leases and atomic store contracts. |
+| `src/core/<family>` | Configured rules and engine-independent coordinators. Each entry exports an `API` type and component aliases. |
+| `src/roblox/<adapter>` | Typed native adapters over supplied operations. |
+| `src/test-scene` | Deterministic fixtures for verification. Exclude this surface from shipped runtime trees. |
 
-## Five minutes: threat without Roblox
-
-Install the versions in [rokit.toml](rokit.toml) with `rokit install --no-trust-check`, then run
-`lute setup`. Put Rokit's `bin` on `PATH`; on Windows use `$env:ROKIT_ROOT/bin`.
-From this checkout, run:
-
-```sh
-lute run tools/quickstart.luau
-```
-
-The [complete example](tools/quickstart.luau) drives real threat rules through the
-[fake host](src/test-scene/threat.luau):
-
-```luau
---!strict
-local ThreatScene = require("../src/test-scene/threat")
-local scene = ThreatScene.new({ meleeTakeover = 1.1, rangedTakeover = 1.3, tauntLead = 1 })
-scene.add("guard", 100, true)
-scene.add("ranger", 120, false)
-assert(scene.snapshot().targetActorId == "guard")
-scene.add("ranger", 11, false)
-assert(scene.snapshot().targetActorId == "ranger")
-scene.taunt("guard")
-assert(scene.snapshot().targetActorId == "guard")
-```
-
-Save this snippet under `tools/` to preserve its relative import. The game chose the ratios;
-Play chose the target. The full example also checks absent/dead actor pruning and the fake clock.
-It prints `Threat: takeover, taunt and host pruning passed at t=1`.
-Production hosts import `src/core/threat` and use its `table` component, supply observations and install returned state.
-Each core family has one entry module with an exported `API` type and component-prefixed type aliases.
-For example, `Threat.TableState` names the state accepted by `Threat.table.rules`. Existing component
-paths remain compatible while adopters move to these entries.
+Import only the selected public entries. Preserve relative paths between runtime surfaces.
+Keep authoritative state transitions under the consumer's server authority boundary.
 
 ## Pin and consume
 
-Pin immutable Git commits and their exact trees in the game's `dependencies.lock.luau`.
-A consumer using the shared delivery format adds this entry to its `dependencies` array:
+Select an immutable commit of `https://github.com/voidmeld/play.git` and its exact tree.
+Record both in the consumer's dependency lock. Private access uses the operator's existing Git setup.
+The library's [lock](dependencies.lock.luau) pins development dependencies; it is not a consumer installer.
+Run the affected consumer specifications after a pin change.
 
-```luau
-{
-    name = "play",
-    repository = "https://github.com/voidmeld/play.git",
-    commit = "<full merged commit>",
-    tree = "<exact commit tree>",
-    rights = "MIT",
-    surfaces = {
-        { root = "src/kernel", role = "runtime" },
-        { root = "src/core", role = "runtime" },
-        { root = "src/roblox", role = "runtime" },
-        { root = "src/test-scene", role = "verification" },
-    },
-}
-```
+## Compatibility
 
-After fetching, resolve the merged commit with `git rev-parse origin/main` and its tree with
-`git rev-parse 'origin/main^{tree}'`. The placeholders above are not runnable pins.
-The game's dependency tooling verifies both identities and makes the selected surfaces available.
-Preserve relative paths within surfaces and between `kernel`, `core` and `roblox`. Map only runtime surfaces
-into Roblox, then require the mapped module from the game's binding. Lute tests may require the
-pinned checkout through relative filesystem paths.
+The supported unit is an exact commit and tree. There is no semantic-version release promise.
+Exported declarations, refusal meanings and saved schemas are contracts.
+Change a contract with its consumers. Keep policy, migration evidence and native acceptance in those consumers.
+Internal helpers and verification fixtures are not supported runtime APIs.
 
-Play's own [lock](dependencies.lock.luau) pins Verify for development; it is not a game lock or a
-Play installer. Private-repository access uses the operator's existing Git setup.
-After repinning, run affected adopter specifications and whole-tree analysis for changed contracts.
-Publish, repin and test the adopter together; the game owner controls its pin update.
+## License
 
-## System catalog
-
-Each row links to a system guide with its entry, state, host requirements and executable example. [Systems](docs/systems.md) explains usage and
-[API](docs/api.md) lists module exports. State and policy are explicit inputs.
-
-| Core system | Provides |
-| --- | --- |
-| [Bank](docs/systems/bank.md) | Vault transfers, capacity checks and replay-safe receipts. |
-| [Cast](docs/systems/cast.md) | Bounded queues, cancellation tokens and cooldown windows. |
-| [Character](docs/systems/character.md) | Cancellable respawn watches and guarded body replacement. |
-| [Chat](docs/systems/chat.md) | Audiences, history, commands and sender budgets. |
-| [Combat](docs/systems/combat.md) | Immutable attack admission, custody fences, one contact and recovery timing. |
-| [Control](docs/systems/control.md) | Diminishing durations, reset windows and immunity. |
-| [Craft](docs/systems/craft.md) | Recipe projection and material requirements. |
-| [Effects](docs/systems/effects.md) | Timed stacks, periodic ticks and dispels. |
-| [Events](docs/systems/events.md) | Catalogs, schedules, participation and reward tickets. |
-| [Identity](docs/systems/identity.md) | Rosters, claims, leases, retirement recovery and configured route admission. |
-| [Inventory](docs/systems/inventory.md) | Stacks, bag capacity, equipment wear/exchanges, cargo custody and delivery. |
-| [Ledger](docs/systems/ledger.md) | Value events, balances, reservations and grouped operations. |
-| [Loot](docs/systems/loot.md) | Weighted draws and party need/greed/pass decisions. |
-| [Mail](docs/systems/mail.md) | Attachments, claims, returns, expiry and recovery. |
-| [Map](docs/systems/map.md) | Discovery, coordinates, viewport geometry and update cadence. |
-| [Market](docs/systems/market.md) | Listings, fills, fees, wallet holds and conservation. |
-| [Network](docs/systems/net.md) | Token buckets and per-sender rate limits. |
-| [Orders](docs/systems/orders.md) | Work progress, realm orders and reward claims. |
-| [Persistence](docs/systems/persistence.md) | Session locks, profile lifetime, projected record compare-and-swap and ordered stores. |
-| [Professions](docs/systems/professions.md) | Skills, crafting, harvest, fishing and node sessions. |
-| [Progression](docs/systems/progression.md) | Levels, talents, consumables, action bars, recovery, reputation, seasons and settlement. |
-| [Quest](docs/systems/quest.md) | Objectives, saved journals, prerequisites, ordered progress, markers, run history and claims. |
-| [Social](docs/systems/social.md) | Parties, fellowships, warbands, shared banks, allies, notes and chronicles. |
-| [Threat](docs/systems/threat.md) | Target selection, taunts, contribution and encounter eligibility. |
-| [Trade](docs/systems/trade.md) | Revisioned offers, mutual confirmation, receipts and recovery. |
-| [Vendors](docs/systems/vendors.md) | Buying, selling, finite stock and owner-scoped buyback. |
-
-| Roblox adapter | Provides |
-| --- | --- |
-| [camera](docs/systems/roblox-camera.md) | Follow dynamics, springs and obstruction clearance. |
-| [bank](docs/systems/roblox-bank.md) | Authenticated nearby vault transfers with durable profile receipts. |
-| [chat](docs/systems/roblox-chat.md) | Native channels and platform privacy admission. |
-| [consumables](docs/systems/roblox-consumables.md) | Durable consumption and revalidated recovery dispatch. |
-| [contact-markers](docs/systems/roblox-contact-markers.md) | Ref-counted animation contacts with action stamps. |
-| [conversation-camera](docs/systems/roblox-conversation-camera.md) | Conversation ownership and framing beside UI. |
-| [cue-mixer](docs/systems/roblox-cue-mixer.md) | Retrigger admission, voice caps and ducking. |
-| [cue-playback](docs/systems/roblox-cue-playback.md) | Voice lifetime and effect progression. |
-| [data-store](docs/systems/roblox-data-store.md) | Storage retries, delays and jitter. |
-| [equipment-queue](docs/systems/roblox-equipment-queue.md) | Serial per-owner application and fencing. |
-| [equipment-rig](docs/systems/roblox-equipment-rig.md) | Construction ownership, mesh joins and slot settlement. |
-| [guild-bank](docs/systems/roblox-guild-bank.md) | Durable guild stock deposits, receipt claims, acknowledgment and recovery. |
-| [input-bindings](docs/systems/roblox-input-bindings.md) | Keyboard/gamepad bindings, labels and chords. |
-| [input-contexts](docs/systems/roblox-input-contexts.md) | Deadline-bound readiness and template adoption. |
-| [input-profile](docs/systems/roblox-input-profile.md) | Device coverage and rollback-safe binding sessions. |
-| [inventory](docs/systems/roblox-inventory.md) | Context-fenced item mutation and atomic reward bundles over supplied profiles. |
-| [mail](docs/systems/roblox-mail.md) | Durable attachment holds, delivery decisions, returns and admission recovery. |
-| [market](docs/systems/roblox-market.md) | Catalog-bound trading, merchant operations, item search and server projections. |
-| [market-settlement](docs/systems/roblox-market-settlement.md) | Durable wallet holds, order-book fences, receipt claims and crash recovery. |
-| [market-profile-wallet](docs/systems/roblox-market-profile-wallet.md) | Profile wallet deltas which preserve concurrent rewards and enforce capacity. |
-| [messaging](docs/systems/roblox-messaging.md) | Notices, filtering and subscription cleanup. |
-| [movement-intake](docs/systems/roblox-movement-intake.md) | Epochs, acknowledgments and speed enforcement. |
-| [movement-sender](docs/systems/roblox-movement-sender.md) | Handshake, resend ledger and revocation. |
-| [npc-motion](docs/systems/roblox-npc-motion.md) | Planar steps, leash geometry and puppet projection. |
-| [party](docs/systems/roblox-party.md) | Atomic membership persistence with fresh reads and complete readback confirmation. |
-| [professions](docs/systems/roblox-professions.md) | Profile/world coordination and durable commits. |
-| [profile-sessions](docs/systems/roblox-profile-sessions.md) | Lease admission, save, renewal, close and drain. |
-| [profile-transfer](docs/systems/roblox-profile-transfer.md) | Session identity, settled writes and per-key exclusion. |
-| [remote-events](docs/systems/roblox-remote-events.md) | Shared channel dispatch and handler release. |
-| [screen-labels](docs/systems/roblox-screen-labels.md) | Priority labels and reserved-screen avoidance. |
-| [social-host](docs/systems/roblox-social-host.md) | Actor exclusion, caches and membership settlement. |
-| [quest-durability](docs/systems/roblox-quest-durability.md) | Leased journal hydration, dirty batches, retry/renewal, fencing and close draining. |
-| [character-admission](docs/systems/roblox-character-admission.md) | Stage leased character arrival, reverse cleanup, renewal and interrupted-return recovery. |
-| [cargo](docs/systems/roblox-cargo.md) | Coordinate durable carried/drop custody and replayable extraction into one material ledger. |
-| [material-ledger](docs/systems/roblox-material-ledger.md) | Persist material events with bounded replay receipts, fresh snapshots and confirmed replay authority. |
-| [leased-record-session](docs/systems/roblox-leased-record-session.md) | Acquire/hydrate opaque records, fence takeovers and save through renewed leases. |
-| [social-fellowship](docs/systems/roblox-social-fellowship.md) | Guild custody, privacy admission, invitations, steward activity and member projections. |
-| [social-formation](docs/systems/roblox-social-formation.md) | Multi-founder charters with durable fee custody and recovery pointers. |
-| [social-notes](docs/systems/roblox-social-notes.md) | Preset inbox delivery, contact/filter admission, privacy and session projections. |
-| [social-party](docs/systems/roblox-social-party.md) | Party invitations, member projections, succession, reconnect and rally admission. |
-| [social-whispers](docs/systems/roblox-social-whispers.md) | Pair exclusion, platform channel admission, recipient views and session disposal. |
-| [social-warband](docs/systems/roblox-social-warband.md) | Coordinate intact parties, durable warband membership, command and rally requests. |
-| [social-records](docs/systems/roblox-social-records.md) | Durable records, ledgers, inboxes and indexes on the shared atomic store port. |
-| [target-selection](docs/systems/roblox-target-selection.md) | Cycling, pointer selection and range release. |
-| [thumbstick](docs/systems/roblox-thumbstick.md) | Dead-zone movement and knob displacement. |
-| [trade](docs/systems/roblox-trade.md) | Revisioned two-profile exchange with durable holds, decisions and recovery. |
-| [travel-placement](docs/systems/roblox-travel-placement.md) | Grounded destinations without collisions. |
-
-## Host-operation contract
-
-Read the exported `Config`, `Deps`, `Host` or operation-specific types before binding a system.
-There is no universal engine host interface. Supply exactly its requested capabilities:
-clocks, randomness, observations, scheduling, persistence, native resources or dispatch.
-
-- Keep policy callbacks deterministic and stable for an instance. Supply catalogs and bounds explicitly.
-- Use the documented clock domain: monotonic time for elapsed deadlines and supplied timestamps for durable records.
-- Treat borrowed inputs as read-only. Install related returned state and account/profile effects atomically.
-- Decode untrusted requests and stored records at the boundary. Static types do not validate remote data.
-- Return actual committed persistence readbacks. Missing replies or uncertain writes do not prove success; retain receipts for reconciliation.
-- Atomic-store transforms can retry. Keep them free of external effects. Fence yielding work against session, character and operation generations.
-- Own cleanup: disconnect listeners, cancel scheduled work and dispose native resources at lifetime end.
-
-Pure transitions do not discover services or schedule work. Host coordinators use injected
-operations. The game owns authentication, authority, storage namespaces, content and deployment.
-
-## Compatibility and contributing
-
-The supported unit is an exact commit and tree; Play currently has no semantic-version release
-promise. Exported declarations, result/refusal meanings and saved schemas are contracts.
-Keep existing consumers working when adding capabilities. Change a contract only with its consumer;
-include migration and adopter checks for saved-shape or behavior changes. Helpers under `internal/`
-and verification fixtures are not supported game APIs.
-
-Use strict Luau, explicit types, zero type assertions and no code comments except compiler directives.
-Land small squash-merged PRs to `main` with the required **Gate** check green.
-Run `lute run tools/gate.luau --tier fast` while editing; commit the candidate and run
-`lute run tools/gate.luau` on clean HEAD before integration. See [validation](docs/validation.md)
-and [repository rules](AGENTS.md). Never push `main` directly or bypass a failed check.
+Play is MIT licensed. Access to this repository is private.
+See [LICENSE](LICENSE) and the pinned [dependencies](dependencies.lock.luau).

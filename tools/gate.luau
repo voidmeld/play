@@ -62,6 +62,7 @@ local function script(id: string, path: string): Gate.ProducerDraft
 end
 
 local producers: { Gate.ProducerDraft } = {
+	script("links", "tools/check-links.luau"),
 	{
 		id = "war-benchmark",
 		kind = "benchmark",

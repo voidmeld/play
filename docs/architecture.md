@@ -1,6 +1,6 @@
 # Architecture
 
-[Play](../README.md) · [System catalog](systems.md) · [API reference](api.md)
+[Play](../README.md) · [System catalog](api.md#task-table) · [API reference](api.md)
 
 ## Principles
 

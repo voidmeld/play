@@ -20,7 +20,10 @@ for _, entry in fs.listDirectory("src/core") do
 		)
 	end
 end
-local expected = Reference.render(Config.publicSurface.packages)
+local current = fs.readFileToString(path)
+local boundary = string.find(current, "## Signature appendix\n", 1, true)
+assert(boundary ~= nil, "API reference requires a hand-written guide and a signature appendix")
+local expected = string.sub(current, 1, assert(boundary) - 1) .. Reference.render(Config.publicSurface.packages)
 if process.args[2] == "--write" then
 	fs.writeStringToFile(path, expected)
 else

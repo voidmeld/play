@@ -28,10 +28,11 @@ The `examples` producer runs the standalone threat, input-binding, thumbstick an
 lute run tools/run-examples.luau
 ```
 
-Every [system guide](systems.md) also links an executable Verify example and its focused command.
+Each area in [the API](api.md) links an executable Verify example and its focused command.
 
-The API reference is generated from parsed exported declarations and public operations.
-After changing an exported type, function signature or returned operation, regenerate it:
+The hand-written [API reference](api.md) owns usage, returns and failures.
+Its signature appendix comes from parsed declarations and public operations.
+After changing an exported type, function signature or returned operation, refresh only the appendix:
 
 ```sh
 lute run tools/generate-api.luau --write
