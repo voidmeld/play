@@ -57,10 +57,7 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 		local outcome = deps.write(profile, entry.context, entry.leaseExpiresAt, function(): boolean
 			return current(ownerKey, entry, generation)
 		end, releaseAfterSave, generation)
-		if outcome.ok then
-			entry.leaseExpiresAt = assert(outcome.expiresAt)
-		end
-		return { ok = outcome.ok, reason = outcome.reason }
+		return outcome
 	end
 
 	local scheduleEntry: (string, Entry<C, P>, number) -> ()
@@ -83,10 +80,14 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 	local function attempt(owner: string, entry: Entry<C, P>): Outcome
 		entry.writeGeneration += 1
 		local generation = entry.writeGeneration
-		local outcome = write(owner, entry, generation, entry.unloading)
+		local written = write(owner, entry, generation, entry.unloading)
 		if not current(owner, entry, generation) then
 			return { ok = false, reason = "operation_cancelled" }
 		end
+		if written.ok then
+			entry.leaseExpiresAt = assert(written.expiresAt)
+		end
+		local outcome: Outcome = { ok = written.ok, reason = written.reason }
 		if outcome.ok and entry.unloading then
 			entries[owner] = nil
 			released[owner] = entry.context

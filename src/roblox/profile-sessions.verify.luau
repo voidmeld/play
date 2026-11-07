@@ -2,6 +2,7 @@
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Engine = require("../../tools/fixtures/engine")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Sessions = require("./profile-sessions")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
@@ -11,10 +12,19 @@ return function(suite: Verify.Harness)
 
 	describe("profile sessions", function()
 		local function fixture()
-			local clock = Engine.clock()
-			local owner = Engine.owner()
+			local environment = Roblox.testEnvironment({ handlerErrors = "raise" })
+			local clock = Engine.clock(environment)
+			local owner = Engine.owner(environment)
 			local writes: { { release: boolean, generation: number, profile: number } } = {}
-			local state = { fail = false, releases = 0, value = 1, warnings = 0 }
+			local state: {
+				fail: boolean,
+				releases: number,
+				value: number,
+				warnings: number,
+				expiresAt: number?,
+				beforeReply: ((number) -> ())?,
+			} =
+				{ fail = false, releases = 0, value = 1, warnings = 0 }
 			local sessions = Sessions.new(owner, {
 				clock = clock.clock,
 				schedule = clock.schedule,
@@ -45,9 +55,13 @@ return function(suite: Verify.Harness)
 					assert(current())
 					assert(clock.clock() < expiry)
 					table.insert(writes, { release = release, generation = generation, profile = profile })
-					return if state.fail
+					local result: Sessions.Outcome = if state.fail
 						then { ok = false, reason = "offline" }
-						else { ok = true, expiresAt = clock.clock() + 10 }
+						else { ok = true, expiresAt = state.expiresAt or clock.clock() + 10 }
+					if state.beforeReply ~= nil then
+						state.beforeReply(generation)
+					end
+					return result
 				end,
 			})
 			sessions.admit("profile", 10, function(): number?
@@ -55,7 +69,14 @@ return function(suite: Verify.Harness)
 			end, function()
 				state.releases += 1
 			end)
-			return { clock = clock, owner = owner, sessions = sessions, writes = writes, state = state }
+			return {
+				clock = clock,
+				owner = owner,
+				sessions = sessions,
+				writes = writes,
+				state = state,
+				environment = environment,
+			}
 		end
 		it("renews from the current profile and retries failures without releasing ownership", function()
 			local f = fixture()
@@ -99,6 +120,41 @@ return function(suite: Verify.Harness)
 			f.owner.dispose()
 			f.clock.advance(100)
 			expect(#f.writes):toBe(count)
+		end)
+		it("does not let stale committed replies shorten or revive a newer lease", function()
+			for _, expiry in { { older = 20, newer = 2 }, { older = 2, newer = 20 } } do
+				local newer = expiry.newer
+				local f = fixture()
+				local held: thread? = nil
+				local stale: Sessions.Outcome? = nil
+				f.state.expiresAt = expiry.older
+				f.state.beforeReply = function(generation)
+					if generation == 1 then
+						f.environment.scheduler.block(function(pending)
+							held = pending
+						end)
+					end
+				end
+				f.environment.scheduler.spawn(function()
+					stale = f.sessions.save("profile")
+				end)
+				expect(#f.writes):toBe(1)
+				f.state.expiresAt = newer
+				expect(f.sessions.save("profile").ok):toBe(true)
+				f.environment.scheduler.resume(assert(held))
+				f.clock.advance(0)
+				expect(assert(stale).reason):toBe("operation_cancelled")
+				f.clock.advance(3)
+				local result = f.sessions.save("profile")
+				expect(result.ok):toBe(newer > 3)
+				if newer < 3 then
+					expect(result.reason):toBe("lock_lost")
+				end
+				expect(#f.writes):toBe(if newer > 3 then 3 else 2)
+				expect(f.state.releases):toBe(0)
+				expect(f.environment.scheduler.failures):toEqual({})
+				f.sessions.dispose()
+			end
 		end)
 		it("coalesced request saves and synchronous drain release only admitted contexts", function()
 			local f = fixture()

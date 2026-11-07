@@ -2650,6 +2650,8 @@ This example exercises: renews from the current profile and retries failures wit
 ### Invariants
 
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
+Overlapping writes retain only the current generation's returned lease expiry. A delayed reply
+from an older write returns `operation_cancelled` and cannot shorten or revive the newer lease.
 
 ## roblox-profile-transaction
 
