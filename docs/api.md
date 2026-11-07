@@ -2757,6 +2757,11 @@ This example exercises: matches a session only when every lease field agrees.
 ### Invariants
 
 Every identity field must agree. A stale session cannot settle a newer profile. Conflicting per-key work remains excluded.
+Strict settlement captures the expected identity and checks it before invoking the write and again
+after completion. A known stale identity cannot run its mutating callback; alias mutation cannot
+rewrite the captured fence. Failed identity observations return `not_durable` / `profile_unavailable`.
+A post-write refusal does not undo or disprove a committed effect: retain receipts and reconcile it.
+Non-strict settlement retains its caller-owned session policy and does not query identity observations.
 
 ## roblox-quest-durability
 
