@@ -1208,6 +1208,18 @@ Types and configuration are exported from [src/core/progression.luau](../src/cor
 | [talents](../src/core/progression/talents.luau) | `change`, `decodeIntent`, `default`, `fromLoadout`, `load`, `normalize`, `rules`, `toLoadout` | `State`, `Loadout`, `Intent`, `Result` |
 | [tracking](../src/core/progression/tracking.luau) | `canTrack`, `tracking` | `Config` |
 | [transactions](../src/core/progression/transactions.luau) | `commit`, `isRecorded`, `ledgerKey`, `recordedKeys`, `transactions` | `CollectionSet`, `Outcome`, `Result`, `Config` |
+| [fingerprinted-transactions](../src/core/progression/fingerprinted-transactions.luau) | `create`, `commit`, `fingerprint` | `Bounds`, `Receipts`, `Result`, `Config` |
+
+`fingerprinted_transactions.create` supplies bounded payload receipts alongside the existing boolean
+`transactions` API. `fingerprint` produces an exact canonical encoding, with typed keys, sorted table
+keys and explicit depth, total-entry and byte limits. It refuses cycles, metatables, non-finite numbers
+and non-data values. The encoding is the fingerprint; it has no hash collision risk.
+`commit` copies the profile before the effect, stores the fingerprint on success, replays identical
+payloads without calling the effect and refuses changed payloads with `transaction_conflict`.
+Effect refusal leaves the original available for retry. Full receipt sets refuse new IDs without
+eviction; the consumer owns receipt retirement and its replay horizon. Supply owned profile copies
+and install the returned profile atomically. Persist receipts with the affected fields.
+Run `lute run tools/gate.luau --only specs --file src/core/progression/fingerprinted-transactions.verify.luau`.
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
 
@@ -11559,6 +11571,63 @@ advance = function Core.advance(
 	): (State?, number, number)
 ```
 
+## `core.progression.fingerprinted-transactions`
+
+[Source](../src/core/progression/fingerprinted-transactions.luau)
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `core.progression.fingerprinted-transactions.Bounds`
+
+```luau
+export type Bounds = { maxDepth: number, maxEntries: number, maxBytes: number }
+```
+
+### `core.progression.fingerprinted-transactions.Receipts`
+
+```luau
+export type Receipts = { [string]: string }
+```
+
+### `core.progression.fingerprinted-transactions.Result`
+
+```luau
+export type Result<T> = { state: T, outcome: "committed" | "replayed" | "rejected", reason: string? }
+```
+
+### `core.progression.fingerprinted-transactions.Config`
+
+```luau
+export type Config<T> = {
+	maxTransactionId: number,
+	maxRecords: number,
+	bounds: Bounds,
+	copy: (T) -> T,
+	receipts: (T) -> Receipts,
+	withReceipts: (T, Receipts) -> T,
+}
+```
+
+### `core.progression.fingerprinted-transactions.create`
+
+```luau
+function create<T>(config: Config<T>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+commit = function commit(profile: T, transactionId: string, payload: unknown, effect: (T) -> (T?, string?)): Result<T>
+```
+
+### `core.progression.fingerprinted-transactions.fingerprint`
+
+```luau
+function fingerprint(payload: unknown, bounds: Bounds): (string?, string?)
+```
+
 ## `core.progression.grants`
 
 [Source](../src/core/progression/grants.luau)
@@ -12613,6 +12682,10 @@ local Consumables = require("./progression/consumables")
 ```
 
 ```luau
+local FingerprintedTransactions = require("./progression/fingerprinted-transactions")
+```
+
+```luau
 local Grants = require("./progression/grants")
 ```
 
@@ -12772,6 +12845,30 @@ export type GrantsProductionRegistryResult = Grants.ProductionRegistryResult
 
 ```luau
 export type GrantsConfig = Grants.Config
+```
+
+### `core.progression.FingerprintedTransactionsBounds`
+
+```luau
+export type FingerprintedTransactionsBounds = FingerprintedTransactions.Bounds
+```
+
+### `core.progression.FingerprintedTransactionsReceipts`
+
+```luau
+export type FingerprintedTransactionsReceipts = FingerprintedTransactions.Receipts
+```
+
+### `core.progression.FingerprintedTransactionsResult`
+
+```luau
+export type FingerprintedTransactionsResult<T> = FingerprintedTransactions.Result<T>
+```
+
+### `core.progression.FingerprintedTransactionsConfig`
+
+```luau
+export type FingerprintedTransactionsConfig<T> = FingerprintedTransactions.Config<T>
 ```
 
 ### `core.progression.HearthDestination`
@@ -13153,6 +13250,7 @@ export type API = {
 	read actionbar: typeof(Actionbar),
 	read consumables: typeof(Consumables),
 	read grants: typeof(Grants),
+	read fingerprinted_transactions: typeof(FingerprintedTransactions),
 	read hearth: typeof(Hearth),
 	read levels: typeof(Levels),
 	read recovery: typeof(Recovery),
@@ -13172,6 +13270,10 @@ export type API = {
 Exported value; see its declaration in [source](../src/core/progression.luau).
 
 ### `core.progression.consumables`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.fingerprinted_transactions`
 
 Exported value; see its declaration in [source](../src/core/progression.luau).
 

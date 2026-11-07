@@ -22,7 +22,7 @@ saved progression, quests, loot, equipment, trade and chat, through headless and
 | Family | Systems | Entry |
 | --- | --- | --- |
 | Characters | Account and character leases, creation, naming, deletion, retirement, rosters, routing between places | [`identity`](docs/api.md#identity), [`character`](docs/api.md#character) |
-| Progression | Levels and XP, talents and ranks, action bar, consumables, reputation, seasons, recovery, settlement of pending grants | [`progression`](docs/api.md#progression) |
+| Progression | Levels and XP, talents and ranks, action bar, consumables, reputation, seasons, recovery, settlement of pending grants, fingerprinted transaction receipts | [`progression`](docs/api.md#progression) |
 | Quests | Journal, objectives, counters, claims, markers, lifecycle and runs | [`quest`](docs/api.md#quest) |
 | Items | Stacks, equipment slots, carried cargo | [`inventory`](docs/api.md#inventory) |
 | Loot | Roll tables and loot decisions | [`loot`](docs/api.md#loot) |

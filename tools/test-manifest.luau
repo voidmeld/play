@@ -42,6 +42,7 @@ return table.freeze {
 	"src/core/professions/professions.verify.luau",
 	"src/core/progression/actionbar.verify.luau",
 	"src/core/progression/consumables.verify.luau",
+	"src/core/progression/fingerprinted-transactions.verify.luau",
 	"src/core/progression/grants.verify.luau",
 	"src/core/progression/hearth.verify.luau",
 	"src/core/progression/levels.verify.luau",

@@ -2,6 +2,7 @@
 
 local Actionbar = require("./progression/actionbar")
 local Consumables = require("./progression/consumables")
+local FingerprintedTransactions = require("./progression/fingerprinted-transactions")
 local Grants = require("./progression/grants")
 local Hearth = require("./progression/hearth")
 local Levels = require("./progression/levels")
@@ -34,6 +35,10 @@ export type GrantsGrantIndex = Grants.GrantIndex
 export type GrantsProductionRegistry = Grants.ProductionRegistry
 export type GrantsProductionRegistryResult = Grants.ProductionRegistryResult
 export type GrantsConfig = Grants.Config
+export type FingerprintedTransactionsBounds = FingerprintedTransactions.Bounds
+export type FingerprintedTransactionsReceipts = FingerprintedTransactions.Receipts
+export type FingerprintedTransactionsResult<T> = FingerprintedTransactions.Result<T>
+export type FingerprintedTransactionsConfig<T> = FingerprintedTransactions.Config<T>
 export type HearthDestination = Hearth.Destination
 export type HearthBind = Hearth.Bind
 export type HearthState = Hearth.State
@@ -101,6 +106,7 @@ export type API = {
 	read actionbar: typeof(Actionbar),
 	read consumables: typeof(Consumables),
 	read grants: typeof(Grants),
+	read fingerprinted_transactions: typeof(FingerprintedTransactions),
 	read hearth: typeof(Hearth),
 	read levels: typeof(Levels),
 	read recovery: typeof(Recovery),
@@ -118,6 +124,7 @@ local api: API = {
 	actionbar = Actionbar,
 	consumables = Consumables,
 	grants = Grants,
+	fingerprinted_transactions = FingerprintedTransactions,
 	hearth = Hearth,
 	levels = Levels,
 	recovery = Recovery,
