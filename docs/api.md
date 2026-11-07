@@ -1244,7 +1244,7 @@ operations use this same lookup. Run
 | [talents](../src/core/progression/talents.luau) | `change`, `decodeIntent`, `default`, `fromLoadout`, `load`, `normalize`, `rules`, `toLoadout` | `State`, `Loadout`, `Intent`, `Result` |
 | [tracking](../src/core/progression/tracking.luau) | `canTrack`, `tracking` | `Config` |
 | [transactions](../src/core/progression/transactions.luau) | `commit`, `isRecorded`, `ledgerKey`, `recordedKeys`, `transactions` | `CollectionSet`, `Outcome`, `Result`, `Config` |
-| [fingerprinted-transactions](../src/core/progression/fingerprinted-transactions.luau) | `create`, `commit`, `fingerprint` | `Bounds`, `Receipts`, `Result`, `Config` |
+| [fingerprinted-transactions](../src/core/progression/fingerprinted-transactions.luau) | `create`, `createWithReceipts`, `commit`, `fingerprint` | `Bounds`, `Receipts`, `ReceiptCodec`, `ReceiptConfig`, `Result`, `Config` |
 
 `fingerprinted_transactions.create` supplies bounded payload receipts alongside the existing boolean
 `transactions` API. `fingerprint` produces an exact canonical encoding, with typed keys, sorted table
@@ -1255,6 +1255,18 @@ payloads without calling the effect and refuses changed payloads with `transacti
 Effect refusal leaves the original available for retry. Full receipt sets refuse new IDs without
 eviction; the consumer owns receipt retirement and its replay horizon. Supply owned profile copies
 and install the returned profile atomically. Persist receipts with the affected fields.
+`Config.fingerprint(payload)` optionally supplies a validated canonical encoding and refusal reason.
+Nonempty encodings are stored verbatim; nil, empty encodings and encoder exceptions refuse the payload.
+Without it, `bounds` is required and the existing tagged canonical encoder is used unchanged.
+Omit `maxTransactionId` or `maxRecords` to disable that ceiling; IDs must still be nonempty.
+Existing configured ceilings retain their behavior.
+
+`createWithReceipts(config, codec)` supports existing receipt shapes through `ReceiptConfig<T, R>`
+and `ReceiptCodec<R>`. `codec.fingerprint(receipt)` reads its canonical string and
+`codec.create(stamp)` constructs a new receipt. Existing receipts remain untouched. The original
+`create(config)` retains string receipts and accepts the same optional encoder and ceilings.
+Receipt codecs own shape validation and must return detached new receipts.
+
 Run `lute run tools/gate.luau --only specs --file src/core/progression/fingerprinted-transactions.verify.luau`.
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
@@ -11750,23 +11762,42 @@ export type Receipts = { [string]: string }
 export type Result<T> = { state: T, outcome: "committed" | "replayed" | "rejected", reason: string? }
 ```
 
+### `core.progression.fingerprinted-transactions.ReceiptCodec`
+
+```luau
+export type ReceiptCodec<R> = { fingerprint: (R) -> string?, create: (string) -> R }
+```
+
+### `core.progression.fingerprinted-transactions.ReceiptConfig`
+
+```luau
+export type ReceiptConfig<T, R> = {
+	maxTransactionId: number?,
+	maxRecords: number?,
+	bounds: Bounds?,
+	fingerprint: ((unknown) -> (string?, string?))?,
+	copy: (T) -> T,
+	receipts: (T) -> { [string]: R },
+	withReceipts: (T, { [string]: R }) -> T,
+}
+```
+
 ### `core.progression.fingerprinted-transactions.Config`
 
 ```luau
-export type Config<T> = {
-	maxTransactionId: number,
-	maxRecords: number,
-	bounds: Bounds,
-	copy: (T) -> T,
-	receipts: (T) -> Receipts,
-	withReceipts: (T, Receipts) -> T,
-}
+export type Config<T> = ReceiptConfig<T, string>
 ```
 
 ### `core.progression.fingerprinted-transactions.create`
 
 ```luau
 function create<T>(config: Config<T>)
+```
+
+### `core.progression.fingerprinted-transactions.createWithReceipts`
+
+```luau
+function createWithReceipts<T, R>(config: ReceiptConfig<T, R>, codec: ReceiptCodec<R>)
 ```
 
 Returned operations and values (declarations; unannotated results are inferred):
