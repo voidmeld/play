@@ -22,7 +22,7 @@ end
 
 local function comments(): Comments.Config
 	return {
-		roots = { "src", "tools" },
+		roots = { "src", "tools", "examples" },
 		files = { "dependencies.lock.luau", "lint.config.luau" },
 		configFiles = { ".styluaignore", "rokit.toml", "stylua.toml" },
 		allowed = { "^%-%-![A-Za-z]+", "^%-%-# selene" },
@@ -38,6 +38,7 @@ local function manifest(): Manifest.Config
 		rules = {
 			{ root = "src", pattern = "%.verify%.luau$" },
 			{ root = "tools", pattern = "%.verify%.luau$" },
+			{ root = "examples", pattern = "%.verify%.luau$" },
 		},
 		write = write,
 		entries = if write then nil else require("./test-manifest"),
@@ -67,6 +68,7 @@ end
 local config: {
 	boundary: Repository.Boundary,
 	canon: Repository.Boundary,
+	canonExamples: Repository.Boundary,
 	leakage: Repository.Scan,
 	provenance: Provenance.Config,
 	comments: () -> Comments.Config,
@@ -84,6 +86,7 @@ local config: {
 			rules = Policy.boundary,
 		},
 		canon = { root = "src", rules = Policy.canon },
+		canonExamples = { root = "examples/world", rules = Policy.canon },
 		leakage = {
 			untracked = true,
 			suffixes = { ".luau", ".lua", ".md", ".json", ".toml", ".txt", ".yml", ".yaml" },

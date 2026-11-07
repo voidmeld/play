@@ -126,4 +126,5 @@ return table.freeze {
 	"src/roblox/travel-placement.verify.luau",
 	"tools/lib/api-reference.verify.luau",
 	"tools/lib/lint-batches.verify.luau",
+	"examples/world/world.verify.luau",
 }
