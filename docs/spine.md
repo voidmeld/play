@@ -21,9 +21,10 @@ Run the scenarios through Gate:
 
 ```console
 lute run tools/gate.luau --file examples/world/demo.verify.luau --file examples/world/world.verify.luau
+lute run tools/gate.luau --file examples/world/recovery.verify.luau
 ```
 
-Both specifications are in the committed manifest. Gate also runs the standalone command.
+All three specifications are in the committed manifest. Gate also runs the standalone command.
 The original scenario retains its assertions for trade, admission, stack capacity, competing
 sessions, renewal, restart and uncertain writes.
 
@@ -72,6 +73,11 @@ An unavailable or malformed startup read reports the failure and leaves the worl
 Admission retries read storage again; only a successful read can establish absence and create accounts.
 Scene disposal invokes its native close callback once, then cancels owned local work even when
 close is held. It preserves uncertain saved bytes and leases; teardown does not certify release.
+The [checkpoint recovery specification](../examples/world/recovery.verify.luau) captures two distinct
+revisions within one simulated hour, before and after crafting and market settlement. Fresh stores
+restore detached copies after lawful lease expiry and compare inventory, coin, XP, journal and receipt
+state. Replayed quest, loot and empty-book purchase requests cannot grant or spend value again.
+The original checkpoints stay unchanged. This uses explicit snapshots, not native version history.
 Shutdown may be retried after a known read failure recovers. Admission stays stopped while retained
 cleanup completes; a settled repeat succeeds without another lease release or stored mutation.
 

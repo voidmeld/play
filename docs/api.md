@@ -1190,6 +1190,9 @@ coalescing and shutdown boundaries and their ordinary/immediate dirty-reason voc
 The [leased-record fixture](../src/roblox/leased-record-session.verify.luau) exercises record-store
 absence, stored revision zero, mismatched snapshots, callback retries, readback uncertainty and a small
 revision ceiling. Run it with `lute run tools/gate.luau --file src/roblox/leased-record-session.verify.luau`.
+The [world recovery scenario](../examples/world/recovery.verify.luau) restores two same-hour
+checkpoints into isolated stores and checks value and receipt replay. It uses explicit detached
+snapshots; native backup history and production restore policy remain with the host.
 
 ## professions
 

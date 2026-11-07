@@ -135,5 +135,6 @@ return table.freeze {
 	"tools/lib/api-reference.verify.luau",
 	"tools/lib/lint-batches.verify.luau",
 	"examples/world/demo.verify.luau",
+	"examples/world/recovery.verify.luau",
 	"examples/world/world.verify.luau",
 }
