@@ -77,7 +77,7 @@ Headless fixtures prove their configured hosts; they prove no native rendering, 
 ## kernel-event-log
 
 `src/kernel/event-log` exposes `create` with `Config<E, P>`, `State<E>`, `Projection<E, P>`
-and `Change<E, P>`. Supply bounded event count and identity length, an owned event decoder,
+and `Change<E, P>`. Supply an optional event ceiling and bounded identity length, an owned event decoder,
 identity and complete equality functions, a fresh projection seed and an ordered `apply` callback.
 `apply` receives the projection, decoded event and prior admitted events; it can refuse time
 regression, session ordering, negative balances or other domain invariants. Callbacks are pure and
@@ -92,6 +92,18 @@ an owned, validated state for persistence. All four return explicit kernel refus
 rejected inputs leave caller state unchanged. Keep the previous state for corrected retries.
 Ledger balances use a material/actor projection and signed deltas; reputation uses a standing
 projection and credit events. Neither requires encoding domain fields as a different event type.
+
+`duplicateIds = "refuse"` rejects every duplicate stored ID with `state_invalid`, including equal
+events. The default `"deduplicate"` retains equal-event deduplication and conflicting-ID refusals.
+Append retries still replay an identical event under either policy. Optional `projectRecord(raw)`
+runs before validation of state records, event arrays and individual events, including appended
+events. It can strip metadata and metatables from existing stored shapes; its output must pass the
+normal exact-record, dense-array and event-decoder checks. Projector exceptions normalize to nil
+and follow those checks' usual refusals. Keep it pure and return owned data. The decoder can freeze
+its detached events. Without a projector, plain-table validation is unchanged.
+Omit `maxEvents` for no event ceiling, or supply a positive finite integer; a configured ceiling
+continues to apply before replay deduplication and to new appends.
+
 Run `lute run tools/gate.luau --only specs --file src/kernel/event-log.verify.luau`.
 
 ## kernel-codec
@@ -1244,7 +1256,7 @@ operations use this same lookup. Run
 | [talents](../src/core/progression/talents.luau) | `change`, `decodeIntent`, `default`, `fromLoadout`, `load`, `normalize`, `rules`, `toLoadout` | `State`, `Loadout`, `Intent`, `Result` |
 | [tracking](../src/core/progression/tracking.luau) | `canTrack`, `tracking` | `Config` |
 | [transactions](../src/core/progression/transactions.luau) | `commit`, `isRecorded`, `ledgerKey`, `recordedKeys`, `transactions` | `CollectionSet`, `Outcome`, `Result`, `Config` |
-| [fingerprinted-transactions](../src/core/progression/fingerprinted-transactions.luau) | `create`, `commit`, `fingerprint` | `Bounds`, `Receipts`, `Result`, `Config` |
+| [fingerprinted-transactions](../src/core/progression/fingerprinted-transactions.luau) | `create`, `createWithReceipts`, `commit`, `fingerprint` | `Bounds`, `Receipts`, `ReceiptCodec`, `ReceiptConfig`, `Result`, `Config` |
 
 `fingerprinted_transactions.create` supplies bounded payload receipts alongside the existing boolean
 `transactions` API. `fingerprint` produces an exact canonical encoding, with typed keys, sorted table
@@ -1255,6 +1267,18 @@ payloads without calling the effect and refuses changed payloads with `transacti
 Effect refusal leaves the original available for retry. Full receipt sets refuse new IDs without
 eviction; the consumer owns receipt retirement and its replay horizon. Supply owned profile copies
 and install the returned profile atomically. Persist receipts with the affected fields.
+`Config.fingerprint(payload)` optionally supplies a validated canonical encoding and refusal reason.
+Nonempty encodings are stored verbatim; nil, empty encodings and encoder exceptions refuse the payload.
+Without it, `bounds` is required and the existing tagged canonical encoder is used unchanged.
+Omit `maxTransactionId` or `maxRecords` to disable that ceiling; IDs must still be nonempty.
+Existing configured ceilings retain their behavior.
+
+`createWithReceipts(config, codec)` supports existing receipt shapes through `ReceiptConfig<T, R>`
+and `ReceiptCodec<R>`. `codec.fingerprint(receipt)` reads its canonical string and
+`codec.create(stamp)` constructs a new receipt. Existing receipts remain untouched. The original
+`create(config)` retains string receipts and accepts the same optional encoder and ceilings.
+Receipt codecs own shape validation and must return detached new receipts.
+
 Run `lute run tools/gate.luau --only specs --file src/core/progression/fingerprinted-transactions.verify.luau`.
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
@@ -2578,7 +2602,8 @@ Renewal uses the current profile. Failed saves preserve dirty work. Close does n
 
 ## roblox-profile-transaction
 
-`src/roblox/profile-transaction` exports `new`, returning `commit(context, change)`, and types
+`src/roblox/profile-transaction` exports `new`, returning `commit(context, change)` and
+`finalize(context, previous, expected)`, and types
 `Outcome`, `Restoration`, `Result`, `SessionPort<C>` and `Dependencies<C, P>`. Bind the `save` and
 `isAdmitted` operations of `profile-sessions`, the existing live profile authority and a fresh durable
 readback. This coordinator adds no store. Supply owned `copy`, complete-profile `equal`, and `verify`
@@ -2598,6 +2623,16 @@ the candidate. `rolled_back` additionally requires readback equal to the complet
 `superseded` or `failed`; inspect `reason` and `saveReason`. Reconcile ambiguous storage before retrying;
 this coordinator never rewrites storage to erase an uncertain transaction. Confirmed rollback permits
 a corrected retry. Host exceptions return explicit uncertainty and release exclusion.
+`finalize` accepts a baseline captured before installation and the actual already-installed candidate.
+It snapshots both, verifies the expected fields against live state before saving, saves without
+reinstalling, reads back on successful save, and verifies both live and stored state. It shares the
+same per-key exclusion and conditional restoration checks as `commit`. A pre-save verification
+failure refuses persistence and restores only if the complete installed candidate still matches.
+Refused or throwing saves attempt restoration immediately without readback; their outcome is
+`ambiguous` because a failed save may already have written. The original `commit` retains its
+installation and readback-after-refusal ordering. Callers own fresh transition evaluation and must
+capture the previous profile before installation, rather than reconstructing it from live state.
+
 Run `lute run tools/gate.luau --only specs --file src/roblox/profile-transaction.verify.luau`.
 
 ## roblox-profile-transfer
@@ -2699,8 +2734,10 @@ The fake session ports do not certify native storage durability or an adopter's 
 
 ## roblox-remote-admission
 
-`src/roblox/remote-admission` exports `new`, with `Handler<P>`, `Options<P>`, `Dispatch` and
-`Dependencies<E, P>`. Its operations are `serve`, `receive`, `forget`, `served` and `dispose`.
+`src/roblox/remote-admission` exports `new`, with `Handler<P>`, `InvokeHandler<P>`, `Refusal<P>`,
+`Options<P>`, `Invoker<P>`, `Lane<P>`, `Dispatch` and `Dependencies<E, P>`. Its operations include
+`serve`, `register`, `registerRaw`, `serveInvoke`, `lane`, `receive`, `dispatch`, `forget`, `served`
+and `dispose`.
 Supply a monotonic clock, authenticated sender key, per-channel aggregate budget, bounded payload
 configuration, channel/handler/sender/text limits, native connect/ownership and refusal notification.
 `serve` uses `remote-events.transport`, retaining one connection per channel and disconnecting the
@@ -2718,7 +2755,46 @@ them. Dispatch snapshots registrations, skips released handlers and defers new r
 next invocation. One invocation per sender/channel runs at once, including across yielding handlers.
 `forget(key)` clears budgets and notices, fences the remaining dispatch and preserves active exclusion
 until the invocation returns. `dispose` releases every native connection and fences dispatch.
-Limits refuse excess senders until the host forgets departed keys. Run
+Limits refuse excess senders until the host forgets departed keys.
+
+`register(name, handler, options)` registers without a native connection and returns an idempotent
+removal function. `registerRaw` instead supplies the player and decoded argument varargs.
+`serveInvoke(name, handler, options)` registers one synchronous request/response handler and returns
+an `Invoker<P>` with `call(player, ...)` and idempotent `remove()`. Bind `call` to the host's native
+invoke callback and remove that binding when releasing it. Invoke and event handlers cannot share a
+channel; duplicate invoke setup refuses without disturbing the original registration. Calls share
+aggregate admission, optional handler budgets, decoding, exclusion and per-key forget with events.
+Replies preserve multiple values and nil slots. A refused or removed call returns nil unless
+`refusedArgs` supplies a refusal reply. Removal fences old invokers even after channel reuse;
+owner cleanup and disposal also fence calls.
+
+`Options.refusedRecord(record)` receives a frozen record containing `player`, the original `handler`,
+stable numeric `handlerId`, `channel`, `reason` and `payloadSize` (the original argument count,
+including nil slots). The existing `refused(player, reason)` hook is unchanged and both can run.
+`refusedArgs(player, ...)` receives original argument varargs and can return an invoke refusal reply.
+Each hook is isolated from exceptions in the others. Hook calls are per refusal; notification
+deduplication does not suppress them.
+
+`lane(name, options)` supplies standalone `admit(player, ...)` and idempotent `remove()` operations.
+It consumes only its optional handler budget, uses the same refusal hooks and per-key forget, and
+does not register a dispatched handler or consume aggregate tokens. Standalone lanes count toward
+the configured per-channel handler ceiling. `dispatch(name, player, ...)` invokes the same pipeline
+as `receive` but returns the aggregate-admission boolean, even if all handler lanes refuse.
+
+Optional `decode(...)` replaces payload decoding with a host-owned kernel result of packed
+arguments. With it, `payload` can be omitted; decoder policy and ownership belong to the host.
+Without it, the existing bounded `payload` decoder is unchanged. Omitted channel, handler, sender
+and text ceilings disable those ceilings; supplied finite ceilings retain their existing behavior.
+`retainBudgets = true` retains aggregate sender state after the final handler or lane is removed.
+The default still releases that state. `noticePolicy = "streak"` deduplicates channel and individual
+handler rate refusals until successful consumption of the corresponding bucket; the default
+`"window"` retains the existing notification window. An omitted `refusalWindow` defaults to one
+second. Optional `spawn(run)` schedules event handlers and `refusedArgs` event hooks; accepted
+counts then describe scheduled callbacks, whose later errors belong to the host. Invoke callbacks
+and their refusal replies stay synchronous. Without `spawn`, existing synchronous protected event
+dispatch is unchanged.
+
+Run
 `lute run tools/gate.luau --only specs --file src/roblox/remote-admission.verify.luau`.
 
 ## roblox-remote-events
@@ -11750,23 +11826,42 @@ export type Receipts = { [string]: string }
 export type Result<T> = { state: T, outcome: "committed" | "replayed" | "rejected", reason: string? }
 ```
 
+### `core.progression.fingerprinted-transactions.ReceiptCodec`
+
+```luau
+export type ReceiptCodec<R> = { fingerprint: (R) -> string?, create: (string) -> R }
+```
+
+### `core.progression.fingerprinted-transactions.ReceiptConfig`
+
+```luau
+export type ReceiptConfig<T, R> = {
+	maxTransactionId: number?,
+	maxRecords: number?,
+	bounds: Bounds?,
+	fingerprint: ((unknown) -> (string?, string?))?,
+	copy: (T) -> T,
+	receipts: (T) -> { [string]: R },
+	withReceipts: (T, { [string]: R }) -> T,
+}
+```
+
 ### `core.progression.fingerprinted-transactions.Config`
 
 ```luau
-export type Config<T> = {
-	maxTransactionId: number,
-	maxRecords: number,
-	bounds: Bounds,
-	copy: (T) -> T,
-	receipts: (T) -> Receipts,
-	withReceipts: (T, Receipts) -> T,
-}
+export type Config<T> = ReceiptConfig<T, string>
 ```
 
 ### `core.progression.fingerprinted-transactions.create`
 
 ```luau
 function create<T>(config: Config<T>)
+```
+
+### `core.progression.fingerprinted-transactions.createWithReceipts`
+
+```luau
+function createWithReceipts<T, R>(config: ReceiptConfig<T, R>, codec: ReceiptCodec<R>)
 ```
 
 Returned operations and values (declarations; unannotated results are inferred):
@@ -17999,8 +18094,10 @@ export type Change<E, P> = { state: State<E>, value: P, replayed: boolean }
 
 ```luau
 export type Config<E, P> = {
-	maxEvents: number,
+	maxEvents: number?,
 	maxId: number,
+	duplicateIds: ("deduplicate" | "refuse")?,
+	projectRecord: ((unknown) -> unknown)?,
 	decode: Codec.Decoder<E>,
 	identity: (E) -> string,
 	equal: (E, E) -> boolean,
@@ -21499,6 +21596,7 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 commit = function commit(context: C, change: (P) -> (P?, string?)): Result
+finalize = function finalize(context: C, previous: P, expected: P): Result
 ```
 
 ## `roblox.profile-transfer`
@@ -21813,6 +21911,10 @@ local RateLimit = require("../core/net/rate-limit")
 ```
 
 ```luau
+local Result = require("../kernel/result")
+```
+
+```luau
 local Value = require("../kernel/value")
 ```
 
@@ -21822,10 +21924,46 @@ local Value = require("../kernel/value")
 export type Handler<P> = (P, Payload.Arguments) -> ()
 ```
 
+### `roblox.remote-admission.InvokeHandler`
+
+```luau
+export type InvokeHandler<P> = (P, ...unknown) -> ...unknown
+```
+
+### `roblox.remote-admission.Refusal`
+
+```luau
+export type Refusal<P> = {
+	read player: P,
+	read handler: Handler<P> | InvokeHandler<P>,
+	read handlerId: number,
+	read channel: string,
+	read reason: string,
+	read payloadSize: number,
+}
+```
+
 ### `roblox.remote-admission.Options`
 
 ```luau
-export type Options<P> = { lane: RateLimit.Config?, refused: ((P, string) -> ())? }
+export type Options<P> = {
+	lane: RateLimit.Config?,
+	refused: ((P, string) -> ())?,
+	refusedRecord: ((Refusal<P>) -> ())?,
+	refusedArgs: InvokeHandler<P>?,
+}
+```
+
+### `roblox.remote-admission.Invoker`
+
+```luau
+export type Invoker<P> = { read call: (P, ...unknown) -> ...unknown, read remove: () -> () }
+```
+
+### `roblox.remote-admission.Lane`
+
+```luau
+export type Lane<P> = { read admit: (P, ...unknown) -> boolean, read remove: () -> () }
 ```
 
 ### `roblox.remote-admission.Dispatch`
@@ -21841,12 +21979,16 @@ export type Dependencies<E, P> = {
 	clock: () -> number,
 	keyFor: (P) -> string,
 	budget: (string) -> RateLimit.Config,
-	payload: Payload.Config,
-	maxChannels: number,
-	maxHandlers: number,
-	maxKeys: number,
-	maxText: number,
-	refusalWindow: number,
+	payload: Payload.Config?,
+	decode: ((...unknown) -> Result.Result<Payload.Arguments>)?,
+	maxChannels: number?,
+	maxHandlers: number?,
+	maxKeys: number?,
+	maxText: number?,
+	refusalWindow: number?,
+	noticePolicy: ("window" | "streak")?,
+	retainBudgets: boolean?,
+	spawn: ((() -> ()) -> ())?,
 	connect: (E, (P, ...unknown) -> ()) -> () -> (),
 	own: (() -> ()) -> (),
 	notify: (string, P, string) -> (),
@@ -21863,6 +22005,11 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 serve = function serve(name: string, event: E, handler: Handler<P>, options: Options<P>?): () -> ()
+register = function register(name: string, handler: Handler<P>, supplied: Options<P>?): () -> ()
+registerRaw = function registerRaw(name: string, handler: InvokeHandler<P>, options: Options<P>?): () -> ()
+serveInvoke = function serveInvoke(name: string, handler: InvokeHandler<P>, options: Options<P>?): Invoker<P>
+lane = function lane(name: string, options: Options<P>?): Lane<P>
+dispatch = function dispatchAdmitted(name: string, player: P, ...: unknown): boolean
 receive = function receive(name: string, player: P, ...: unknown): Dispatch
 forget = function forget(key: string)
 served = function served(name: string): number

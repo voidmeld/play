@@ -104,6 +104,75 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("durable profile transaction", function()
+		it("finalizes an installed candidate using the caller baseline without reinstalling it", function()
+			local f = fixture()
+			local previous = table.clone(f.state.live)
+			local candidate = { revision = 1, balance = 2, note = "a" }
+			f.state.live = candidate
+			f.state.duringSave = function()
+				expect(f.state.live):toBe(candidate)
+				expect(f.service.finalize("profile", previous, candidate).reason):toBe("transaction_busy")
+				expect(f.service.commit("profile", change).reason):toBe("transaction_busy")
+			end
+			expect(f.service.finalize("profile", previous, candidate).outcome):toBe("committed")
+			expect(previous.balance):toBe(0)
+			expect(f.state.stored.balance):toBe(2)
+		end)
+		it("verifies installed state before saving and preserves a superseding candidate", function()
+			local f = fixture()
+			local previous = table.clone(f.state.live)
+			local expected = { revision = 1, balance = 2, note = "a" }
+			f.state.live = { revision = 2, balance = 4, note = "new" }
+			local saves = 0
+			f.state.duringSave = function()
+				saves += 1
+			end
+			local result = f.service.finalize("profile", previous, expected)
+			expect(result.reason):toBe("verification_failed")
+			expect(result.restoration):toBe("superseded")
+			expect(saves):toBe(0)
+			expect(f.state.live.balance):toBe(4)
+		end)
+		it("restores before readback on refused or throwing finalize saves and retains uncertainty", function()
+			for _, throws in { false, true } do
+				local f = fixture()
+				local previous = table.clone(f.state.live)
+				f.state.live = { revision = 1, balance = 2, note = "a" }
+				f.state.failSave, f.state.throwSave = true, throws
+				f.state.writeBeforeFailure = true
+				local reads = 0
+				f.state.duringRead = function()
+					reads += 1
+				end
+				local result = f.service.finalize("profile", previous, f.state.live)
+				expect(result.outcome):toBe("ambiguous")
+				expect(result.restoration):toBe("restored")
+				expect(result.reason):toBe(if throws then "save_failed" else "offline")
+				expect(reads):toBe(0)
+				expect(f.state.live.balance):toBe(0)
+				expect(f.state.stored.balance):toBe(2)
+				f.state.failSave, f.state.throwSave = false, false
+				f.state.live = { revision = 1, balance = 2, note = "a" }
+				expect(f.service.finalize("profile", previous, f.state.live).outcome):toBe("committed")
+			end
+		end)
+		it("verifies finalize readback and conditionally restores only the exact installed candidate", function()
+			for _, superseded in { false, true } do
+				local f = fixture()
+				local previous = table.clone(f.state.live)
+				f.state.live = { revision = 1, balance = 2, note = "a" }
+				f.state.duringRead = function()
+					f.state.stored.balance = 99
+					if superseded then
+						f.state.live.note = "new"
+					end
+				end
+				local result = f.service.finalize("profile", previous, f.state.live)
+				expect(result.reason):toBe("verification_failed")
+				expect(result.restoration):toBe(if superseded then "superseded" else "restored")
+				expect(f.state.live.balance):toBe(if superseded then 2 else 0)
+			end
+		end)
 		it("commits through admitted sessions and verifies expected fields after readback", function()
 			local f = fixture()
 			local source = f.state.live

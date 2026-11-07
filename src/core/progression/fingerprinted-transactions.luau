@@ -5,14 +5,17 @@ local Value = require("../../kernel/value")
 export type Bounds = { maxDepth: number, maxEntries: number, maxBytes: number }
 export type Receipts = { [string]: string }
 export type Result<T> = { state: T, outcome: "committed" | "replayed" | "rejected", reason: string? }
-export type Config<T> = {
-	maxTransactionId: number,
-	maxRecords: number,
-	bounds: Bounds,
+export type ReceiptCodec<R> = { fingerprint: (R) -> string?, create: (string) -> R }
+export type ReceiptConfig<T, R> = {
+	maxTransactionId: number?,
+	maxRecords: number?,
+	bounds: Bounds?,
+	fingerprint: ((unknown) -> (string?, string?))?,
 	copy: (T) -> T,
-	receipts: (T) -> Receipts,
-	withReceipts: (T, Receipts) -> T,
+	receipts: (T) -> { [string]: R },
+	withReceipts: (T, { [string]: R }) -> T,
 }
+export type Config<T> = ReceiptConfig<T, string>
 
 local function fingerprint(payload: unknown, bounds: Bounds): (string?, string?)
 	assert(Value.whole(bounds.maxDepth, 0, 128) ~= nil, "invalid depth bound")
@@ -85,25 +88,40 @@ local function fingerprint(payload: unknown, bounds: Bounds): (string?, string?)
 	return table.concat(parts), nil
 end
 
-local function create<T>(config: Config<T>)
-	assert(Value.whole(config.maxTransactionId, 1, 1000000) ~= nil, "invalid id bound")
-	assert(Value.whole(config.maxRecords, 1, 1000000) ~= nil, "invalid receipt bound")
-	local bounds = table.clone(config.bounds)
+local function createWithReceipts<T, R>(config: ReceiptConfig<T, R>, codec: ReceiptCodec<R>)
+	assert(
+		config.maxTransactionId == nil or Value.whole(config.maxTransactionId, 1, 1000000) ~= nil,
+		"invalid id bound"
+	)
+	assert(config.maxRecords == nil or Value.whole(config.maxRecords, 1, 1000000) ~= nil, "invalid receipt bound")
+	local bounds = if config.bounds ~= nil then table.clone(config.bounds) else nil
+	assert(config.fingerprint ~= nil or bounds ~= nil, "payload encoder required")
+	local function encode(payload: unknown): (string?, string?)
+		if config.fingerprint ~= nil then
+			local ok, stamp, reason = pcall(config.fingerprint, payload)
+			if not ok then
+				return nil, "payload_invalid"
+			end
+			return stamp, reason
+		end
+		assert(bounds ~= nil)
+		return fingerprint(payload, bounds)
+	end
 	local function commit(profile: T, transactionId: string, payload: unknown, effect: (T) -> (T?, string?)): Result<T>
 		local function reject(reason: string): Result<T>
 			return { state = profile, outcome = "rejected", reason = reason }
 		end
-		if Value.opaque(transactionId, config.maxTransactionId) == nil then
+		if #transactionId == 0 or (config.maxTransactionId ~= nil and #transactionId > config.maxTransactionId) then
 			return reject("transaction_id_invalid")
 		end
-		local stamp, problem = fingerprint(payload, bounds)
-		if stamp == nil then
+		local stamp, problem = encode(payload)
+		if stamp == nil or #stamp == 0 then
 			return reject(problem or "payload_invalid")
 		end
 		local receipts = config.receipts(profile)
 		local previous = receipts[transactionId]
 		if previous ~= nil then
-			return if previous == stamp
+			return if codec.fingerprint(previous) == stamp
 				then { state = profile, outcome = "replayed" }
 				else reject("transaction_conflict")
 		end
@@ -111,7 +129,7 @@ local function create<T>(config: Config<T>)
 		for _ in receipts do
 			count += 1
 		end
-		if count >= config.maxRecords then
+		if config.maxRecords ~= nil and count >= config.maxRecords then
 			return reject("receipts_full")
 		end
 		local owned = table.clone(receipts)
@@ -119,10 +137,21 @@ local function create<T>(config: Config<T>)
 		if candidate == nil then
 			return reject(reason or "effect_rejected")
 		end
-		owned[transactionId] = stamp
+		owned[transactionId] = codec.create(stamp)
 		return { state = config.withReceipts(candidate, owned), outcome = "committed" }
 	end
 	return table.freeze({ commit = commit })
 end
 
-return table.freeze({ fingerprint = fingerprint, create = create })
+local function create<T>(config: Config<T>)
+	return createWithReceipts(config, {
+		fingerprint = function(receipt: string): string
+			return receipt
+		end,
+		create = function(stamp: string): string
+			return stamp
+		end,
+	})
+end
+
+return table.freeze({ fingerprint = fingerprint, create = create, createWithReceipts = createWithReceipts })
