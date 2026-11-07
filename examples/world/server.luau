@@ -41,6 +41,7 @@ local sessionRules = ProfileSession.create({
 })
 local threatRules = Threat.rules({ meleeTakeover = 1.1, rangedTakeover = 1.3, tauntLead = 1 })
 local budget = { capacity = 16, refillPerSec = 8 }
+local saveRetrySeconds = 2
 local contact = Contact.configure({
 	copyPayload = function(raw: unknown): (number?, string?)
 		return Value.whole(raw, 1, 30), nil
@@ -62,6 +63,7 @@ local function new(ports: Ports)
 		return if record ~= nil then record.players[tostring(userId)] else nil
 	end
 	local active: { [number]: Active } = {}
+	local closeQueued: { [number]: string } = {}
 	local busy = false
 	local held = false
 	local stopped = false
@@ -223,7 +225,7 @@ local function new(ports: Ports)
 			ports.report(key .. ":" .. (reason or "held"))
 		end,
 		renewalDelay = 20,
-		retryDelay = 2,
+		retryDelay = saveRetrySeconds,
 		drainBudget = 10,
 		jitter = function()
 			return 0
@@ -346,12 +348,21 @@ local function new(ports: Ports)
 		return { ok = true, profile = assert(State.copyProfile(profile)), context = context, lease = { revision = 1 } }
 	end
 	local function close(userId: number, acquisitionId: string?): boolean
-		if busy then
-			return false
-		end
 		local entry = active[userId]
 		if entry == nil or (acquisitionId ~= nil and entry.context.acquisitionId ~= acquisitionId) then
 			return true
+		end
+		if busy then
+			if acquisitionId ~= nil and closeQueued[userId] ~= acquisitionId then
+				closeQueued[userId] = acquisitionId
+				schedule(saveRetrySeconds, function()
+					if closeQueued[userId] == acquisitionId then
+						closeQueued[userId] = nil
+						close(userId, acquisitionId)
+					end
+				end)
+			end
+			return false
 		end
 		local outcome = sessions.unload(entry.context)
 		if outcome.ok and exchange ~= nil and table.find(exchange.players, userId) ~= nil then

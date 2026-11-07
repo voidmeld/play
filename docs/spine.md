@@ -63,6 +63,8 @@ after storage recovers, its committed close can release the lease.
 The scene removes a departing player and body even when saving fails; server-side save custody
 remains retryable. Profile unload and lease release bind the acquisition identity, so delayed
 cleanup from an earlier departure cannot close a newly arrived session for the same account.
+If departure meets an in-flight transaction, its scoped close queues one owned retry at the save
+retry interval. The transaction settles first; close then saves its committed result and releases custody.
 An unavailable or malformed startup read reports the failure and leaves the world uninstalled.
 Admission retries read storage again; only a successful read can establish absence and create accounts.
 
