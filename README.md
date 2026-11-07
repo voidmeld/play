@@ -33,7 +33,7 @@ saved progression, quests, loot, equipment, trade and chat, through headless and
 | Communication | Chat channels, scheduled world events with watches | [`chat`](docs/api.md#chat), [`events`](docs/api.md#events) |
 | World | Map geometry, coordinates, exploration, viewports and map updates | [`map`](docs/api.md#map) |
 | Networking | Rate limits for remote traffic | [`net`](docs/api.md#net) |
-| Persistence | Profile sessions, session locks, record stores, store hosts | [`persistence`](docs/api.md#persistence) |
+| Persistence | Profile sessions, session locks, record stores, store hosts, generic typed event logs | [`persistence`](docs/api.md#persistence), [`event-log`](docs/api.md#kernel-event-log) |
 
 Every family lives at `src/core/<family>` and exports an `API` type with its components.
 

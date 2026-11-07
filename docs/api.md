@@ -74,6 +74,26 @@ Core rules discover no services. Adapters use injected operations.
 The consumer owns authentication, namespaces, content, policy and deployment.
 Headless fixtures prove their configured hosts; they prove no native rendering, live durability or consumer acceptance.
 
+## kernel-event-log
+
+`src/kernel/event-log` exposes `create` with `Config<E, P>`, `State<E>`, `Projection<E, P>`
+and `Change<E, P>`. Supply bounded event count and identity length, an owned event decoder,
+identity and complete equality functions, a fresh projection seed and an ordered `apply` callback.
+`apply` receives the projection, decoded event and prior admitted events; it can refuse time
+regression, session ordering, negative balances or other domain invariants. Callbacks are pure and
+must treat borrowed inputs as read-only. Decoder copies must own all mutable event fields.
+
+`append` validates existing state, copies through the decoder, admits one event and returns a
+kernel result with state, projection value and `replayed`. Equal IDs replay without reapplying;
+changed IDs refuse with `event_id_conflict`. Full logs refuse new IDs, while identical replays work.
+`project` validates the exact `{ events = ... }` stored shape. `replay` accepts a bounded dense
+event array, deduplicates identical events and rebuilds the projection in order. `snapshot` returns
+an owned, validated state for persistence. All four return explicit kernel refusal results;
+rejected inputs leave caller state unchanged. Keep the previous state for corrected retries.
+Ledger balances use a material/actor projection and signed deltas; reputation uses a standing
+projection and credit events. Neither requires encoding domain fields as a different event type.
+Run `lute run tools/gate.luau --only specs --file src/kernel/event-log.verify.luau`.
+
 ## kernel-codec
 
 `src/kernel/codec` owns the shared record-codec contract, versioned record admission
@@ -17813,6 +17833,69 @@ function equalData(left: unknown, right: unknown): boolean
 
 ```luau
 function versioned<T>(config: Versioned<T>): Decoder<T>
+```
+
+## `kernel.event-log`
+
+[Source](../src/kernel/event-log.luau)
+
+```luau
+local Codec = require("./codec")
+```
+
+```luau
+local Result = require("./result")
+```
+
+```luau
+local Value = require("./value")
+```
+
+### `kernel.event-log.State`
+
+```luau
+export type State<E> = { events: { E } }
+```
+
+### `kernel.event-log.Projection`
+
+```luau
+export type Projection<E, P> = { state: State<E>, value: P }
+```
+
+### `kernel.event-log.Change`
+
+```luau
+export type Change<E, P> = { state: State<E>, value: P, replayed: boolean }
+```
+
+### `kernel.event-log.Config`
+
+```luau
+export type Config<E, P> = {
+	maxEvents: number,
+	maxId: number,
+	decode: Codec.Decoder<E>,
+	identity: (E) -> string,
+	equal: (E, E) -> boolean,
+	seed: () -> P,
+	apply: (P, E, { read [number]: E }) -> (P?, string?),
+}
+```
+
+### `kernel.event-log.create`
+
+```luau
+function create<E, P>(config: Config<E, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+append = function append(state: State<E>, raw: unknown): Result.Result<Change<E, P>>
+project = function project(raw: unknown): Result.Result<Projection<E, P>>
+replay = function replay(raw: unknown): Result.Result<Projection<E, P>>
+snapshot = function snapshot(state: State<E>): Result.Result<State<E>>
 ```
 
 ## `kernel.lease`

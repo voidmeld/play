@@ -84,6 +84,7 @@ return table.freeze {
 	"src/core/trade/receipt.verify.luau",
 	"src/core/vendors/exchange.verify.luau",
 	"src/kernel/codec.verify.luau",
+	"src/kernel/event-log.verify.luau",
 	"src/kernel/lease.verify.luau",
 	"src/kernel/store.verify.luau",
 	"src/kernel/value.verify.luau",
