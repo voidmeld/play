@@ -84,6 +84,7 @@ local function new(
 	local serial = 0
 	local updates = 0
 	local reports: { string } = {}
+	local disposed = false
 	local control: {
 		failRead: boolean,
 		failWrite: boolean,
@@ -177,6 +178,11 @@ local function new(
 		end,
 	}
 	local mount = Mount.start({
+		onClose = function(close)
+			table.insert(runtime.closeHandlers, function()
+				close()
+			end)
+		end,
 		serverId = serverId,
 		universeId = fixtureUniverse,
 		placeId = fixtureDestination,
@@ -421,9 +427,14 @@ local function new(
 		bodies = bodies,
 		enemy = enemy,
 		dispose = function()
+			if disposed then
+				return
+			end
+			disposed = true
 			for _, close in runtime.closeHandlers do
 				close()
 			end
+			owner.dispose()
 			bridge.close()
 			native.game:Destroy()
 			engine.root:Destroy()

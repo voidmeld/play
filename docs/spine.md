@@ -67,13 +67,16 @@ If departure meets an in-flight transaction, its scoped close queues one owned r
 retry interval. The transaction settles first; close then saves its committed result and releases custody.
 An unavailable or malformed startup read reports the failure and leaves the world uninstalled.
 Admission retries read storage again; only a successful read can establish absence and create accounts.
+Scene disposal invokes its native close callback once, then cancels owned local work even when
+close is held. It preserves uncertain saved bytes and leases; teardown does not certify release.
 
 This bounded example keeps at most eight accounts and its market book in one world record.
 Trade and market settlement can therefore commit all touched inventories, balances and receipts
 atomically. Listing removes one carried shield; buying spends five coin, grants one shield,
 credits the seller and burns the configured fee. Receipt acknowledgement is in the same commit.
 The assembly specification pauses a fill while another buyer contends and the seller departs.
-It checks the single debit/grant, refused retry, conserved fee and goods, and saved proceeds on rejoin.
+It checks the single debit/grant, refused retry, coin conservation through the fee burn, goods,
+and saved proceeds on rejoin.
 The optional market field preserves admission of earlier example records. A malformed book refuses.
 For separate profile records, use the documented [trade](api.md#roblox-trade) and
 [market settlement](api.md#roblox-market-settlement) recovery adapters.
