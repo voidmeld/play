@@ -2668,6 +2668,12 @@ An exception from the native `write` callback returns `save_failed`, reports the
 and retains admission for retry. Retries read the current profile. This refusal does not prove
 that storage was unchanged; the host still owns committed readback and uncertainty recovery.
 
+The [bounded load specification](../src/roblox/profile-sessions-load.verify.luau) runs 200 profile
+contexts against shared lease state. It checks save coalescing, 190 timely closes plus ten held
+receipts, and delayed writes after a second coordinator lawfully acquires an expired lease.
+Run `lute run tools/gate.luau --file src/roblox/profile-sessions-load.verify.luau`.
+This is virtual-time integrity coverage, not a native storage-budget or population measurement.
+
 ## roblox-profile-transaction
 
 `src/roblox/profile-transaction` exports `new`, returning `commit(context, change)` and
