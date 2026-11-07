@@ -54,9 +54,14 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 		if deps.clock() >= entry.leaseExpiresAt then
 			return { ok = false, reason = "lock_lost" }
 		end
-		local outcome = deps.write(profile, entry.context, entry.leaseExpiresAt, function(): boolean
-			return current(ownerKey, entry, generation)
-		end, releaseAfterSave, generation)
+		local ran, outcome = pcall(function(): Outcome
+			return deps.write(profile, entry.context, entry.leaseExpiresAt, function(): boolean
+				return current(ownerKey, entry, generation)
+			end, releaseAfterSave, generation)
+		end)
+		if not ran then
+			return { ok = false, reason = "save_failed" }
+		end
 		return outcome
 	end
 

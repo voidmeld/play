@@ -252,6 +252,31 @@ return function(suite: Verify.Harness)
 			expect(f.environment.scheduler.failures):toEqual({})
 			f.sessions.dispose()
 		end)
+		it("contains thrown writes and retries the current profile without releasing admission", function()
+			for _, scheduled in { false, true } do
+				local f = fixture()
+				f.state.beforeReply = function(_generation: number): ()
+					error("reply_unavailable", 0)
+				end
+				if scheduled then
+					f.clock.advance(5)
+				else
+					local outcome = f.sessions.save("profile")
+					expect(outcome.ok):toBe(false)
+					expect(outcome.reason):toBe("save_failed")
+				end
+				expect(f.state.warnings):toBe(1)
+				expect(f.state.releases):toBe(0)
+				expect(f.sessions.isAdmitted("profile")):toBe(true)
+				f.state.beforeReply = nil
+				f.state.value = 2
+				f.clock.advance(1)
+				expect(#f.writes):toBe(2)
+				expect(f.writes[2].profile):toBe(2)
+				expect(f.environment.scheduler.failures):toEqual({})
+				f.sessions.dispose()
+			end
+		end)
 		it("coalesced request saves and synchronous drain release only admitted contexts", function()
 			local f = fixture()
 			expect(f.sessions.save("other").reason):toBe("not_admitted")

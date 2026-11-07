@@ -2657,6 +2657,9 @@ against that context; a replacement sharing its key is never closed on its prede
 With `spawn` and `wait`, a result still pending at the injected deadline is `drain_held`. Returned
 results are a snapshot and never turn into success after return. A late write can still complete
 under its current generation; reconcile that actual completion through a fresh operation.
+An exception from the native `write` callback returns `save_failed`, reports the failed write
+and retains admission for retry. Retries read the current profile. This refusal does not prove
+that storage was unchanged; the host still owns committed readback and uncertainty recovery.
 
 ## roblox-profile-transaction
 
