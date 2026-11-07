@@ -53,8 +53,14 @@ local function new(ports: Ports)
 	local snapshot = State.records.read(ports.store, function()
 		return "world:Harbor"
 	end, "Harbor", "world")
-	assert(snapshot.ok, snapshot.reason)
-	local world = snapshot.value
+	local world: State.World? = if snapshot.ok then snapshot.value else nil
+	if not snapshot.ok then
+		ports.report(snapshot.reason or "read_failed")
+	end
+	local function stored(userId: number): State.Profile?
+		local record = world
+		return if record ~= nil then record.players[tostring(userId)] else nil
+	end
 	local active: { [number]: Active } = {}
 	local busy = false
 	local held = false
@@ -133,7 +139,7 @@ local function new(ports: Ports)
 			and Lock.isLocked(profile.lock, entry.token, ports.clock())
 	end
 	local function current(userId: number): State.Profile?
-		local profile = world.players[tostring(userId)]
+		local profile = stored(userId)
 		return if live(profile, active[userId]) then profile else nil
 	end
 	local function view(userId: number): Protocol.View?
@@ -279,7 +285,7 @@ local function new(ports: Ports)
 		if Value.whole(userId, 1, 9007199254740991) == nil then
 			return false
 		end
-		if world.players[tostring(userId)] ~= nil then
+		if stored(userId) ~= nil then
 			return true
 		end
 		local ok = transact(function(candidate)
@@ -319,7 +325,7 @@ local function new(ports: Ports)
 		if not ok then
 			return { ok = false, reason = reason }
 		end
-		local profile = world.players[tostring(userId)]
+		local profile = assert(stored(userId))
 		local session = assert(sessionRules.openAcquired(ports.clock(), profile.lock.lockExpiry))
 		local context: Admission.Context = table.freeze({
 			userId = userId,
@@ -331,7 +337,7 @@ local function new(ports: Ports)
 		})
 		active[userId] = { context = context, token = token, session = session }
 		sessions.admit(context, profile.lock.lockExpiry, function()
-			local saved = world.players[tostring(userId)]
+			local saved = stored(userId)
 			return if live(saved, active[userId], true) then saved else nil
 		end, function()
 			active[userId] = nil
@@ -355,8 +361,9 @@ local function new(ports: Ports)
 	end
 	local function response(userId: number, ok: boolean, reason: string?): Protocol.Response
 		local listings: { Protocol.Listing } = {}
-		if world.market ~= nil then
-			for _, listing in assert(Content.market.search(world.market, {}, ports.clock())) do
+		local record = world
+		if record ~= nil and record.market ~= nil then
+			for _, listing in assert(Content.market.search(record.market, {}, ports.clock())) do
 				table.insert(listings, {
 					id = listing.listingId,
 					sellerId = listing.sellerId,
@@ -823,7 +830,7 @@ local function new(ports: Ports)
 			return if current(userId) ~= nil and entry ~= nil then entry.context else nil
 		end,
 		owns = function(userId: number, characterId: string): (boolean, unknown)
-			local profile = world.players[tostring(userId)]
+			local profile = stored(userId)
 			return profile ~= nil and profile.characterId == characterId, if profile ~= nil then profile.roster else nil
 		end,
 		enemy = function(): (number, string)

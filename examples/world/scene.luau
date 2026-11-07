@@ -45,7 +45,12 @@ local function separation(first: Roblox.DatatypeVector3, second: Roblox.Datatype
 	return (first - second).Magnitude
 end
 
-local function new(saved: { [string]: unknown }?, startTime: number?, network: Roblox.Network?)
+local function new(
+	saved: { [string]: unknown }?,
+	startTime: number?,
+	network: Roblox.Network?,
+	faults: { failRead: boolean? }?
+)
 	sceneSerial += 1
 	local serverId = "fixture-server-" .. tostring(sceneSerial)
 	local bridge = Lute.fixture.bridge(nil, { handlerErrors = "raise" })
@@ -87,7 +92,14 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 		onUpdate: (() -> ())?,
 		onObserve: ((number) -> ())?,
 	} =
-		{ failRead = false, failWrite = false, loseReply = false, denyBody = false, onUpdate = nil, onObserve = nil }
+		{
+			failRead = faults ~= nil and faults.failRead == true,
+			failWrite = false,
+			loseReply = false,
+			denyBody = false,
+			onUpdate = nil,
+			onObserve = nil,
+		}
 	local queue: { Stores.QueuedWrite } = {}
 	local circuitSerial = 0
 	local circuit: Stores.Circuit = {

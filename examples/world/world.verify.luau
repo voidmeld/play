@@ -12,6 +12,65 @@ return function(suite: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("persistent world assembly", function()
+		it("holds a malformed startup record until valid saved bytes are restored", function()
+			local seed = Scene.new()
+			local client = seed.connect(11)
+			expect(seed.mount.world.hit(11, 30)):toBe(true)
+			expect(seed.mount.shutdown()):toBe(true)
+			local invalid = { partitionId = "Harbor", subjectId = "world", revision = -1, players = {} }
+			local values: { [string]: unknown } = { ["world:Harbor"] = invalid }
+			local scene = Scene.new(values)
+			local refused, player = scene.connect(11)
+			expect(scene.mount.admission.isAdmitted(player)):toBe(false)
+			expect(scene.mount.world.view(11)):toBe(nil)
+			expect(scene.updates()):toBe(0)
+			expect(scene.values["world:Harbor"]):toEqual(invalid)
+			values["world:Harbor"] = seed.values["world:Harbor"]
+			expect(scene.disconnect(11)):toBe(true)
+			local restored, admitted = scene.connect(11)
+			expect(scene.mount.admission.isAdmitted(admitted)):toBe(true)
+			expect(assert(scene.mount.world.view(11)).xp):toBe(100)
+			expect(scene.engine.scheduler.failures):toEqual({})
+			expect(scene.mount.shutdown()):toBe(true)
+			client.dispose()
+			refused.dispose()
+			restored.dispose()
+			seed.dispose()
+			scene.dispose()
+		end)
+		it("keeps failed startup reads closed without crashing or constructing a saved default", function()
+			for _, earned in { false, true } do
+				local seed = Scene.new()
+				local client = seed.connect(11)
+				if earned then
+					expect(seed.mount.world.hit(11, 30)):toBe(true)
+				end
+				expect(seed.mount.shutdown()):toBe(true)
+				local values = if earned then seed.values else {}
+				local saved = if earned then State.copy(values["world:Harbor"]) else nil
+				local scene = Scene.new(values, 0, nil, { failRead = true })
+				local refused, player = scene.connect(11)
+				expect(scene.mount.admission.isAdmitted(player)):toBe(false)
+				expect(scene.mount.world.view(11)):toBe(nil)
+				expect(scene.updates()):toBe(0)
+				expect(if earned then State.copy(scene.values["world:Harbor"]) else scene.values["world:Harbor"]):toEqual(
+					saved
+				)
+				expect(table.find(scene.reports(), "retry_exhausted") ~= nil):toBe(true)
+				scene.control.failRead = false
+				expect(scene.disconnect(11)):toBe(true)
+				local restored, admitted = scene.connect(11)
+				expect(scene.mount.admission.isAdmitted(admitted)):toBe(true)
+				expect(assert(scene.mount.world.view(11)).xp):toBe(if earned then 100 else 0)
+				expect(scene.engine.scheduler.failures):toEqual({})
+				expect(scene.mount.shutdown()):toBe(true)
+				client.dispose()
+				refused.dispose()
+				restored.dispose()
+				seed.dispose()
+				scene.dispose()
+			end
+		end)
 		it("releases completed combat timers during a continuing session", function()
 			local scene = Scene.new()
 			local client = scene.connect(11)

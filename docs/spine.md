@@ -60,6 +60,8 @@ Renewal, departure and shutdown use the same persistence and profile-session con
 Failed reads refuse account creation and value changes without saving a default or overwriting
 earned state. A closing session retains its leased profile for save retries while refusing gameplay;
 after storage recovers, its committed close can release the lease.
+An unavailable or malformed startup read reports the failure and leaves the world uninstalled.
+Admission retries read storage again; only a successful read can establish absence and create accounts.
 
 This bounded example keeps at most eight accounts and its market book in one world record.
 Trade and market settlement can therefore commit all touched inventories, balances and receipts
