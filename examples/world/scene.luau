@@ -68,6 +68,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	local bodyEpochs: { [Roblox.Instance]: number } = {}
 	local bodySerial = 0
 	local clock = Engine.clock(engine)
+	local owner = Engine.owner(engine)
 	clock.advance(startTime or 0)
 	local values: { [string]: unknown } = saved or {}
 	local players: { [number]: Mount.Subject } = {}
@@ -188,7 +189,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 			end,
 		},
 		circuit = circuit,
-		owner = Engine.owner(engine),
+		owner = owner,
 		clock = function()
 			return math.floor(clock.clock())
 		end,
@@ -422,6 +423,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 		updates = function()
 			return updates
 		end,
+		ownedTaskCount = owner.size,
 		reports = function()
 			return table.clone(reports)
 		end,

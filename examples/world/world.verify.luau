@@ -12,6 +12,35 @@ return function(suite: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("persistent world assembly", function()
+		it("releases completed combat timers during a continuing session", function()
+			local scene = Scene.new()
+			local client = scene.connect(11)
+			local equip: Protocol.EquipRequest = { kind = "equip", itemId = "training_sword" }
+			client.request(equip)
+			local baseline = scene.ownedTaskCount()
+			for _ = 1, 8 do
+				for _ = 1, 3 do
+					client.request({ kind = "attack" })
+					expect(assert(client.latest()).ok):toBe(true)
+					scene.clock.advance(0.25)
+					scene.clock.advance(0.3)
+				end
+				scene.clock.advance(3)
+				expect((scene.mount.world.enemy())):toBe(30)
+				expect(scene.ownedTaskCount()):toBe(baseline)
+			end
+			expect(assert(scene.mount.world.view(11)).xp):toBe(800)
+			expect(scene.engine.scheduler.failures):toEqual({})
+			client.request({ kind = "attack" })
+			expect(assert(client.latest()).ok):toBe(true)
+			expect(scene.mount.shutdown()):toBe(true)
+			expect(scene.ownedTaskCount()):toBe(0)
+			scene.clock.advance(4)
+			expect((scene.mount.world.enemy())):toBe(30)
+			expect(scene.engine.scheduler.failures):toEqual({})
+			client.dispose()
+			scene.dispose()
+		end)
 		it("rechecks recovery after a yielding contact admission observation", function()
 			local scene = Scene.new()
 			local client = scene.connect(11)

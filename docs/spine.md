@@ -80,6 +80,7 @@ Failed native observations refuse admission or cancel contact and finish recover
 `contact_unavailable` through the host's reporting port.
 One resolved contact applies damage. Recovery blocks repeated attacks; the scene
 respawns the enemy after three seconds. Disconnection fences an outstanding contact.
+Completed combat timers detach from their owner; shutdown cancels timers that have not fired.
 Integer wall time serves saved records and leases; an injected elapsed clock serves combat.
 
 ## Subscribe from any UI

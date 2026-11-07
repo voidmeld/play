@@ -65,6 +65,26 @@ local function new(ports: Ports)
 	local enemy = { health = 30, threat = Threat.empty(), defeatId = ports.newId() }
 	local attacks: { [number]: boolean } = {}
 	local attackSerial = 0
+	local function schedule(seconds: number, callback: () -> ())
+		local completed = false
+		local detach: () -> () = function() end
+		local cancel = ports.schedule(seconds, function()
+			if completed then
+				return
+			end
+			completed = true
+			detach()
+			callback()
+		end)
+		if not completed then
+			detach = ports.owner.own(function()
+				if not completed then
+					completed = true
+					cancel()
+				end
+			end)
+		end
+	end
 
 	local function transact(edit: (State.World) -> (boolean, string?)): (boolean, string?)
 		if stopped or held or busy then
@@ -496,7 +516,7 @@ local function new(ports: Ports)
 			return false, admitted.reason
 		end
 		attacks[userId] = true
-		ports.owner.own(ports.schedule(0.25, function()
+		schedule(0.25, function()
 			local evidence = observe(userId)
 			local latest = current(userId)
 			local source = {
@@ -531,17 +551,17 @@ local function new(ports: Ports)
 					return
 				end
 				if ok and enemy.health == 0 then
-					ports.owner.own(ports.schedule(3, function()
+					schedule(3, function()
 						enemy = { health = 30, threat = Threat.empty(), defeatId = ports.newId() }
 						publish()
-					end))
+					end)
 				end
 			end
 			publish()
-			ports.owner.own(ports.schedule(0.3, function()
+			schedule(0.3, function()
 				attacks[userId] = nil
-			end))
-		end))
+			end)
+		end)
 		return true, nil
 	end
 	local function request(userId: number, raw: unknown): Protocol.Response
