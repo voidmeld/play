@@ -10,6 +10,7 @@ export type Line = { read id: string }
 type List<T> = { read [number]: T }
 export type Spec = { read class: string, read lines: List<Line>, read tiers: List<Tier>, read nodes: List<Node> }
 export type Bucket = { ranks: { [string]: number }, respecCount: number }
+export type RoleReason = "ambiguous role" | "unknown role"
 
 local UNKNOWN_TALENT = "unknown talent"
 local FULL_RANK = "talent at full rank"
@@ -21,8 +22,8 @@ local function whole(value: unknown): boolean
 	return type(value) == "number" and value == value and value == math.floor(value) and value < math.huge
 end
 
-local function specForRole(specs: List<Spec>, role: string): (Spec?, string?)
-	local found: Spec? = nil
+local function specForRole<S>(specs: List<S & Spec>, role: string): ((S & Spec)?, RoleReason?)
+	local found: (S & Spec)? = nil
 	for _, spec in specs do
 		if spec.class == role then
 			if found ~= nil then
@@ -214,6 +215,7 @@ return table.freeze({
 	TIER_LOCKED = TIER_LOCKED,
 	NO_POINTS = NO_POINTS,
 	INVALID_STATE = INVALID_STATE,
+	specForRole = specForRole,
 	bucketOf = bucketOf,
 	spendByLine = spendByLine,
 	stateProblem = stateProblem,

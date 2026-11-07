@@ -22,7 +22,7 @@ saved progression, quests, loot, equipment, trade and chat, through headless and
 | Family | Systems | Entry |
 | --- | --- | --- |
 | Characters | Account and character leases, creation, naming, deletion, retirement, rosters, routing between places | [`identity`](docs/api.md#identity), [`character`](docs/api.md#character) |
-| Progression | Levels and XP, talents and ranks, action bar, consumables, reputation, seasons, recovery, settlement of pending grants | [`progression`](docs/api.md#progression) |
+| Progression | Levels and XP, talents and ranks with typed role lookup, action bar, consumables, reputation, seasons, recovery, settlement of pending grants, fingerprinted transaction receipts | [`progression`](docs/api.md#progression) |
 | Quests | Journal, objectives, counters, claims, markers, lifecycle and runs | [`quest`](docs/api.md#quest) |
 | Items | Stacks, equipment slots, carried cargo | [`inventory`](docs/api.md#inventory) |
 | Loot | Roll tables and loot decisions | [`loot`](docs/api.md#loot) |
@@ -32,8 +32,8 @@ saved progression, quests, loot, equipment, trade and chat, through headless and
 | Social | Groups, parties, fellowships, warbands, formations, membership, guild bank, guild home, guild ledger, allies, notes, chronicle | [`social`](docs/api.md#social) |
 | Communication | Chat channels, scheduled world events with watches | [`chat`](docs/api.md#chat), [`events`](docs/api.md#events) |
 | World | Map geometry, coordinates, exploration, viewports and map updates | [`map`](docs/api.md#map) |
-| Networking | Rate limits for remote traffic | [`net`](docs/api.md#net) |
-| Persistence | Profile sessions, session locks, record stores, store hosts | [`persistence`](docs/api.md#persistence) |
+| Networking | Rate limits, bounded payload graphs, aggregate remote admission with handler lanes and deduplicated refusal notices | [`net`](docs/api.md#net), [`remote-admission`](docs/api.md#roblox-remote-admission) |
+| Persistence | Profile sessions, session locks, record stores, store hosts, generic typed event logs, durable profile transactions with conditional rollback | [`persistence`](docs/api.md#persistence), [`event-log`](docs/api.md#kernel-event-log), [`profile-transaction`](docs/api.md#roblox-profile-transaction) |
 
 Every family lives at `src/core/<family>` and exports an `API` type with its components.
 

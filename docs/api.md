@@ -74,6 +74,26 @@ Core rules discover no services. Adapters use injected operations.
 The consumer owns authentication, namespaces, content, policy and deployment.
 Headless fixtures prove their configured hosts; they prove no native rendering, live durability or consumer acceptance.
 
+## kernel-event-log
+
+`src/kernel/event-log` exposes `create` with `Config<E, P>`, `State<E>`, `Projection<E, P>`
+and `Change<E, P>`. Supply bounded event count and identity length, an owned event decoder,
+identity and complete equality functions, a fresh projection seed and an ordered `apply` callback.
+`apply` receives the projection, decoded event and prior admitted events; it can refuse time
+regression, session ordering, negative balances or other domain invariants. Callbacks are pure and
+must treat borrowed inputs as read-only. Decoder copies must own all mutable event fields.
+
+`append` validates existing state, copies through the decoder, admits one event and returns a
+kernel result with state, projection value and `replayed`. Equal IDs replay without reapplying;
+changed IDs refuse with `event_id_conflict`. Full logs refuse new IDs, while identical replays work.
+`project` validates the exact `{ events = ... }` stored shape. `replay` accepts a bounded dense
+event array, deduplicates identical events and rebuilds the projection in order. `snapshot` returns
+an owned, validated state for persistence. All four return explicit kernel refusal results;
+rejected inputs leave caller state unchanged. Keep the previous state for corrected retries.
+Ledger balances use a material/actor projection and signed deltas; reputation uses a standing
+projection and credit events. Neither requires encoding domain fields as a different event type.
+Run `lute run tools/gate.luau --only specs --file src/kernel/event-log.verify.luau`.
+
 ## kernel-codec
 
 `src/kernel/codec` owns the shared record-codec contract, versioned record admission
@@ -1012,6 +1032,15 @@ Types and configuration are exported from [src/core/net.luau](../src/core/net.lu
 | Component | Operations | Exported types |
 | --- | --- | --- |
 | [rate-limit](../src/core/net/rate-limit.luau) | `consume`, `newBucket`, `tryConsume` | `Config`, `Bucket`, `KeyedState` |
+| [payload](../src/core/net/payload.luau) | `create`, `decode` | `Bounds`, `Arguments`, `Config` |
+
+`payload.create` captures bounds and returns a `decode(...unknown)` kernel result. It bounds argument
+count, unique graph entries, table depth, each string and string key. It copies plain acyclic tables,
+preserves shared aliases and nil argument positions through `Arguments.n`, and refuses function/thread
+values and non-finite numbers. The optional `atom` predicate admits immutable native values, such as
+vectors or Roblox value types, without traversing them. Omit it to accept only data values. This is
+graph admission; handlers still validate their own request schemas. Run
+`lute run tools/gate.luau --only specs --file src/core/net/payload.verify.luau`.
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
 
@@ -1204,10 +1233,29 @@ Types and configuration are exported from [src/core/progression.luau](../src/cor
 | [season](../src/core/progression/season.luau) | `apply`, `claim`, `claimIn`, `definition`, `emptyState`, `projectState`, `projectTracks`, `projection`, `projectionIn`, `recordIn`, `season` | `Event`, `State`, `Result`, `PlaySource`, `Objective`, `Reward`, `AuthoredDefinition`, `Definition`, `ProjectionObjective`, `Projection`, `Config` |
 | [settlement](../src/core/progression/settlement.luau) | `applyPersonalReward`, `emptyRewardHistory`, `settlement` | `RewardReceipt`, `RewardHistory`, `RewardRequest`, `RewardGrant`, `RewardApplied`, `RewardRejected`, `RewardResult`, `GrantResult`, `Config` |
 | [standing-credit](../src/core/progression/standing-credit.luau) | `create` | `Outcome`, `Config` |
-| [talent-ranks](../src/core/progression/talent-ranks.luau) | `FULL_RANK`, `INVALID_STATE`, `NO_POINTS`, `TIER_LOCKED`, `UNKNOWN_TALENT`, `addRank`, `availablePoints`, `bucketOf`, `rankRefusal`, `respecRole`, `spendByLine`, `spentPoints`, `stateProblem` | `Loadout`, `Result`, `Node`, `Tier`, `Line`, `Spec`, `Bucket` |
+| [talent-ranks](../src/core/progression/talent-ranks.luau) | `FULL_RANK`, `INVALID_STATE`, `NO_POINTS`, `TIER_LOCKED`, `UNKNOWN_TALENT`, `addRank`, `availablePoints`, `bucketOf`, `rankRefusal`, `respecRole`, `spendByLine`, `spentPoints`, `stateProblem`, `specForRole` | `Loadout`, `Result`, `Node`, `Tier`, `Line`, `Spec`, `Bucket`, `RoleReason` |
+
+`talent_ranks.specForRole(specs, role)` returns the unique borrowed full specification, preserving
+the caller's enriched spec type and nested fields. It returns `nil, "unknown role"` when absent and
+`nil, "ambiguous role"` when multiple specs match. `RoleReason` names those two refusals. Lookup
+does not mutate the catalog; correcting a catalog permits a subsequent lookup. Rank and respec
+operations use this same lookup. Run
+`lute run tools/gate.luau --only specs --file src/core/progression/talent-ranks.verify.luau`.
 | [talents](../src/core/progression/talents.luau) | `change`, `decodeIntent`, `default`, `fromLoadout`, `load`, `normalize`, `rules`, `toLoadout` | `State`, `Loadout`, `Intent`, `Result` |
 | [tracking](../src/core/progression/tracking.luau) | `canTrack`, `tracking` | `Config` |
 | [transactions](../src/core/progression/transactions.luau) | `commit`, `isRecorded`, `ledgerKey`, `recordedKeys`, `transactions` | `CollectionSet`, `Outcome`, `Result`, `Config` |
+| [fingerprinted-transactions](../src/core/progression/fingerprinted-transactions.luau) | `create`, `commit`, `fingerprint` | `Bounds`, `Receipts`, `Result`, `Config` |
+
+`fingerprinted_transactions.create` supplies bounded payload receipts alongside the existing boolean
+`transactions` API. `fingerprint` produces an exact canonical encoding, with typed keys, sorted table
+keys and explicit depth, total-entry and byte limits. It refuses cycles, metatables, non-finite numbers
+and non-data values. The encoding is the fingerprint; it has no hash collision risk.
+`commit` copies the profile before the effect, stores the fingerprint on success, replays identical
+payloads without calling the effect and refuses changed payloads with `transaction_conflict`.
+Effect refusal leaves the original available for retry. Full receipt sets refuse new IDs without
+eviction; the consumer owns receipt retirement and its replay horizon. Supply owned profile copies
+and install the returned profile atomically. Persist receipts with the affected fields.
+Run `lute run tools/gate.luau --only specs --file src/core/progression/fingerprinted-transactions.verify.luau`.
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
 
@@ -2528,6 +2576,30 @@ This example exercises: renews from the current profile and retries failures wit
 
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
 
+## roblox-profile-transaction
+
+`src/roblox/profile-transaction` exports `new`, returning `commit(context, change)`, and types
+`Outcome`, `Restoration`, `Result`, `SessionPort<C>` and `Dependencies<C, P>`. Bind the `save` and
+`isAdmitted` operations of `profile-sessions`, the existing live profile authority and a fresh durable
+readback. This coordinator adds no store. Supply owned `copy`, complete-profile `equal`, and `verify`
+for the action's exact expected fields, including revision and receipts where used.
+
+`replace(context, expected, candidate)` must atomically compare the complete live state by value
+against `expected`, check the current session, and install `candidate` only on equality. It must not
+yield. Callbacks receive borrowed inputs; `change` receives an owned copy. Per-key exclusion covers
+yielding saves/readbacks. Change-time interleavings refuse before installation.
+
+`commit` applies the candidate, saves through the admitted session, reads storage and verifies both
+live and durable expected fields. `committed` requires successful save and verification under the same
+session. On failure it restores the prior live profile only while the full live profile still equals
+the candidate. `rolled_back` additionally requires readback equal to the complete prior profile;
+`ambiguous` reports uncertain durability or superseded live state, even when live restoration succeeds.
+`rejected` means no candidate was installed. `restoration` explicitly reports `not_applied`, `restored`,
+`superseded` or `failed`; inspect `reason` and `saveReason`. Reconcile ambiguous storage before retrying;
+this coordinator never rewrites storage to erase an uncertain transaction. Confirmed rollback permits
+a corrected retry. Host exceptions return explicit uncertainty and release exclusion.
+Run `lute run tools/gate.luau --only specs --file src/roblox/profile-transaction.verify.luau`.
+
 ## roblox-profile-transfer
 
 Read and settle profiles under exact session identity and per-key exclusion.
@@ -2624,6 +2696,30 @@ The fake session ports do not certify native storage durability or an adopter's 
 - Updates accepted during a save remain pending for a later flush.
 - Closing releases only after pending work drains; failed release remains retryable.
 - Old callbacks cannot advance a replacement attachment, and metatable payloads are refused.
+
+## roblox-remote-admission
+
+`src/roblox/remote-admission` exports `new`, with `Handler<P>`, `Options<P>`, `Dispatch` and
+`Dependencies<E, P>`. Its operations are `serve`, `receive`, `forget`, `served` and `dispose`.
+Supply a monotonic clock, authenticated sender key, per-channel aggregate budget, bounded payload
+configuration, channel/handler/sender/text limits, native connect/ownership and refusal notification.
+`serve` uses `remote-events.transport`, retaining one connection per channel and disconnecting the
+last released handler. Failed native setup removes its pending registration, permitting retry.
+The coordinator owns no native discovery or authentication.
+
+Each invocation consumes one aggregate channel token before decoding. `Options.lane` adds a
+per-handler sender bucket with capacity and refill no greater than the aggregate budget. Budget
+refusals call each affected handler's `refused` hook; `notify` deduplicates each sender/channel/reason
+within the positive `refusalWindow`. Refusals without admitted sender state deduplicate per channel.
+Handler and hook exceptions cannot retain invocation exclusion.
+`receive` returns accepted/refused handler counts and an optional channel refusal reason. Bounded
+payload admission precedes handlers; handlers receive borrowed decoded arguments and must not mutate
+them. Dispatch snapshots registrations, skips released handlers and defers new registrations until the
+next invocation. One invocation per sender/channel runs at once, including across yielding handlers.
+`forget(key)` clears budgets and notices, fences the remaining dispatch and preserves active exclusion
+until the invocation returns. `dispose` releases every native connection and fences dispatch.
+Limits refuse excess senders until the host forgets departed keys. Run
+`lute run tools/gate.luau --only specs --file src/roblox/remote-admission.verify.luau`.
 
 ## roblox-remote-events
 
@@ -9403,6 +9499,48 @@ Exported value; see its declaration in [source](../src/core/market.luau).
 
 Exported value; see its declaration in [source](../src/core/market.luau).
 
+## `core.net.payload`
+
+[Source](../src/core/net/payload.luau)
+
+```luau
+local Result = require("../../kernel/result")
+```
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `core.net.payload.Bounds`
+
+```luau
+export type Bounds = { maxArguments: number, maxEntries: number, maxDepth: number, maxString: number, maxKey: number }
+```
+
+### `core.net.payload.Arguments`
+
+```luau
+export type Arguments = { n: number, [number]: unknown }
+```
+
+### `core.net.payload.Config`
+
+```luau
+export type Config = { bounds: Bounds, atom: ((unknown) -> boolean)? }
+```
+
+### `core.net.payload.create`
+
+```luau
+function create(config: Config)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+decode = function decode(...: unknown): Result.Result<Arguments>
+```
+
 ## `core.net.rate-limit`
 
 [Source](../src/core/net/rate-limit.luau)
@@ -9448,6 +9586,10 @@ Exported value; see its declaration in [source](../src/core/net/rate-limit.luau)
 [Source](../src/core/net.luau)
 
 ```luau
+local Payload = require("./net/payload")
+```
+
+```luau
 local RateLimit = require("./net/rate-limit")
 ```
 
@@ -9469,13 +9611,36 @@ export type RateLimitBucket = RateLimit.Bucket
 export type RateLimitKeyedState = RateLimit.KeyedState
 ```
 
+### `core.net.PayloadBounds`
+
+```luau
+export type PayloadBounds = Payload.Bounds
+```
+
+### `core.net.PayloadArguments`
+
+```luau
+export type PayloadArguments = Payload.Arguments
+```
+
+### `core.net.PayloadConfig`
+
+```luau
+export type PayloadConfig = Payload.Config
+```
+
 ### `core.net.API`
 
 ```luau
 export type API = {
 	read rate_limit: typeof(RateLimit),
+	read payload: typeof(Payload),
 }
 ```
+
+### `core.net.payload`
+
+Exported value; see its declaration in [source](../src/core/net.luau).
 
 ### `core.net.rate_limit`
 
@@ -11559,6 +11724,63 @@ advance = function Core.advance(
 	): (State?, number, number)
 ```
 
+## `core.progression.fingerprinted-transactions`
+
+[Source](../src/core/progression/fingerprinted-transactions.luau)
+
+```luau
+local Value = require("../../kernel/value")
+```
+
+### `core.progression.fingerprinted-transactions.Bounds`
+
+```luau
+export type Bounds = { maxDepth: number, maxEntries: number, maxBytes: number }
+```
+
+### `core.progression.fingerprinted-transactions.Receipts`
+
+```luau
+export type Receipts = { [string]: string }
+```
+
+### `core.progression.fingerprinted-transactions.Result`
+
+```luau
+export type Result<T> = { state: T, outcome: "committed" | "replayed" | "rejected", reason: string? }
+```
+
+### `core.progression.fingerprinted-transactions.Config`
+
+```luau
+export type Config<T> = {
+	maxTransactionId: number,
+	maxRecords: number,
+	bounds: Bounds,
+	copy: (T) -> T,
+	receipts: (T) -> Receipts,
+	withReceipts: (T, Receipts) -> T,
+}
+```
+
+### `core.progression.fingerprinted-transactions.create`
+
+```luau
+function create<T>(config: Config<T>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+commit = function commit(profile: T, transactionId: string, payload: unknown, effect: (T) -> (T?, string?)): Result<T>
+```
+
+### `core.progression.fingerprinted-transactions.fingerprint`
+
+```luau
+function fingerprint(payload: unknown, bounds: Bounds): (string?, string?)
+```
+
 ## `core.progression.grants`
 
 [Source](../src/core/progression/grants.luau)
@@ -12302,6 +12524,12 @@ export type Spec = { read class: string, read lines: List<Line>, read tiers: Lis
 export type Bucket = { ranks: { [string]: number }, respecCount: number }
 ```
 
+### `core.progression.talent-ranks.RoleReason`
+
+```luau
+export type RoleReason = "ambiguous role" | "unknown role"
+```
+
 ### `core.progression.talent-ranks.FULL_RANK`
 
 Exported value; see its declaration in [source](../src/core/progression/talent-ranks.luau).
@@ -12378,6 +12606,12 @@ Returned operations and values (declarations; unannotated results are inferred):
 ok = true
 state = nextLoadout
 reason = nil
+```
+
+### `core.progression.talent-ranks.specForRole`
+
+```luau
+function specForRole<S>(specs: List<S & Spec>, role: string): ((S & Spec)?, RoleReason?)
 ```
 
 ### `core.progression.talent-ranks.spendByLine`
@@ -12613,6 +12847,10 @@ local Consumables = require("./progression/consumables")
 ```
 
 ```luau
+local FingerprintedTransactions = require("./progression/fingerprinted-transactions")
+```
+
+```luau
 local Grants = require("./progression/grants")
 ```
 
@@ -12772,6 +13010,30 @@ export type GrantsProductionRegistryResult = Grants.ProductionRegistryResult
 
 ```luau
 export type GrantsConfig = Grants.Config
+```
+
+### `core.progression.FingerprintedTransactionsBounds`
+
+```luau
+export type FingerprintedTransactionsBounds = FingerprintedTransactions.Bounds
+```
+
+### `core.progression.FingerprintedTransactionsReceipts`
+
+```luau
+export type FingerprintedTransactionsReceipts = FingerprintedTransactions.Receipts
+```
+
+### `core.progression.FingerprintedTransactionsResult`
+
+```luau
+export type FingerprintedTransactionsResult<T> = FingerprintedTransactions.Result<T>
+```
+
+### `core.progression.FingerprintedTransactionsConfig`
+
+```luau
+export type FingerprintedTransactionsConfig<T> = FingerprintedTransactions.Config<T>
 ```
 
 ### `core.progression.HearthDestination`
@@ -13092,6 +13354,12 @@ export type TalentRanksSpec = TalentRanks.Spec
 export type TalentRanksBucket = TalentRanks.Bucket
 ```
 
+### `core.progression.TalentRanksRoleReason`
+
+```luau
+export type TalentRanksRoleReason = TalentRanks.RoleReason
+```
+
 ### `core.progression.TalentsState`
 
 ```luau
@@ -13153,6 +13421,7 @@ export type API = {
 	read actionbar: typeof(Actionbar),
 	read consumables: typeof(Consumables),
 	read grants: typeof(Grants),
+	read fingerprinted_transactions: typeof(FingerprintedTransactions),
 	read hearth: typeof(Hearth),
 	read levels: typeof(Levels),
 	read recovery: typeof(Recovery),
@@ -13172,6 +13441,10 @@ export type API = {
 Exported value; see its declaration in [source](../src/core/progression.luau).
 
 ### `core.progression.consumables`
+
+Exported value; see its declaration in [source](../src/core/progression.luau).
+
+### `core.progression.fingerprinted_transactions`
 
 Exported value; see its declaration in [source](../src/core/progression.luau).
 
@@ -17688,6 +17961,69 @@ function equalData(left: unknown, right: unknown): boolean
 function versioned<T>(config: Versioned<T>): Decoder<T>
 ```
 
+## `kernel.event-log`
+
+[Source](../src/kernel/event-log.luau)
+
+```luau
+local Codec = require("./codec")
+```
+
+```luau
+local Result = require("./result")
+```
+
+```luau
+local Value = require("./value")
+```
+
+### `kernel.event-log.State`
+
+```luau
+export type State<E> = { events: { E } }
+```
+
+### `kernel.event-log.Projection`
+
+```luau
+export type Projection<E, P> = { state: State<E>, value: P }
+```
+
+### `kernel.event-log.Change`
+
+```luau
+export type Change<E, P> = { state: State<E>, value: P, replayed: boolean }
+```
+
+### `kernel.event-log.Config`
+
+```luau
+export type Config<E, P> = {
+	maxEvents: number,
+	maxId: number,
+	decode: Codec.Decoder<E>,
+	identity: (E) -> string,
+	equal: (E, E) -> boolean,
+	seed: () -> P,
+	apply: (P, E, { read [number]: E }) -> (P?, string?),
+}
+```
+
+### `kernel.event-log.create`
+
+```luau
+function create<E, P>(config: Config<E, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+append = function append(state: State<E>, raw: unknown): Result.Result<Change<E, P>>
+project = function project(raw: unknown): Result.Result<Projection<E, P>>
+replay = function replay(raw: unknown): Result.Result<Projection<E, P>>
+snapshot = function snapshot(state: State<E>): Result.Result<State<E>>
+```
+
 ## `kernel.lease`
 
 [Source](../src/kernel/lease.luau)
@@ -21106,6 +21442,65 @@ ownedTaskCount = function ownedTaskCount(context: C): number
 dispose = function dispose()
 ```
 
+## `roblox.profile-transaction`
+
+[Source](../src/roblox/profile-transaction.luau)
+
+```luau
+local Sessions = require("./profile-sessions")
+```
+
+### `roblox.profile-transaction.Outcome`
+
+```luau
+export type Outcome = "committed" | "rolled_back" | "ambiguous" | "rejected"
+```
+
+### `roblox.profile-transaction.Restoration`
+
+```luau
+export type Restoration = "not_applied" | "restored" | "superseded" | "failed"
+```
+
+### `roblox.profile-transaction.Result`
+
+```luau
+export type Result = { outcome: Outcome, restoration: Restoration, reason: string?, saveReason: string? }
+```
+
+### `roblox.profile-transaction.SessionPort`
+
+```luau
+export type SessionPort<C> = { isAdmitted: (C) -> boolean, save: (C) -> Sessions.Outcome }
+```
+
+### `roblox.profile-transaction.Dependencies`
+
+```luau
+export type Dependencies<C, P> = {
+	sessions: SessionPort<C>,
+	keyFor: (C) -> string,
+	live: (C) -> P?,
+	replace: (C, P, P) -> boolean,
+	readback: (C) -> (P?, string?),
+	copy: (P) -> P,
+	equal: (P, P) -> boolean,
+	verify: (P, P) -> boolean,
+}
+```
+
+### `roblox.profile-transaction.new`
+
+```luau
+function new<C, P>(deps: Dependencies<C, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+commit = function commit(context: C, change: (P) -> (P?, string?)): Result
+```
+
 ## `roblox.profile-transfer`
 
 [Source](../src/roblox/profile-transfer.luau)
@@ -21399,6 +21794,79 @@ Returned operations and values (declarations; unannotated results are inferred):
 
 ```luau
 new = function new(deps: Deps): Handle
+```
+
+## `roblox.remote-admission`
+
+[Source](../src/roblox/remote-admission.luau)
+
+```luau
+local Events = require("./remote-events")
+```
+
+```luau
+local Payload = require("../core/net/payload")
+```
+
+```luau
+local RateLimit = require("../core/net/rate-limit")
+```
+
+```luau
+local Value = require("../kernel/value")
+```
+
+### `roblox.remote-admission.Handler`
+
+```luau
+export type Handler<P> = (P, Payload.Arguments) -> ()
+```
+
+### `roblox.remote-admission.Options`
+
+```luau
+export type Options<P> = { lane: RateLimit.Config?, refused: ((P, string) -> ())? }
+```
+
+### `roblox.remote-admission.Dispatch`
+
+```luau
+export type Dispatch = { accepted: number, refused: number, reason: string? }
+```
+
+### `roblox.remote-admission.Dependencies`
+
+```luau
+export type Dependencies<E, P> = {
+	clock: () -> number,
+	keyFor: (P) -> string,
+	budget: (string) -> RateLimit.Config,
+	payload: Payload.Config,
+	maxChannels: number,
+	maxHandlers: number,
+	maxKeys: number,
+	maxText: number,
+	refusalWindow: number,
+	connect: (E, (P, ...unknown) -> ()) -> () -> (),
+	own: (() -> ()) -> (),
+	notify: (string, P, string) -> (),
+}
+```
+
+### `roblox.remote-admission.new`
+
+```luau
+function new<E, P>(deps: Dependencies<E, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+serve = function serve(name: string, event: E, handler: Handler<P>, options: Options<P>?): () -> ()
+receive = function receive(name: string, player: P, ...: unknown): Dispatch
+forget = function forget(key: string)
+served = function served(name: string): number
+dispose = function dispose()
 ```
 
 ## `roblox.remote-events`
