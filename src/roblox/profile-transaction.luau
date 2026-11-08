@@ -32,12 +32,13 @@ local function new<C, P>(deps: Dependencies<C, P>)
 		local previous: P? = nil
 		local candidate: P? = nil
 		local applied = false
+		local writeSuperseded = false
 		local function restore(): Restoration
 			local before, expected = previous, candidate
 			if not applied or before == nil or expected == nil then
 				return "not_applied"
 			end
-			if not deps.sessions.isAdmitted(context) then
+			if writeSuperseded or not deps.sessions.isAdmitted(context) then
 				return "superseded"
 			end
 			local current = deps.live(context)
@@ -92,6 +93,10 @@ local function new<C, P>(deps: Dependencies<C, P>)
 			end
 			local saved, save = pcall(deps.sessions.save, context)
 			local saveReason: string? = if saved then save.reason else "save_failed"
+			local refusedSave = not saved or not save.ok
+			writeSuperseded = refusedSave
+				and (saveReason == "operation_cancelled" or saveReason == "not_admitted" or saveReason == "lock_lost")
+			local uncertainSave = refusedSave and (not saved or saveReason == "save_failed" or writeSuperseded)
 			if installed ~= nil and (not saved or not save.ok) then
 				return {
 					outcome = "ambiguous",
@@ -123,7 +128,11 @@ local function new<C, P>(deps: Dependencies<C, P>)
 				elseif not read or stored == nil then readReason or "readback_failed"
 				else "verification_failed"
 			return {
-				outcome = if restoration == "restored" and durableBefore then "rolled_back" else "ambiguous",
+				outcome = if restoration == "restored"
+						and durableBefore
+						and not uncertainSave
+					then "rolled_back"
+					else "ambiguous",
 				restoration = restoration,
 				reason = reason,
 				saveReason = saveReason,

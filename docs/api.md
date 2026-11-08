@@ -2653,6 +2653,8 @@ This example exercises: renews from the current profile and retries failures wit
 ### Invariants
 
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
+`isAdmitted` matches retained context identity. Closing or expired contexts can retain persistence
+custody after write authority is lost; the host owns gameplay liveness.
 Replacing an admitted key retires its predecessor's local renewal tasks and owner without a
 durable release or `onReleased` receipt. The host must acquire the replacement lease lawfully.
 Disposal is terminal: later admission callbacks do nothing and cannot recreate local authority,
@@ -2700,6 +2702,11 @@ the candidate. `rolled_back` additionally requires readback equal to the complet
 `superseded` or `failed`; inspect `reason` and `saveReason`. Reconcile ambiguous storage before retrying;
 this coordinator never rewrites storage to erase an uncertain transaction. Confirmed rollback permits
 a corrected retry. Host exceptions return explicit uncertainty and release exclusion.
+Cancelled, unadmitted or lock-lost saves supersede conditional restoration even while logical
+session custody remains. Their outcome stays `ambiguous`; another writer can still hold the
+candidate after an immediate read sees the baseline. Thrown saves and `save_failed` replies also
+remain uncertain rather than confirming rollback from that read alone. Reconciliation covers
+scheduled saves as well as the next explicit mutation.
 `finalize` accepts a baseline captured before installation and the actual already-installed candidate.
 It snapshots both, verifies the expected fields against live state before saving, saves without
 reinstalling, reads back on successful save, and verifies both live and stored state. It shares the
