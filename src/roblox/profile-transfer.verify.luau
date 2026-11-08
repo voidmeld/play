@@ -1,6 +1,7 @@
 --!strict
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Transfer = require("./profile-transfer")
 local Verify = require("../../.lute/dependencies/verify/src/core")
 
@@ -20,6 +21,106 @@ return function(suite: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 
 	describe("profile transfer", function()
+		it("refuses a known stale identity before running its mutating callback", function()
+			local balance = 10
+			local result = Transfer.settle(
+				function(_userId): Transfer.Identity?
+					return identity({ leaseRevision = 2 })
+				end,
+				7,
+				identity({}),
+				true,
+				function(): Transfer.Result
+					balance -= 1
+					return { ok = true, outcome = "committed" }
+				end
+			)
+			expect(result.reason):toBe("session_replaced")
+			expect(result.outcome):toBe("not_durable")
+			expect(balance):toBe(10)
+		end)
+		it("compares completion against an owned identity snapshot", function()
+			local current = {
+				userId = 7,
+				characterId = "c1",
+				key = "k1",
+				sessionId = "s1",
+				acquisitionId = "a1",
+				leaseRevision = 1,
+			}
+			local result = Transfer.settle(
+				function(_userId): Transfer.Identity?
+					return current
+				end,
+				7,
+				current,
+				true,
+				function(): Transfer.Result
+					current.leaseRevision = 2
+					return { ok = true, outcome = "committed" }
+				end
+			)
+			expect(result.ok):toBe(false)
+			expect(result.reason):toBe("session_replaced")
+			expect(current.leaseRevision):toBe(2)
+		end)
+		it("contains identity observation failures before and after the write", function()
+			for _, failedRead in { 1, 2 } do
+				local reads, writes = 0, 0
+				local result = Transfer.settle(
+					function(_userId): Transfer.Identity?
+						reads += 1
+						if reads == failedRead then
+							error("identity_unavailable", 0)
+						end
+						return identity({})
+					end,
+					7,
+					identity({}),
+					true,
+					function(): Transfer.Result
+						writes += 1
+						return { ok = true, outcome = "committed" }
+					end
+				)
+				expect(result.ok):toBe(false)
+				expect(result.outcome):toBe("not_durable")
+				expect(result.reason):toBe("profile_unavailable")
+				expect(writes):toBe(failedRead - 1)
+			end
+		end)
+		it("keeps a completed effect uncertain when its suspended write loses the session", function()
+			local environment = Roblox.testEnvironment({ handlerErrors = "raise" })
+			local current = identity({})
+			local held: thread? = nil
+			local result: Transfer.Result? = nil
+			local effects = 0
+			environment.scheduler.spawn(function()
+				result = Transfer.settle(
+					function(_userId): Transfer.Identity?
+						return current
+					end,
+					7,
+					current,
+					true,
+					function(): Transfer.Result
+						effects += 1
+						environment.scheduler.block(function(pending)
+							held = pending
+						end)
+						return { ok = true, outcome = "committed" }
+					end
+				)
+			end)
+			expect(held == nil):toBe(false)
+			current = identity({ leaseRevision = 2 })
+			environment.scheduler.resume(assert(held))
+			environment.step(0)
+			expect(assert(result).outcome):toBe("not_durable")
+			expect(assert(result).reason):toBe("session_replaced")
+			expect(effects):toBe(1)
+			expect(environment.scheduler.failures):toEqual({})
+		end)
 		it("matches a session only when every lease field agrees", function()
 			expect(Transfer.sameSession(identity({}), identity({}))):toBe(true)
 			expect(Transfer.sameSession(identity({}), identity({ leaseRevision = 2 }))):toBe(false)

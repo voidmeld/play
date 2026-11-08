@@ -2178,6 +2178,9 @@ The [fixture](../src/roblox/leased-record-session.verify.luau) uses an alternate
 numeric payload, four-revision ceiling, schema-seven lease, twenty-unit expiry and fake store/clock.
 It includes final callback retry conflicts, uncertain readbacks, hydration failure, takeover fencing,
 lease-length reply delays at renewal and storage, and game payload refusal.
+Its Verify scheduler also suspends an old payload write after renewal while a second coordinator
+lawfully takes over and saves, both within one partition and across partitions. Resuming the old
+write preserves the takeover fences and new committed record; the old session remains dirty and lost.
 It also owns exact acquisition replay, duplicate refusal before hydration, failed release reporting,
 expiry during hydration, renewal refusal before record writes and dirty-generation retention after
 conflicted or ambiguous saves. Adopters retain their actual schema/payload projection, storage adapter,
@@ -2650,6 +2653,8 @@ This example exercises: renews from the current profile and retries failures wit
 ### Invariants
 
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
+`isAdmitted` matches retained context identity. Closing or expired contexts can retain persistence
+custody after write authority is lost; the host owns gameplay liveness.
 Replacing an admitted key retires its predecessor's local renewal tasks and owner without a
 durable release or `onReleased` receipt. The host must acquire the replacement lease lawfully.
 Disposal is terminal: later admission callbacks do nothing and cannot recreate local authority,
@@ -2697,6 +2702,11 @@ the candidate. `rolled_back` additionally requires readback equal to the complet
 `superseded` or `failed`; inspect `reason` and `saveReason`. Reconcile ambiguous storage before retrying;
 this coordinator never rewrites storage to erase an uncertain transaction. Confirmed rollback permits
 a corrected retry. Host exceptions return explicit uncertainty and release exclusion.
+Cancelled, unadmitted or lock-lost saves supersede conditional restoration even while logical
+session custody remains. Their outcome stays `ambiguous`; another writer can still hold the
+candidate after an immediate read sees the baseline. Thrown saves and `save_failed` replies also
+remain uncertain rather than confirming rollback from that read alone. Reconciliation covers
+scheduled saves as well as the next explicit mutation.
 `finalize` accepts a baseline captured before installation and the actual already-installed candidate.
 It snapshots both, verifies the expected fields against live state before saving, saves without
 reinstalling, reads back on successful save, and verifies both live and stored state. It shares the
@@ -2747,6 +2757,11 @@ This example exercises: matches a session only when every lease field agrees.
 ### Invariants
 
 Every identity field must agree. A stale session cannot settle a newer profile. Conflicting per-key work remains excluded.
+Strict settlement captures the expected identity and checks it before invoking the write and again
+after completion. A known stale identity cannot run its mutating callback; alias mutation cannot
+rewrite the captured fence. Failed identity observations return `not_durable` / `profile_unavailable`.
+A post-write refusal does not undo or disprove a committed effect: retain receipts and reconcile it.
+Non-strict settlement retains its caller-owned session policy and does not query identity observations.
 
 ## roblox-quest-durability
 
@@ -3446,6 +3461,9 @@ This example exercises: occupied arrival selects the first clear supported floor
 ### Invariants
 
 Placement commits only a clear supported candidate. Search is bounded. An unsafe or absent floor cannot produce a destination.
+The host supplies a practical nonnegative whole `count`; `2 * count + 1` must fit the safe integer
+range. Both searches capture that count before observations. Invalid counts return nil without
+calling geometry or commit ports; exhausted searches return nil without committing a destination.
 
 ## route-admission
 
@@ -24073,6 +24091,10 @@ create = function TradeService.create(depsValue: Deps): (Service?, string?)
 ## `roblox.travel-placement`
 
 [Source](../src/roblox/travel-placement.luau)
+
+```luau
+local Value = require("../kernel/value")
+```
 
 ### `roblox.travel-placement.PlacementHost`
 

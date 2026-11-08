@@ -50,9 +50,39 @@ local function settle(
 	strict: boolean,
 	run: () -> Result
 ): Result
+	local expected = context
+	if strict then
+		expected = {
+			userId = context.userId,
+			characterId = context.characterId,
+			key = context.key,
+			sessionId = context.sessionId,
+			acquisitionId = context.acquisitionId,
+			leaseRevision = context.leaseRevision,
+		}
+	end
+	local function sessionRefusal(): Result?
+		local observed, current = pcall(contextFor, userId)
+		if not observed then
+			return { ok = false, outcome = "not_durable", reason = "profile_unavailable" }
+		end
+		if not sameSession(expected, current) then
+			return { ok = false, outcome = "not_durable", reason = "session_replaced" }
+		end
+		return nil
+	end
+	if strict then
+		local refused = sessionRefusal()
+		if refused ~= nil then
+			return refused
+		end
+	end
 	local ran, result = pcall(run)
-	if strict and not sameSession(context, contextFor(userId)) then
-		return { ok = false, outcome = "not_durable", reason = "session_replaced" }
+	if strict then
+		local refused = sessionRefusal()
+		if refused ~= nil then
+			return refused
+		end
 	end
 	return if ran then result else { ok = false, outcome = "not_durable", reason = "profile_unavailable" }
 end

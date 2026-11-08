@@ -2,6 +2,7 @@
 
 local Bdd = require("../../.lute/dependencies/verify/src/bdd")
 local Engine = require("../../tools/fixtures/engine")
+local Roblox = require("../../.lute/dependencies/verify/src/roblox")
 local Sessions = require("./profile-sessions")
 local Transaction = require("./profile-transaction")
 local Verify = require("../../.lute/dependencies/verify/src/core")
@@ -16,7 +17,8 @@ local function change(p: Profile): (Profile?, string?)
 	return p, nil
 end
 local function fixture()
-	local clock = Engine.clock()
+	local environment = Roblox.testEnvironment({ handlerErrors = "raise" })
+	local clock = Engine.clock(environment)
 	local state = {
 		live = { revision = 0, balance = 0, note = "a" },
 		stored = { revision = 0, balance = 0, note = "a" },
@@ -26,8 +28,9 @@ local function fixture()
 		writeBeforeFailure = false,
 		duringSave = function() end,
 		duringRead = function() end,
+		beforeRelease = function() end,
 	}
-	local sessions = Sessions.new(Engine.owner(), {
+	local sessions = Sessions.new(Engine.owner(environment), {
 		clock = clock.clock,
 		schedule = clock.schedule,
 		report = function(_kind: string, _key: string, _reason: string?) end,
@@ -49,18 +52,22 @@ local function fixture()
 			_context: string,
 			expiry: number,
 			current: () -> boolean,
-			_release: boolean,
+			release: boolean,
 			_generation: number
 		): Sessions.Outcome
 			assert(current())
-			if not state.failSave or state.writeBeforeFailure then
+			local failed, threw = state.failSave, state.throwSave
+			if release then
+				state.beforeRelease()
+			end
+			if not failed or state.writeBeforeFailure then
 				state.stored = table.clone(p)
 			end
 			state.duringSave()
-			if state.throwSave then
+			if threw then
 				error("unavailable")
 			end
-			return if state.failSave then { ok = false, reason = "offline" } else { ok = true, expiresAt = expiry + 10 }
+			return if failed then { ok = false, reason = "offline" } else { ok = true, expiresAt = expiry + 10 }
 		end,
 	})
 	sessions.admit("profile", 10, function(): Profile?
@@ -96,13 +103,70 @@ local function fixture()
 			return expected.revision == observed.revision and expected.balance == observed.balance
 		end,
 	})
-	return { state = state, sessions = sessions, service = service }
+	return { state = state, sessions = sessions, service = service, environment = environment, clock = clock }
 end
 
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 	describe("durable profile transaction", function()
+		it("retains uncertainty when a closing writer can commit after the old save is cancelled", function()
+			local f = fixture()
+			local held: thread? = nil
+			local closed: Sessions.Outcome? = nil
+			f.state.failSave = true
+			f.state.beforeRelease = function()
+				f.environment.scheduler.block(function(pending)
+					held = pending
+				end)
+			end
+			f.state.duringSave = function()
+				f.state.duringSave = function() end
+				f.state.failSave = false
+				f.environment.scheduler.spawn(function()
+					closed = f.sessions.unload("profile")
+				end)
+			end
+			local result = f.service.commit("profile", change)
+			expect(held == nil):toBe(false)
+			expect(result.outcome):toBe("ambiguous")
+			expect(result.reason):toBe("operation_cancelled")
+			expect(result.restoration):toBe("superseded")
+			expect(f.state.stored.balance):toBe(0)
+			expect(f.state.live.balance):toBe(2)
+			f.environment.scheduler.resume(assert(held))
+			f.clock.advance(0)
+			expect(assert(closed).ok):toBe(true)
+			expect(f.state.stored.balance):toBe(2)
+			expect(result.outcome):toBe("ambiguous")
+			expect(f.environment.scheduler.failures):toEqual({})
+			f.sessions.dispose()
+		end)
+		it("does not restore across a refused write fence even when logical custody remains", function()
+			for _, reason in { "operation_cancelled", "not_admitted", "lock_lost" } do
+				local f = fixture()
+				f.sessions.save = function(_context: string): Sessions.Outcome
+					return { ok = false, reason = reason }
+				end
+				local result = f.service.commit("profile", change)
+				expect(result.outcome):toBe("ambiguous")
+				expect(result.restoration):toBe("superseded")
+				expect(result.reason):toBe(reason)
+				expect(f.state.live.balance):toBe(2)
+				f.sessions.dispose()
+			end
+		end)
+		it("keeps a thrown save uncertain even when an immediate read sees the baseline", function()
+			local f = fixture()
+			f.state.failSave, f.state.throwSave = true, true
+			local result = f.service.commit("profile", change)
+			expect(result.outcome):toBe("ambiguous")
+			expect(result.reason):toBe("save_failed")
+			expect(result.restoration):toBe("restored")
+			expect(f.state.live.balance):toBe(0)
+			expect(f.state.stored.balance):toBe(0)
+			f.sessions.dispose()
+		end)
 		it("finalizes an installed candidate using the caller baseline without reinstalling it", function()
 			local f = fixture()
 			local previous = table.clone(f.state.live)
