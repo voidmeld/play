@@ -179,8 +179,8 @@ local function start(native: NativePorts)
 				end
 				return world.join(row.userId, row.acquisitionId)
 			end,
-			release = function(userId, _characterId, _sessionId, _acquisitionId, _revision)
-				return { ok = world.close(userId) }
+			release = function(userId, _characterId, _sessionId, acquisitionId, _revision)
+				return { ok = world.close(userId, acquisitionId) }
 			end,
 		},
 		fence = function(raw: unknown)
@@ -200,7 +200,7 @@ local function start(native: NativePorts)
 		profile = {
 			load = world.profile,
 			unload = function(context)
-				return context ~= nil and world.close(context.userId)
+				return context ~= nil and world.close(context.userId, context.acquisitionId)
 			end,
 			level = function(context)
 				local profile = world.profile(context)

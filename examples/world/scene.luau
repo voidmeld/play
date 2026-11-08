@@ -45,7 +45,12 @@ local function separation(first: Roblox.DatatypeVector3, second: Roblox.Datatype
 	return (first - second).Magnitude
 end
 
-local function new(saved: { [string]: unknown }?, startTime: number?, network: Roblox.Network?)
+local function new(
+	saved: { [string]: unknown }?,
+	startTime: number?,
+	network: Roblox.Network?,
+	faults: { failRead: boolean? }?
+)
 	sceneSerial += 1
 	local serverId = "fixture-server-" .. tostring(sceneSerial)
 	local bridge = Lute.fixture.bridge(nil, { handlerErrors = "raise" })
@@ -65,7 +70,10 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	local enemyBody = engine.createInstance("Humanoid", { Parent = enemy, Health = 30 })
 	local instances: { [number]: Roblox.Instance } = {}
 	local bodies: { [number]: Roblox.Instance } = {}
+	local bodyEpochs: { [Roblox.Instance]: number } = {}
+	local bodySerial = 0
 	local clock = Engine.clock(engine)
+	local owner = Engine.owner(engine)
 	clock.advance(startTime or 0)
 	local values: { [string]: unknown } = saved or {}
 	local players: { [number]: Mount.Subject } = {}
@@ -76,8 +84,27 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	local serial = 0
 	local updates = 0
 	local reports: { string } = {}
-	local control: { failWrite: boolean, loseReply: boolean, denyBody: boolean, onUpdate: (() -> ())? } =
-		{ failWrite = false, loseReply = false, denyBody = false, onUpdate = nil }
+	local disposed = false
+	local control: {
+		failRead: boolean,
+		failWrite: boolean,
+		loseReply: boolean,
+		denyBody: boolean,
+		onUpdate: (() -> ())?,
+		afterUpdate: (() -> ())?,
+		onObserve: ((number) -> ())?,
+		onFilter: ((number, string, number) -> string?)?,
+	} =
+		{
+			failRead = faults ~= nil and faults.failRead == true,
+			failWrite = false,
+			loseReply = false,
+			denyBody = false,
+			onUpdate = nil,
+			afterUpdate = nil,
+			onObserve = nil,
+			onFilter = nil,
+		}
 	local queue: { Stores.QueuedWrite } = {}
 	local circuitSerial = 0
 	local circuit: Stores.Circuit = {
@@ -126,6 +153,9 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 	}
 	local raw: Stores.RawStore = {
 		GetAsync = function(_self, key)
+			if control.failRead then
+				error("storage_unavailable")
+			end
 			return copy(values[key])
 		end,
 		SetAsync = function(_self, _key, _value)
@@ -145,6 +175,11 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 			if nextValue ~= nil then
 				values[key] = copy(nextValue)
 			end
+			local after = control.afterUpdate
+			control.afterUpdate = nil
+			if after ~= nil then
+				after()
+			end
 			if control.loseReply then
 				error("reply_lost")
 			end
@@ -152,6 +187,11 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 		end,
 	}
 	local mount = Mount.start({
+		onClose = function(close)
+			table.insert(runtime.closeHandlers, function()
+				close()
+			end)
+		end,
 		serverId = serverId,
 		universeId = fixtureUniverse,
 		placeId = fixtureDestination,
@@ -176,7 +216,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 			end,
 		},
 		circuit = circuit,
-		owner = Engine.owner(engine),
+		owner = owner,
 		clock = function()
 			return math.floor(clock.clock())
 		end,
@@ -189,20 +229,49 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 		report = function(reason)
 			table.insert(reports, reason)
 		end,
-		filter = function(_sender, _text, _listener)
+		filter = function(sender, text, listener)
+			if control.onFilter ~= nil then
+				return control.onFilter(sender, text, listener)
+			end
 			return "Hello Harbor"
 		end,
 		contact = function(userId)
-			local body = bodies[userId]
-			local root = if body ~= nil then body:FindFirstChild("Root") else nil
-			if root == nil then
+			if control.onObserve ~= nil then
+				control.onObserve(userId)
+			end
+			local player = instances[userId]
+			local character = if player ~= nil then player.Character else nil
+			if not Roblox.isInstance(character) then
+				return nil
+			end
+			local body = Roblox.assertInstance(character)
+			if not engine.isAlive(body) or not body:IsDescendantOf(stage) then
+				return nil
+			end
+			local root = body:FindFirstChild("Root")
+			local humanoid = body:FindFirstChildOfClass("Humanoid")
+			if root == nil or not root:IsA("BasePart") or humanoid == nil then
 				return nil
 			end
 			local first, second = root.Position, enemyRoot.Position
-			assert(Roblox.typeName(first) == "Vector3" and Roblox.typeName(second) == "Vector3", "position_required")
+			if Roblox.typeName(first) ~= "Vector3" or Roblox.typeName(second) ~= "Vector3" then
+				return nil
+			end
 			local distance = Roblox.value.invoke(Roblox.value.value(separation), first, second)
 			assert(type(distance) == "number", "distance_required")
-			return { distance = distance, clear = body ~= nil and body:GetAttribute("Blocked") ~= true }
+			local epoch = bodyEpochs[body]
+			if epoch == nil then
+				bodySerial += 1
+				epoch = bodySerial
+				bodyEpochs[body] = epoch
+			end
+			local health = humanoid.Health
+			return {
+				distance = distance,
+				clear = body:GetAttribute("Blocked") ~= true,
+				bodyEpoch = epoch,
+				alive = type(health) == "number" and health > 0,
+			}
 		end,
 		remote = {
 			connectRequest = function(callback)
@@ -350,15 +419,13 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 		for callback in removing do
 			ok = callback(player) and ok
 		end
-		if ok then
-			players[userId] = nil
-			instances[userId]:Destroy()
-			instances[userId] = nil
-			bodies[userId]:Destroy()
-			bodies[userId] = nil
-			if network ~= nil then
-				assert(network.disconnect(tostring(userId)).ok)
-			end
+		players[userId] = nil
+		instances[userId]:Destroy()
+		instances[userId] = nil
+		bodies[userId]:Destroy()
+		bodies[userId] = nil
+		if network ~= nil then
+			assert(network.disconnect(tostring(userId)).ok)
 		end
 		return ok
 	end
@@ -372,9 +439,14 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 		bodies = bodies,
 		enemy = enemy,
 		dispose = function()
+			if disposed then
+				return
+			end
+			disposed = true
 			for _, close in runtime.closeHandlers do
 				close()
 			end
+			owner.dispose()
 			bridge.close()
 			native.game:Destroy()
 			engine.root:Destroy()
@@ -384,6 +456,7 @@ local function new(saved: { [string]: unknown }?, startTime: number?, network: R
 		updates = function()
 			return updates
 		end,
+		ownedTaskCount = owner.size,
 		reports = function()
 			return table.clone(reports)
 		end,

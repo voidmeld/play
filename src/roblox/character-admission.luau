@@ -995,12 +995,16 @@ local function start<P, F>(config: Config<F>, deps: Dependencies<P, F>): Runtime
 				if removedDisposed then "connections_invalid" else "connection_cleanup_failed"
 			)
 		end
+		local removingDisposed = false
+		local addedDisposed = false
 		local function disposeConnections(): boolean
-			local clean = pcall(disposeRemoved)
-			if not pcall(disposeAdded) then
-				clean = false
+			if not removingDisposed then
+				removingDisposed = pcall(disposeRemoved)
 			end
-			return clean
+			if not addedDisposed then
+				addedDisposed = pcall(disposeAdded)
+			end
+			return removingDisposed and addedDisposed
 		end
 		local listed, players = pcall(deps.players.getPlayers)
 		if not listed or type(players) ~= "table" then
@@ -1010,6 +1014,7 @@ local function start<P, F>(config: Config<F>, deps: Dependencies<P, F>): Runtime
 			)
 		end
 		local stopObserving: (() -> ())? = nil
+		local disposing = false
 		if timing ~= nil and type(timing.observe) == "function" then
 			local observing, stop = pcall(timing.observe, observeStore)
 			stopObserving = if observing and type(stop) == "function" then stop else nil
@@ -1020,18 +1025,24 @@ local function start<P, F>(config: Config<F>, deps: Dependencies<P, F>): Runtime
 		local runtime: Runtime<P & Subject> = {
 			phase = "character_admission_started",
 			dispose = function(): boolean
-				if stopped then
+				if disposing then
 					return false
 				end
+				disposing = true
 				stopped = true
 				local ok = disposeConnections()
 				if stopObserving ~= nil then
-					ok = pcall(stopObserving) and ok
+					local observed = pcall(stopObserving)
+					if observed then
+						stopObserving = nil
+					end
+					ok = observed and ok
 				end
 				for player in entries do
 					local cleaned, accepted = pcall(cleanup, player, nil)
 					ok = cleaned and accepted == true and ok
 				end
+				disposing = false
 				return ok
 			end,
 			cleanup = cleanup,

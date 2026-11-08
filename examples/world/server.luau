@@ -16,6 +16,7 @@ local Threat = require("../../src/core/threat/table")
 local Trade = require("../../src/core/trade/exchange")
 local Value = require("../../src/kernel/value")
 
+export type ContactEvidence = { distance: number, clear: boolean, bodyEpoch: number, alive: boolean }
 export type Ports = {
 	store: Records.Store,
 	owner: Sessions.Owner,
@@ -26,10 +27,11 @@ export type Ports = {
 	filter: (number, string, number) -> string?,
 	deliver: (number, Protocol.Response) -> (),
 	report: (string) -> (),
-	contact: ((number) -> { distance: number, clear: boolean }?)?,
+	contact: ((number) -> ContactEvidence?)?,
 	elapsed: (() -> number)?,
 }
 type Active = { context: Admission.Context, token: string, session: ProfileSession.State }
+type Recipient = { userId: number, acquisitionId: string }
 local sessionRules = ProfileSession.create({
 	leaseSeconds = Content.leaseSeconds,
 	renewBeforeSeconds = 20,
@@ -40,6 +42,7 @@ local sessionRules = ProfileSession.create({
 })
 local threatRules = Threat.rules({ meleeTakeover = 1.1, rangedTakeover = 1.3, tauntLead = 1 })
 local budget = { capacity = 16, refillPerSec = 8 }
+local saveRetrySeconds = 2
 local contact = Contact.configure({
 	copyPayload = function(raw: unknown): (number?, string?)
 		return Value.whole(raw, 1, 30), nil
@@ -52,9 +55,16 @@ local function new(ports: Ports)
 	local snapshot = State.records.read(ports.store, function()
 		return "world:Harbor"
 	end, "Harbor", "world")
-	assert(snapshot.ok, snapshot.reason)
-	local world = snapshot.value
+	local world: State.World? = if snapshot.ok then snapshot.value else nil
+	if not snapshot.ok then
+		ports.report(snapshot.reason or "read_failed")
+	end
+	local function stored(userId: number): State.Profile?
+		local record = world
+		return if record ~= nil then record.players[tostring(userId)] else nil
+	end
 	local active: { [number]: Active } = {}
+	local closeQueued: { [number]: string } = {}
 	local busy = false
 	local held = false
 	local stopped = false
@@ -64,6 +74,26 @@ local function new(ports: Ports)
 	local enemy = { health = 30, threat = Threat.empty(), defeatId = ports.newId() }
 	local attacks: { [number]: boolean } = {}
 	local attackSerial = 0
+	local function schedule(seconds: number, callback: () -> ())
+		local completed = false
+		local detach: () -> () = function() end
+		local cancel = ports.schedule(seconds, function()
+			if completed then
+				return
+			end
+			completed = true
+			detach()
+			callback()
+		end)
+		if not completed then
+			detach = ports.owner.own(function()
+				if not completed then
+					completed = true
+					cancel()
+				end
+			end)
+		end
+	end
 
 	local function transact(edit: (State.World) -> (boolean, string?)): (boolean, string?)
 		if stopped or held or busy then
@@ -102,17 +132,17 @@ local function new(ports: Ports)
 		return ok, reason
 	end
 
-	local function live(profile: State.Profile?, entry: Active?): boolean
+	local function live(profile: State.Profile?, entry: Active?, closing: boolean?): boolean
 		return profile ~= nil
 			and entry ~= nil
 			and not held
 			and not stopped
-			and not entry.session.closed
+			and (not entry.session.closed or closing == true)
 			and not entry.session.leaseLost
 			and Lock.isLocked(profile.lock, entry.token, ports.clock())
 	end
 	local function current(userId: number): State.Profile?
-		local profile = world.players[tostring(userId)]
+		local profile = stored(userId)
 		return if live(profile, active[userId]) then profile else nil
 	end
 	local function view(userId: number): Protocol.View?
@@ -196,7 +226,7 @@ local function new(ports: Ports)
 			ports.report(key .. ":" .. (reason or "held"))
 		end,
 		renewalDelay = 20,
-		retryDelay = 2,
+		retryDelay = saveRetrySeconds,
 		drainBudget = 10,
 		jitter = function()
 			return 0
@@ -258,7 +288,7 @@ local function new(ports: Ports)
 		if Value.whole(userId, 1, 9007199254740991) == nil then
 			return false
 		end
-		if world.players[tostring(userId)] ~= nil then
+		if stored(userId) ~= nil then
 			return true
 		end
 		local ok = transact(function(candidate)
@@ -298,7 +328,7 @@ local function new(ports: Ports)
 		if not ok then
 			return { ok = false, reason = reason }
 		end
-		local profile = world.players[tostring(userId)]
+		local profile = assert(stored(userId))
 		local session = assert(sessionRules.openAcquired(ports.clock(), profile.lock.lockExpiry))
 		local context: Admission.Context = table.freeze({
 			userId = userId,
@@ -310,20 +340,30 @@ local function new(ports: Ports)
 		})
 		active[userId] = { context = context, token = token, session = session }
 		sessions.admit(context, profile.lock.lockExpiry, function()
-			return current(userId)
+			local saved = stored(userId)
+			return if live(saved, active[userId], true) then saved else nil
 		end, function()
 			active[userId] = nil
 			enemy.threat = Threat.remove(enemy.threat, tostring(userId))
 		end)
 		return { ok = true, profile = assert(State.copyProfile(profile)), context = context, lease = { revision = 1 } }
 	end
-	local function close(userId: number): boolean
-		if busy then
-			return false
-		end
+	local function close(userId: number, acquisitionId: string?): boolean
 		local entry = active[userId]
-		if entry == nil then
+		if entry == nil or (acquisitionId ~= nil and entry.context.acquisitionId ~= acquisitionId) then
 			return true
+		end
+		if busy then
+			if acquisitionId ~= nil and closeQueued[userId] ~= acquisitionId then
+				closeQueued[userId] = acquisitionId
+				schedule(saveRetrySeconds, function()
+					if closeQueued[userId] == acquisitionId then
+						closeQueued[userId] = nil
+						close(userId, acquisitionId)
+					end
+				end)
+			end
+			return false
 		end
 		local outcome = sessions.unload(entry.context)
 		if outcome.ok and exchange ~= nil and table.find(exchange.players, userId) ~= nil then
@@ -333,8 +373,9 @@ local function new(ports: Ports)
 	end
 	local function response(userId: number, ok: boolean, reason: string?): Protocol.Response
 		local listings: { Protocol.Listing } = {}
-		if world.market ~= nil then
-			for _, listing in assert(Content.market.search(world.market, {}, ports.clock())) do
+		local record = world
+		if record ~= nil and record.market ~= nil then
+			for _, listing in assert(Content.market.search(record.market, {}, ports.clock())) do
 				table.insert(listings, {
 					id = listing.listingId,
 					sellerId = listing.sellerId,
@@ -429,6 +470,18 @@ local function new(ports: Ports)
 			ports.deliver(userId, response(userId, true, nil))
 		end
 	end
+	local function observe(userId: number): ContactEvidence?
+		local callback = ports.contact
+		if callback == nil then
+			return nil
+		end
+		local read, evidence = pcall(callback, userId)
+		if not read then
+			ports.report("contact_unavailable")
+			return nil
+		end
+		return evidence
+	end
 	local function attack(userId: number): (boolean, string?)
 		local profile = current(userId)
 		if profile == nil or profile.equipment.hand == nil or enemy.health <= 0 then
@@ -437,21 +490,39 @@ local function new(ports: Ports)
 		if attacks[userId] then
 			return false, "recovering"
 		end
-		local observe = ports.contact
-		if observe == nil then
+		local observed = observe(userId)
+		if observed == nil then
 			return false, "contact_unavailable"
+		end
+		local refreshed = current(userId)
+		if
+			refreshed == nil
+			or refreshed.acquisitionId ~= profile.acquisitionId
+			or refreshed.characterId ~= profile.characterId
+			or refreshed.equipment.hand == nil
+			or not observed.alive
+			or enemy.health <= 0
+		then
+			return false, "attack_unavailable"
+		end
+		if attacks[userId] then
+			return false, "recovering"
 		end
 		attackSerial += 1
 		local sequence = attackSerial
 		local elapsed = ports.elapsed or ports.clock
 		local started = elapsed()
-		local identity: Contact.Identity =
-			{ id = tostring(userId), characterId = profile.characterId, contentId = profile.acquisitionId }
+		local identity: Contact.Identity = {
+			id = tostring(userId),
+			characterId = refreshed.characterId,
+			contentId = refreshed.acquisitionId,
+			epoch = observed.bodyEpoch,
+		}
 		local target: Contact.Identity = { id = "enemy", contentId = enemy.defeatId }
 		local admitted = contact.admit({
 			source = identity,
 			target = target,
-			equipmentToken = profile.equipment.hand,
+			equipmentToken = refreshed.equipment.hand,
 			sequence = sequence,
 			startedTick = 0,
 			anticipationSec = 0.25,
@@ -464,21 +535,26 @@ local function new(ports: Ports)
 			return false, admitted.reason
 		end
 		attacks[userId] = true
-		ports.owner.own(ports.schedule(0.25, function()
+		schedule(0.25, function()
+			local evidence = observe(userId)
 			local latest = current(userId)
 			local source = {
 				identity = if latest ~= nil
-					then { id = tostring(userId), characterId = latest.characterId, contentId = latest.acquisitionId }
+					then {
+						id = tostring(userId),
+						characterId = latest.characterId,
+						contentId = latest.acquisitionId,
+						epoch = if evidence ~= nil then evidence.bodyEpoch else nil,
+					}
 					else identity,
-				alive = latest ~= nil,
+				alive = latest ~= nil and evidence ~= nil and evidence.alive,
 				blocked = false,
 				equipmentToken = if latest ~= nil then latest.equipment.hand else nil,
 			}
 			local advanced = contact.advance(admitted.value, { tick = 1, dt = elapsed() - started, source = source })
-			local evidence = observe(userId)
 			local resolved = contact.resolve(advanced.next, {
 				source = source,
-				target = { identity = target, alive = enemy.health > 0 },
+				target = { identity = { id = "enemy", contentId = enemy.defeatId }, alive = enemy.health > 0 },
 				distanceStuds = if evidence ~= nil then evidence.distance else nil,
 				spatial = if evidence ~= nil
 					then { clear = evidence.clear, distanceStuds = evidence.distance }
@@ -494,17 +570,17 @@ local function new(ports: Ports)
 					return
 				end
 				if ok and enemy.health == 0 then
-					ports.owner.own(ports.schedule(3, function()
+					schedule(3, function()
 						enemy = { health = 30, threat = Threat.empty(), defeatId = ports.newId() }
 						publish()
-					end))
+					end)
 				end
 			end
 			publish()
-			ports.owner.own(ports.schedule(0.3, function()
+			schedule(0.3, function()
 				attacks[userId] = nil
-			end))
-		end))
+			end)
+		end)
 		return true, nil
 	end
 	local function request(userId: number, raw: unknown): Protocol.Response
@@ -536,13 +612,24 @@ local function new(ports: Ports)
 			if not allowed then
 				return response(userId, false, "chat_limited")
 			end
+			local sender = current(userId)
+			if sender == nil then
+				return response(userId, false, "not_admitted")
+			end
+			local acquisitionId = sender.acquisitionId
+			local function sameSender(): boolean
+				local profile = current(userId)
+				return profile ~= nil and profile.acquisitionId == acquisitionId
+			end
+			local listeners: { Recipient } = {}
 			for listenerId in active do
+				local profile = current(listenerId)
 				local member: Chat.Member =
 					{ id = listenerId, realm = "harbor", party = false, guild = false, warband = false }
 				local speaker: Chat.Member =
 					{ id = userId, realm = "harbor", party = false, guild = false, warband = false }
 				if
-					current(listenerId) ~= nil
+					profile ~= nil
 					and Chat.allows(
 						{ audience = "say", sameRealm = true, selfDelivery = true },
 						speaker,
@@ -551,13 +638,37 @@ local function new(ports: Ports)
 						nil
 					)
 				then
-					local filtered = ports.filter(userId, intent.text, listenerId)
-					if filtered ~= nil and #filtered > 0 and #filtered <= 120 then
-						ports.deliver(
-							listenerId,
-							{ ok = true, line = { senderId = userId, text = filtered, at = ports.clock() } }
-						)
-					end
+					table.insert(listeners, { userId = listenerId, acquisitionId = profile.acquisitionId })
+				end
+			end
+			table.sort(listeners, function(first: Recipient, second: Recipient): boolean
+				return first.userId < second.userId
+			end)
+			local lines: { [number]: string } = {}
+			for _, listener in listeners do
+				local filtered, line = pcall(ports.filter, userId, intent.text, listener.userId)
+				if not filtered then
+					ports.report("chat_unavailable")
+					return response(userId, false, "chat_unavailable")
+				end
+				if not sameSender() then
+					return response(userId, false, "chat_unavailable")
+				end
+				if type(line) == "string" and #line > 0 and #line <= 120 then
+					lines[listener.userId] = line
+				end
+			end
+			for _, listener in listeners do
+				if not sameSender() then
+					return response(userId, false, "chat_unavailable")
+				end
+				local profile = current(listener.userId)
+				local line = lines[listener.userId]
+				if profile ~= nil and profile.acquisitionId == listener.acquisitionId and line ~= nil then
+					ports.deliver(
+						listener.userId,
+						{ ok = true, line = { senderId = userId, text = line, at = ports.clock() } }
+					)
 				end
 			end
 			return response(userId, true, nil)
@@ -766,7 +877,7 @@ local function new(ports: Ports)
 			return if current(userId) ~= nil and entry ~= nil then entry.context else nil
 		end,
 		owns = function(userId: number, characterId: string): (boolean, unknown)
-			local profile = world.players[tostring(userId)]
+			local profile = stored(userId)
 			return profile ~= nil and profile.characterId == characterId, if profile ~= nil then profile.roster else nil
 		end,
 		enemy = function(): (number, string)

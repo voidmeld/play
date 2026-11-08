@@ -543,6 +543,8 @@ This example exercises: membership preserves proximity, realm, group and private
 ### Invariants
 
 Private pair identities are deterministic. Realm/group/proximity filters do not leak membership. Rate refusal does not invent budget.
+The [example chat specification](../examples/world/chat.verify.luau) covers native filter failures
+and sender/recipient session changes during filtering at the consumer's transport boundary.
 
 ## combat
 
@@ -1190,6 +1192,9 @@ coalescing and shutdown boundaries and their ordinary/immediate dirty-reason voc
 The [leased-record fixture](../src/roblox/leased-record-session.verify.luau) exercises record-store
 absence, stored revision zero, mismatched snapshots, callback retries, readback uncertainty and a small
 revision ceiling. Run it with `lute run tools/gate.luau --file src/roblox/leased-record-session.verify.luau`.
+The [world recovery scenario](../examples/world/recovery.verify.luau) restores two same-hour
+checkpoints into isolated stores and checks value and receipt replay. It uses explicit detached
+snapshots; native backup history and production restore policy remain with the host.
 
 ## professions
 
@@ -1548,6 +1553,9 @@ configured budget or reports failure with custody retained. `dispose` stops admi
 subscriptions and attempts cleanup for every retained entry. `isAdmitted` observes current movement
 and optional group authority. `previewDeparture`, `prepareReturn` and `recover` expose fenced return
 snapshots and recovery; preparation reports a separate recoverable snapshot if cleanup fails.
+Repeated disposal retries retained entries and failed unsubscribe handles, preserves completed cleanup,
+and returns true once all custody settles. It never reopens admission. A concurrent disposal while
+native cleanup is suspended returns false without starting another cleanup pass.
 
 ### Required host operations
 

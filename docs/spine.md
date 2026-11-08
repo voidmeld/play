@@ -21,9 +21,10 @@ Run the scenarios through Gate:
 
 ```console
 lute run tools/gate.luau --file examples/world/demo.verify.luau --file examples/world/world.verify.luau
+lute run tools/gate.luau --file examples/world/recovery.verify.luau --file examples/world/chat.verify.luau
 ```
 
-Both specifications are in the committed manifest. Gate also runs the standalone command.
+All example specifications are in the committed manifest. Gate also runs the standalone command.
 The original scenario retains its assertions for trade, admission, stack capacity, competing
 sessions, renewal, restart and uncertain writes.
 
@@ -56,12 +57,37 @@ Every player mutation checks the current session token and lease. A transaction 
 world, edits a detached candidate and compares the expected revision and complete contents.
 Only the actual committed readback becomes installed state. Missing or divergent replies hold
 authority and refuse further writes; a later session recovers from saved bytes after lease expiry.
+The specification also pauses a reply after its craft has committed, expires the old lease and
+admits another server before resuming it. The old caller refuses success and leaves the new owner's
+record unchanged; recovery observes the actual crafted inventory without applying it again.
 Renewal, departure and shutdown use the same persistence and profile-session contracts.
+Failed reads refuse account creation and value changes without saving a default or overwriting
+earned state. A closing session retains its leased profile for save retries while refusing gameplay;
+after storage recovers, its committed close can release the lease.
+The scene removes a departing player and body even when saving fails; server-side save custody
+remains retryable. Profile unload and lease release bind the acquisition identity, so delayed
+cleanup from an earlier departure cannot close a newly arrived session for the same account.
+If departure meets an in-flight transaction, its scoped close queues one owned retry at the save
+retry interval. The transaction settles first; close then saves its committed result and releases custody.
+An unavailable or malformed startup read reports the failure and leaves the world uninstalled.
+Admission retries read storage again; only a successful read can establish absence and create accounts.
+Scene disposal invokes its native close callback once, then cancels owned local work even when
+close is held. It preserves uncertain saved bytes and leases; teardown does not certify release.
+The [checkpoint recovery specification](../examples/world/recovery.verify.luau) captures two distinct
+revisions within one simulated hour, before and after crafting and market settlement. Fresh stores
+restore detached copies after lawful lease expiry and compare inventory, coin, XP, journal and receipt
+state. Replayed quest, loot and empty-book purchase requests cannot grant or spend value again.
+The original checkpoints stay unchanged. This uses explicit snapshots, not native version history.
+Shutdown may be retried after a known read failure recovers. Admission stays stopped while retained
+cleanup completes; a settled repeat succeeds without another lease release or stored mutation.
 
 This bounded example keeps at most eight accounts and its market book in one world record.
 Trade and market settlement can therefore commit all touched inventories, balances and receipts
 atomically. Listing removes one carried shield; buying spends five coin, grants one shield,
 credits the seller and burns the configured fee. Receipt acknowledgement is in the same commit.
+The assembly specification pauses a fill while another buyer contends and the seller departs.
+It checks the single debit/grant, refused retry, coin conservation through the fee burn, goods,
+and saved proceeds on rejoin.
 The optional market field preserves admission of earlier example records. A malformed book refuses.
 For separate profile records, use the documented [trade](api.md#roblox-trade) and
 [market settlement](api.md#roblox-market-settlement) recovery adapters.
@@ -69,10 +95,20 @@ For separate profile records, use the documented [trade](api.md#roblox-trade) an
 The server owns recipe inputs, output, attack damage and reward amounts. Clients send only an
 intention. Crafting projects a Play recipe, checks and removes its materials and validates the
 output bag before committing. Combat admits a Play contact plan, waits through anticipation,
-then rechecks the source session, equipment, current Part positions and the host's obstruction
-observation. One resolved contact applies damage. Recovery blocks repeated attacks; the scene
+then rechecks the source session, native body epoch and health, equipment, current Part positions
+and the host's obstruction observation. Observation can yield: admission rechecks its session
+and recovery gate before reserving an attack,
+and resolution uses the current target generation rather than the captured target identity.
+Failed native observations refuse admission or cancel contact and finish recovery; they report
+`contact_unavailable` through the host's reporting port.
+One resolved contact applies damage. Recovery blocks repeated attacks; the scene
 respawns the enemy after three seconds. Disconnection fences an outstanding contact.
+Completed combat timers detach from their owner; shutdown cancels timers that have not fired.
 Integer wall time serves saved records and leases; an injected elapsed clock serves combat.
+
+Chat captures recipient acquisitions and gathers bounded platform-filtered text before delivery.
+A native filter exception reports `chat_unavailable` without partial delivery or raw-text fallback.
+Sender changes during filtering cancel the broadcast; replaced recipients are skipped.
 
 ## Subscribe from any UI
 
