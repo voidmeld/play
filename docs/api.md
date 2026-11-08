@@ -2650,6 +2650,29 @@ This example exercises: renews from the current profile and retries failures wit
 ### Invariants
 
 Renewal uses the current profile. Failed saves preserve dirty work. Close does not release a foreign lease.
+Replacing an admitted key retires its predecessor's local renewal tasks and owner without a
+durable release or `onReleased` receipt. The host must acquire the replacement lease lawfully.
+Disposal is terminal: later admission callbacks do nothing and cannot recreate local authority,
+owners or scheduled work. Disposal itself does not report a committed durable release.
+Overlapping writes retain only the current generation's returned lease expiry. A delayed reply
+from an older write returns `operation_cancelled` and cannot shorten or revive the newer lease.
+`drain` captures each admitted context before starting closes. Interleaved removal is replayed
+against that context; a replacement sharing its key is never closed on its predecessor's behalf.
+With `spawn` and `wait`, drain also waits for configured close retries within its budget; it does
+not accelerate their backoff or close replacement contexts. A committed retry returns success;
+an unresolved refusal remains a refusal at the deadline. A first result still pending at the
+injected deadline is `drain_held`. Returned
+results are a snapshot and never turn into success after return. A late write can still complete
+under its current generation; reconcile that actual completion through a fresh operation.
+An exception from the native `write` callback returns `save_failed`, reports the failed write
+and retains admission for retry. Retries read the current profile. This refusal does not prove
+that storage was unchanged; the host still owns committed readback and uncertainty recovery.
+
+The [bounded load specification](../src/roblox/profile-sessions-load.verify.luau) runs 200 profile
+contexts against shared lease state. It checks save coalescing, 190 timely closes plus ten held
+receipts, and delayed writes after a second coordinator lawfully acquires an expired lease.
+Run `lute run tools/gate.luau --file src/roblox/profile-sessions-load.verify.luau`.
+This is virtual-time integrity coverage, not a native storage-budget or population measurement.
 
 ## roblox-profile-transaction
 

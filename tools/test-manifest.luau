@@ -114,6 +114,7 @@ return table.freeze {
 	"src/roblox/movement-sender.verify.luau",
 	"src/roblox/npc-motion.verify.luau",
 	"src/roblox/party.verify.luau",
+	"src/roblox/profile-sessions-load.verify.luau",
 	"src/roblox/profile-sessions.verify.luau",
 	"src/roblox/profile-transaction.verify.luau",
 	"src/roblox/profile-transfer.verify.luau",

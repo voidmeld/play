@@ -54,13 +54,15 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 		if deps.clock() >= entry.leaseExpiresAt then
 			return { ok = false, reason = "lock_lost" }
 		end
-		local outcome = deps.write(profile, entry.context, entry.leaseExpiresAt, function(): boolean
-			return current(ownerKey, entry, generation)
-		end, releaseAfterSave, generation)
-		if outcome.ok then
-			entry.leaseExpiresAt = assert(outcome.expiresAt)
+		local ran, outcome = pcall(function(): Outcome
+			return deps.write(profile, entry.context, entry.leaseExpiresAt, function(): boolean
+				return current(ownerKey, entry, generation)
+			end, releaseAfterSave, generation)
+		end)
+		if not ran then
+			return { ok = false, reason = "save_failed" }
 		end
-		return { ok = outcome.ok, reason = outcome.reason }
+		return outcome
 	end
 
 	local scheduleEntry: (string, Entry<C, P>, number) -> ()
@@ -83,10 +85,14 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 	local function attempt(owner: string, entry: Entry<C, P>): Outcome
 		entry.writeGeneration += 1
 		local generation = entry.writeGeneration
-		local outcome = write(owner, entry, generation, entry.unloading)
+		local written = write(owner, entry, generation, entry.unloading)
 		if not current(owner, entry, generation) then
 			return { ok = false, reason = "operation_cancelled" }
 		end
+		if written.ok then
+			entry.leaseExpiresAt = assert(written.expiresAt)
+		end
+		local outcome: Outcome = { ok = written.ok, reason = written.reason }
 		if outcome.ok and entry.unloading then
 			entries[owner] = nil
 			released[owner] = entry.context
@@ -124,7 +130,12 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 	end
 
 	local function admit(context: C, leaseExpiresAt: number, profile: () -> P?, onReleased: () -> ())
-		released[deps.keyFor(context)] = nil
+		if disposed then
+			return
+		end
+		local key = deps.keyFor(context)
+		local previous = entries[key]
+		released[key] = nil
 		local entry: Entry<C, P> = {
 			context = context,
 			profile = profile,
@@ -136,13 +147,19 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 			owner = owner.createChild(),
 			scheduledDetach = nil,
 		}
-		entries[deps.keyFor(context)] = entry
+		entries[key] = entry
+		if previous ~= nil then
+			previous.scheduleGeneration += 1
+			previous.writeGeneration += 1
+			detachScheduled(previous)
+			previous.owner.dispose()
+		end
 		local ok, reason = pcall(function()
-			scheduleEntry(deps.keyFor(context), entry, jittered(deps.renewalDelay))
+			scheduleEntry(key, entry, jittered(deps.renewalDelay))
 			return nil
 		end)
 		if not ok then
-			entries[deps.keyFor(context)] = nil
+			entries[key] = nil
 			entry.owner.dispose()
 			error(reason, 0)
 		end
@@ -184,46 +201,63 @@ function Sessions.new<C, P>(owner: Owner, deps: Dependencies<C, P>)
 	end
 
 	local function drain(): { [string]: Outcome }
-		local owners: { string } = {}
-		for owner in entries do
-			table.insert(owners, owner)
+		local owners: { { key: string, context: C } } = {}
+		for key, entry in entries do
+			table.insert(owners, { key = key, context = entry.context })
 		end
 		local outcomes: { [string]: Outcome } = {}
 		if deps.spawn == nil or deps.wait == nil then
 			for _, owner in owners do
-				outcomes[owner] = unload(entries[owner].context)
+				outcomes[owner.key] = unload(owner.context)
 			end
 			return outcomes
 		end
 		local remaining = #owners
 		local deadline = deps.clock() + deps.drainBudget
 		drainDeadline = deadline
-		for _, ownerKey in owners do
-			local entry = entries[ownerKey]
+		for _, admitted in owners do
+			local ownerKey = admitted.key
 			local cancel = deps.spawn(function()
 				local ran, result = pcall(function(): Outcome
-					return unload(entry.context)
+					return unload(admitted.context)
 				end)
 				if ran then
 					outcomes[ownerKey] = result
 				else
 					outcomes[ownerKey] = { ok = false, reason = "drain_failed" }
-					deps.report("drain", deps.keyFor(entry.context), nil)
+					deps.report("drain", ownerKey, nil)
 				end
 				remaining -= 1
 			end)
 			owner.own(cancel)
 		end
-		while remaining > 0 and deps.clock() < deadline do
+		local function awaitingClose(): boolean
+			if remaining > 0 then
+				return true
+			end
+			for _, admitted in owners do
+				local result = outcomes[admitted.key]
+				local entry = entries[admitted.key]
+				if result ~= nil and not result.ok and entry ~= nil and deps.same(entry.context, admitted.context) then
+					return true
+				end
+			end
+			return false
+		end
+		while awaitingClose() and deps.clock() < deadline do
 			assert(deps.wait)()
 		end
-		for _, ownerKey in owners do
-			if outcomes[ownerKey] == nil then
+		for _, admitted in owners do
+			local ownerKey = admitted.key
+			local settled = released[ownerKey]
+			if settled ~= nil and deps.same(settled, admitted.context) then
+				outcomes[ownerKey] = { ok = true, reason = nil }
+			elseif outcomes[ownerKey] == nil then
 				outcomes[ownerKey] = { ok = false, reason = "drain_held" }
 				deps.report("held", ownerKey, nil)
 			end
 		end
-		return outcomes
+		return table.clone(outcomes)
 	end
 
 	local function isAdmitted(context: C): boolean
