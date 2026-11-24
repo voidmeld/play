@@ -3,7 +3,7 @@ return {
   dependencies = {},
   devDependencies = {
     compose = "compose@206648c0becb496919ca7af3855fc775bb96d900",
-    facet = "facet@42e07fe1dff336bbedae9bc30fbb2c50fc737a2f",
+    facet = "facet@b8352269efcf76a51951557997d9c151e30c8afa",
     verify = "verify@2e8cedeb260dd61d29b6f4be51a5fc250254e80b",
   },
   packages = {
@@ -15,10 +15,10 @@ return {
       sourceKind = "github",
       dependencies = {},
     },
-    ["facet@42e07fe1dff336bbedae9bc30fbb2c50fc737a2f"] = {
-      installPath = "@pkg/Facet--github-e319eee60319a6717fd1d8179458ec97261488d70312903242dd6c00c98bf719@46341b140fe0b2ca35a64ef95417dac05f05c591d70ffbf4d6a5ad6964112fba/.",
+    ["facet@b8352269efcf76a51951557997d9c151e30c8afa"] = {
+      installPath = "@pkg/Facet--github-e319eee60319a6717fd1d8179458ec97261488d70312903242dd6c00c98bf719@6c18cd2a5c4034fbe45b79298466b2e10d5c241ad390bb1f50302dedc991eb1b/.",
       name = "facet",
-      rev = "42e07fe1dff336bbedae9bc30fbb2c50fc737a2f",
+      rev = "b8352269efcf76a51951557997d9c151e30c8afa",
       source = "https://github.com/josha/Facet",
       sourceKind = "github",
       dependencies = {},
