@@ -1,0 +1,133 @@
+--!strict
+
+local Bdd = require("@verify/src/bdd")
+local Queue = require("./queue")
+local Scene = require("../../../tools/fixtures/cast")
+local Verify = require("@verify/src/core")
+
+local config: Queue.Config = { windowSec = 0.4, minRetrySec = 0.05, maxRequeues = 4 }
+
+return function(suite: Verify.Harness)
+	local test = Bdd.create(suite)
+	local describe, it, expect = test.describe, test.it, test.expect
+
+	describe("queue", function()
+		it("queue admission preserves reason, inclusive window and finite boundaries", function()
+			local law = Queue.rules(config)
+			expect(law.shouldQueue("on_gcd", 0.4)):toBe(true)
+			for _, remaining in { 0, -1, 0.41, math.huge, -math.huge, (math.huge - math.huge) } do
+				expect(law.shouldQueue("on_gcd", remaining)):toBe(false)
+			end
+			expect(law.shouldQueue("on_gcd", nil)):toBe(false)
+			expect(law.shouldQueue(nil, 0.2)):toBe(false)
+			expect(law.shouldQueue("on_cooldown", 0.2)):toBe(false)
+			expect(law.delayFor(1e-17)):toBe(0.05)
+			expect(law.delayFor(0.3)):toBe(0.3)
+			expect(law.minimumCadenceSec(1.5)):toBe(1.1)
+			expect(law.minimumCadenceSec(0.2)):toBe(0)
+		end)
+		it("replacement fences stale callbacks and consumption is once only", function()
+			local scene = Scene.new(config)
+			local first = assert(scene.enqueue("first", 0, "on_gcd", 0.125))
+			local original = scene.snapshot()
+			local second = assert(scene.enqueue("second", 0, "on_gcd", 0.25))
+			expect(second.token > first.token):toBe(true)
+			scene.clock.advance(0.125)
+			expect(#scene.fired):toBe(0)
+			expect(assert(scene.snapshot().queued).payload):toBe("second")
+			scene.clock.advance(0.125)
+			expect(#scene.fired):toBe(1)
+			expect(scene.fired[1].payload):toBe("second")
+			expect(scene.fired[1].requeues):toBe(1)
+			expect(scene.snapshot().queued):toBeNil()
+			expect(assert(original.queued).payload):toBe("first")
+			local unchanged, missing = Queue.take(scene.snapshot(), second.token, scene.clock.clock())
+			expect(unchanged == scene.snapshot()):toBe(true)
+			expect(missing):toBeNil()
+		end)
+		it("cancellation retains token generations and isolates owners", function()
+			local scene = Scene.new(config)
+			local other = Scene.new(config)
+			local first = assert(scene.enqueue("cancelled", 0, "on_gcd", 0.25))
+			other.enqueue("other", 0, "on_gcd", 0.25)
+			scene.cancel(first.token + 1)
+			expect(scene.snapshot().queued):toEqual(first)
+			scene.cancel(nil)
+			local replacement = assert(scene.enqueue("replacement", 0, "on_gcd", 0.25))
+			scene.cancel(first.token)
+			expect(replacement.token > first.token):toBe(true)
+			scene.clock.advance(1)
+			other.clock.advance(1)
+			expect(#scene.fired):toBe(1)
+			expect(scene.fired[1].payload):toBe("replacement")
+			expect(other.fired[1].payload):toBe("other")
+			scene.enqueue("stopped", 0, "on_gcd", 0.25)
+			scene.cancel(nil)
+			scene.clock.advance(1)
+			expect(#scene.fired):toBe(1)
+		end)
+		it("retry chains terminate at the bound and refusals preserve state identity", function()
+			local scene = Scene.new(config)
+			for attempt = 0, 3 do
+				expect(assert(scene.enqueue("cast", attempt, "on_gcd", 1e-17)).requeues):toBe(attempt + 1)
+				scene.clock.advance(0.05)
+			end
+			expect(#scene.fired):toBe(4)
+			local original = scene.snapshot()
+			for _, count in { 4, 5, -1, 0.5, math.huge, (math.huge - math.huge) } do
+				expect(scene.enqueue("cast", count, "on_gcd", 0.2)):toBeNil()
+				expect(scene.snapshot() == original):toBe(true)
+			end
+			expect(scene.enqueue("cast", 0, "out_of_range", 0.2)):toBeNil()
+			expect(scene.snapshot() == original):toBe(true)
+		end)
+		it("early wakeups preserve the queue until the due clock", function()
+			local empty: Queue.State<string> = { nextToken = 1 }
+			local state, entry = Queue.rules(config).enqueue(empty, "cast", 0, "on_gcd", 0.25, 10)
+			local early, missing = Queue.take(state, assert(entry).token, 10.125)
+			expect(early == state):toBe(true)
+			expect(missing):toBeNil()
+			local taken, result = Queue.take(state, assert(entry).token, 10.25)
+			expect(result):toEqual(entry)
+			expect(taken.queued):toBeNil()
+			expect(empty.nextToken):toBe(1)
+			expect(empty.queued):toBeNil()
+			expect(Queue.empty()):toEqual({ nextToken = 1 })
+		end)
+		it("global cooldown, cast and channel windows expire independently over the clock seam", function()
+			local scene = Scene.new(config)
+			scene.clock.advance(10)
+			local windows = Queue.windows(scene.clock.clock(), 1, 2, 3)
+			expect(Queue.ready(windows, scene.clock.clock())):toBe(false)
+			scene.clock.advance(1)
+			local gcd, cast, channel = Queue.remaining(windows, scene.clock.clock())
+			expect({ gcd, cast, channel }):toEqual({ 0, 1, 2 })
+			scene.clock.advance(1)
+			expect(Queue.ready(windows, scene.clock.clock())):toBe(false)
+			scene.clock.advance(1)
+			expect(Queue.ready(windows, scene.clock.clock())):toBe(true)
+			expect(Queue.ready(windows, 20)):toBe(true)
+			expect(windows):toEqual({ gcdReadyAt = 11, castReadyAt = 12, channelReadyAt = 13 })
+			expect(Queue.ready(Queue.windows(10, 0, 0, 0), 10)):toBe(true)
+		end)
+		it("configuration is captured and invalid timing fails before producing state", function()
+			local supplied = table.clone(config)
+			local law = Queue.rules(supplied)
+			supplied.windowSec = 10
+			expect(law.shouldQueue("on_gcd", 1)):toBe(false)
+			for _, invalid in
+				{
+					{ windowSec = -1, minRetrySec = 0.05, maxRequeues = 4 },
+					{ windowSec = 0.4, minRetrySec = 0, maxRequeues = 4 },
+					{ windowSec = 0.4, minRetrySec = 0.05, maxRequeues = 0.5 },
+					{ windowSec = math.huge, minRetrySec = 0.05, maxRequeues = 4 },
+				}
+			do
+				expect((pcall(Queue.rules, invalid))):toBe(false)
+			end
+			expect((pcall(Queue.windows, (math.huge - math.huge), 0, 0, 0))):toBe(false)
+			expect((pcall(Queue.windows, 0, -1, 0, 0))):toBe(false)
+			expect((pcall(law.delayFor, math.huge))):toBe(false)
+		end)
+	end)
+end
