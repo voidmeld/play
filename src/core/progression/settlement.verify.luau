@@ -79,6 +79,90 @@ local Core = Settlement.settlement({
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
+	describe("shared reward queue", function()
+		it("retries saves and released receipts before reporting claims as settled", function()
+			local staged: { string } = {}
+			local saves: { string } = {}
+			local notices: { string } = {}
+			local accept, loaded, durable = false, true, false
+			local awarded, writes = 0, 0
+			local pending: { string } = { "reward" }
+			local config: Settlement.QueueConfig<string, string, string> = {
+				claimKey = function(event, member)
+					return event .. member
+				end,
+				stage = function(member, _, confirm)
+					if accept then
+						table.insert(staged, member)
+						confirm(member == "b")
+					end
+				end,
+				loaded = function(member)
+					return member == "a" or loaded
+				end,
+				save = function(member)
+					expect(staged):toEqual({ "b", "a" })
+					table.insert(saves, member)
+					return durable
+				end,
+				saveReleased = function(member)
+					table.insert(saves, "released:" .. member)
+					return durable
+				end,
+				scope = function()
+					return "scope"
+				end,
+				members = function()
+					return { "a" }
+				end,
+				pending = function()
+					return pending
+				end,
+				marker = function(reward)
+					return reward
+				end,
+				deliver = function()
+					writes += 1
+					if writes == 1 then
+						error("interrupted write")
+					end
+					if not durable then
+						return false, "capacity"
+					end
+					table.clear(pending)
+					return true, nil
+				end,
+				reward = function()
+					awarded += 1
+				end,
+				notice = function(member, event, reason)
+					table.insert(notices, member .. "/" .. event .. "/" .. (reason or ""))
+				end,
+			}
+			local queue = Settlement.rewardQueue(config)
+			queue.stage("run", { "a", "b" })
+			accept = true
+			queue.stage("run", { "b", "a", "b" })
+			config.reward = function()
+				awarded += 1
+				queue.drain()
+			end
+			local ok = pcall(queue.drain)
+			expect(ok):toBe(false)
+			expect(queue.settled("run")):toBe(false)
+			queue.drain()
+			queue.drain()
+			expect(notices):toEqual({ "a/save_pending/", "b/save_pending/", "a/delivery_pending/capacity" })
+			loaded, durable = false, true
+			table.clear(saves)
+			queue.drain()
+			queue.drain()
+			expect(saves):toEqual({ "a", "released:b" })
+			expect(notices[4]):toBe("b/locked/")
+			expect(queue.settled("run")):toBe(true)
+			expect(awarded):toBe(1)
+		end)
+	end)
 	describe("run settlement", function()
 		it("keeps failed grants atomic and reconciles both ledgers on replay", function()
 			local history = assert(Core.emptyRewardHistory("route", "a"))

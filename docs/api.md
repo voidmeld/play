@@ -1344,6 +1344,16 @@ Exact signatures and returned operations are in the [signature appendix](#signat
 
 Supply curves, class/resource/admission policy, catalogs, numeric/time bounds and pure account/profile projectors. Standing-credit coordinates injected authority/readiness/write callbacks.
 
+Use `settlement.rewardQueue` when several participants earn a reward from one event.
+Stage every eligible member before draining. Call the supplied confirmation inside the accepted
+profile update, passing the lockout result. The queue retries unconfirmed claims and saves them in
+claim-key order. For a released profile, supply its durable release readback. `settled(eventId)`
+reports that every staged claim for the event has left the save queue. Delivery can still be pending.
+The host enumerates persisted entitlements for current members and commits each grant idempotently.
+The queue calls the reward notification only after that commit succeeds. It suppresses repeated
+failure notices for each outstanding claim or delivery, and ignores overlapping drains. See the
+[settlement specification](../src/core/progression/settlement.verify.luau).
+
 ### Runnable example
 
 From the repository root after [tool setup](validation.md#tools):
@@ -12948,6 +12958,45 @@ export type Config<P, S, C, Q> = {
 }
 ```
 
+### `core.progression.settlement.QueueNotice`
+
+```luau
+export type QueueNotice = "locked" | "save_pending" | "delivery_pending"
+```
+
+### `core.progression.settlement.QueueConfig`
+
+```luau
+export type QueueConfig<M, R, P> = {
+	claimKey: (string, M) -> string,
+	stage: (M, string, (boolean) -> ()) -> (),
+	loaded: (M) -> boolean,
+	save: (M) -> boolean,
+	saveReleased: (M) -> boolean,
+	scope: () -> P?,
+	members: () -> { M },
+	pending: (P, M) -> { R }?,
+	marker: (R) -> string,
+	deliver: (M, R) -> (boolean, string?),
+	reward: (M, R) -> (),
+	notice: (M, QueueNotice, string?) -> (),
+}
+```
+
+### `core.progression.settlement.rewardQueue`
+
+```luau
+function System.rewardQueue<M, R, P>(deps: QueueConfig<M, R, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+stage = function runtime.stage(eventId: string, members: { M })
+settled = function runtime.settled(eventId: string): boolean
+drain = function runtime.drain()
+```
+
 ### `core.progression.settlement.settlement`
 
 ```luau
@@ -13825,6 +13874,18 @@ export type SettlementRewardResult<S, Q> = Settlement.RewardResult<S, Q>
 
 ```luau
 export type SettlementGrantResult<S> = Settlement.GrantResult<S>
+```
+
+### `core.progression.SettlementQueueNotice`
+
+```luau
+export type SettlementQueueNotice = Settlement.QueueNotice
+```
+
+### `core.progression.SettlementQueueConfig`
+
+```luau
+export type SettlementQueueConfig<M, R, P> = Settlement.QueueConfig<M, R, P>
 ```
 
 ### `core.progression.SettlementConfig`
