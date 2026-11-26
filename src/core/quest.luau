@@ -73,6 +73,17 @@ export type RunTransitionResult = Run.TransitionResult
 export type RunCore = Run.Core
 export type RunConfig<P> = Run.Config<P>
 
+export type RunTracker = Run.Tracker
+export type RunWaveReading = Run.WaveReading
+export type RunWaveRoom = Run.WaveRoom
+export type RunWaveConfig<I, R, S> = Run.WaveConfig<I, R, S>
+export type RunDecision = Run.Decision
+export type RunHealth = Run.Health
+export type RunReinforcement = Run.Reinforcement
+export type RunRepopulation = Run.Repopulation
+export type RunRetreat = Run.Retreat
+export type RunCycleConfig = Run.CycleConfig
+
 export type API = {
 	read claims: typeof(Claims),
 	read counter: typeof(Counter),

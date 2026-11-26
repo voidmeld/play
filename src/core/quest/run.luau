@@ -794,4 +794,347 @@ function System.run<P>(config: Config<P>): Core
 	local core: Core = { transition = transition, projectRunState = projectRunState, Reason = Reason }
 	return Value.freezeDeep(core)
 end
+export type Tracker = {
+	runId: string,
+	attempt: number,
+	phaseIndex: number,
+	waveIndex: number,
+	addsSpawned: boolean,
+	spawned: { [string]: string },
+	defeated: { [string]: boolean },
+	pending: { [string]: boolean },
+	calledSequences: { [string]: number },
+}
+
+export type WaveReading = {
+	read hp: number,
+	read maxHp: number,
+	read resolvedAbilitySequence: number?,
+	read resolvedReinforcementCount: number?,
+}
+type Readings = { read [string]: WaveReading? }
+type Horizontal = { read x: number, read z: number }
+export type WaveRoom = {
+	read kind: string,
+	read position: Horizontal,
+	read waves: { read [number]: { read [number]: { read placementId: string } } },
+	read adds: { read atHealthFraction: number }?,
+}
+export type WaveConfig<I, R, S> = {
+	room: (I, number) -> R?,
+	describe: (R) -> WaveRoom,
+	wave: (R, Tracker, number) -> { S },
+	adds: (R, Tracker) -> { S },
+	call: (R, Tracker, string, number, number) -> S?,
+	ids: (S) -> (string, string),
+	isCall: (string) -> boolean,
+	isCallerSpawn: (string, string) -> boolean,
+	perCast: number,
+	liveCap: number,
+	checkpointRadius: number,
+}
+export type Decision =
+	{ kind: "wait" }
+	| { kind: "spawn_wave", waveIndex: number }
+	| { kind: "spawn_adds" }
+	| { kind: "room_cleared" }
+
+local function copyTracker(tracker: Tracker): Tracker
+	return {
+		runId = tracker.runId,
+		attempt = tracker.attempt,
+		phaseIndex = tracker.phaseIndex,
+		waveIndex = tracker.waveIndex,
+		addsSpawned = tracker.addsSpawned,
+		spawned = table.clone(tracker.spawned),
+		defeated = table.clone(tracker.defeated),
+		pending = table.clone(tracker.pending),
+		calledSequences = table.clone(tracker.calledSequences),
+	}
+end
+
+function System.newTracker(runId: string, attempt: number, phaseIndex: number): Tracker
+	return Value.freezeDeep({
+		runId = runId,
+		attempt = attempt,
+		phaseIndex = phaseIndex,
+		waveIndex = 0,
+		addsSpawned = false,
+		spawned = {},
+		defeated = {},
+		pending = {},
+		calledSequences = {},
+	})
+end
+
+local function decide(room: WaveRoom, tracker: Tracker, readings: Readings): Decision
+	if room.kind == "boss" then
+		local bossPlacementId = room.waves[1][1].placementId
+		if tracker.defeated[bossPlacementId] then
+			return { kind = "room_cleared" }
+		end
+		local reading = readings[bossPlacementId]
+		if
+			not tracker.addsSpawned
+			and reading ~= nil
+			and reading.maxHp > 0
+			and reading.hp / reading.maxHp <= assert(room.adds).atHealthFraction
+		then
+			return { kind = "spawn_adds" }
+		end
+		return { kind = "wait" }
+	end
+	for placementId in tracker.pending do
+		if not tracker.defeated[placementId] then
+			return { kind = "wait" }
+		end
+	end
+	if tracker.waveIndex < #room.waves then
+		return { kind = "spawn_wave", waveIndex = tracker.waveIndex + 1 }
+	end
+	return { kind = "room_cleared" }
+end
+
+function System.encounters<I, R, S>(config: WaveConfig<I, R, S>)
+	local encounters = {}
+
+	local function trackSpawn(tracker: Tracker, spawn: S, pending: boolean)
+		local placementId, instanceId = config.ids(spawn)
+		tracker.spawned[placementId] = instanceId
+		if pending then
+			tracker.pending[placementId] = true
+		end
+	end
+
+	function encounters.waveSpawns(integration: I, tracker: Tracker, index: number): (Tracker, { S })
+		local room = config.room(integration, tracker.phaseIndex)
+		if room == nil then
+			return tracker, {}
+		end
+		local spawns = config.wave(room, tracker, index)
+		local updated = copyTracker(tracker)
+		updated.waveIndex = index
+		updated.pending = {}
+		for _, spawn in spawns do
+			trackSpawn(updated, spawn, true)
+		end
+		return Value.freezeDeep(updated), spawns
+	end
+
+	function encounters.addSpawns(integration: I, tracker: Tracker): (Tracker, { S })
+		local room = config.room(integration, tracker.phaseIndex)
+		if room == nil or config.describe(room).adds == nil or tracker.addsSpawned then
+			return tracker, {}
+		end
+		local spawns = config.adds(room, tracker)
+		local updated = copyTracker(tracker)
+		updated.addsSpawned = true
+		for _, spawn in spawns do
+			trackSpawn(updated, spawn, false)
+		end
+		return Value.freezeDeep(updated), spawns
+	end
+
+	function encounters.calledSpawns(integration: I, tracker: Tracker, readings: Readings): (Tracker, { S })
+		local room = config.room(integration, tracker.phaseIndex)
+		local updated = copyTracker(tracker)
+		local spawns: { S } = {}
+		for caller, mob in readings do
+			if mob == nil or mob.hp <= 0 then
+				continue
+			end
+			local sequence, count = mob.resolvedAbilitySequence, mob.resolvedReinforcementCount
+			if sequence == nil or count == nil or sequence <= (tracker.calledSequences[caller] or 0) then
+				continue
+			end
+			updated.calledSequences[caller] = sequence
+			local living, callerLiving = 0, 0
+			for id in tracker.spawned do
+				local other = readings[id]
+				if other ~= nil and other.hp > 0 then
+					if config.isCall(id) then
+						living += 1
+					end
+					if config.isCallerSpawn(id, caller) then
+						callerLiving += 1
+					end
+				end
+			end
+			for index = 1, math.min(count, config.perCast, config.liveCap - living, count - callerLiving) do
+				local spawn = config.call(assert(room), tracker, caller, sequence, index)
+				if spawn ~= nil then
+					spawns[#spawns + 1] = spawn
+					trackSpawn(updated, spawn, true)
+				end
+			end
+		end
+		return Value.freezeDeep(updated), spawns
+	end
+
+	function encounters.observe(integration: I, tracker: Tracker, readings: Readings): (Tracker, Decision)
+		local source = config.room(integration, tracker.phaseIndex)
+		local room = if source ~= nil then config.describe(source) else nil
+		if room == nil or (room.kind ~= "encounter" and room.kind ~= "boss") or tracker.waveIndex == 0 then
+			return tracker, { kind = "wait" }
+		end
+		local updated = copyTracker(tracker)
+		for id in updated.spawned do
+			local mob = readings[id]
+			if mob ~= nil and mob.hp <= 0 then
+				updated.defeated[id] = true
+			end
+		end
+		return Value.freezeDeep(updated), decide(room, updated, readings)
+	end
+
+	function encounters.reachedCheckpoint(
+		integration: I,
+		index: number,
+		positions: { read [number]: Horizontal }
+	): boolean
+		local source = config.room(integration, index)
+		local room = if source ~= nil then config.describe(source) else nil
+		if room == nil or room.kind ~= "checkpoint" then
+			return false
+		end
+		for _, position in positions do
+			local dx, dz = position.x - room.position.x, position.z - room.position.z
+			if math.sqrt(dx * dx + dz * dz) <= config.checkpointRadius then
+				return true
+			end
+		end
+		return false
+	end
+
+	function encounters.enterRoom(integration: I, runId: string, attempt: number, index: number): (Tracker, { S })
+		local tracker = System.newTracker(runId, attempt, index)
+		local room = config.describe(assert(config.room(integration, index)))
+		if room.kind == "encounter" or room.kind == "boss" then
+			return encounters.waveSpawns(integration, tracker, 1)
+		end
+		return tracker, {}
+	end
+
+	function encounters.advance(
+		integration: I,
+		tracker: Tracker,
+		readings: Readings,
+		spawn: ({ S }) -> (),
+		track: (Tracker) -> ()
+	): boolean
+		local withCalls, called = encounters.calledSpawns(integration, tracker, readings)
+		spawn(called)
+		local observed, decision = encounters.observe(integration, withCalls, readings)
+		track(observed)
+		if decision.kind == "spawn_wave" then
+			local nextTracker, wave = encounters.waveSpawns(integration, observed, decision.waveIndex)
+			track(nextTracker)
+			spawn(wave)
+		elseif decision.kind == "spawn_adds" then
+			local nextTracker, adds = encounters.addSpawns(integration, observed)
+			track(nextTracker)
+			spawn(adds)
+		end
+		return decision.kind == "room_cleared"
+	end
+
+	return table.freeze(encounters)
+end
+
+type Point = { x: number, y: number?, z: number }
+export type Health = { hp: number, maxHp: number }
+export type Reinforcement = { hp: number, resolvedAbilitySequence: number?, resolvedReinforcementCount: number? }
+export type Repopulation = { dueAt: number?, phase: string?, warnedAt: number? }
+export type Retreat = { position: Point, radius: number }
+export type CycleConfig = {
+	warningSeconds: number,
+	perCast: number,
+	liveCap: number,
+	pocketRadius: number,
+	heightTolerance: number,
+}
+
+function System.sharedCycle(config: CycleConfig)
+	local cycle = {}
+	function cycle.respawnAt(defeatedAt: number, isBoss: boolean, bossSeconds: number, trashSeconds: number): number
+		return defeatedAt + (if isBoss then bossSeconds else trashSeconds)
+	end
+
+	function cycle.callDue(alreadyCalled: boolean, mob: Health?, fraction: number): boolean
+		return not alreadyCalled and mob ~= nil and mob.hp > 0 and mob.maxHp > 0 and mob.hp / mob.maxHp <= fraction
+	end
+
+	function cycle.rollCount(sequence: number, mob: Reinforcement, living: number, liveCap: number?): (number, number)
+		local latest, count = mob.resolvedAbilitySequence, mob.resolvedReinforcementCount
+		if mob.hp <= 0 or latest == nil or count == nil or latest <= sequence then
+			return 0, sequence
+		end
+		return math.max(
+			0,
+			math.min(count, config.perCast, math.min(liveCap or config.liveCap, config.liveCap) - living)
+		),
+			latest
+	end
+
+	function cycle.repopulation<T>(
+		row: T & Repopulation,
+		now: number,
+		occupied: boolean,
+		delayCap: number?
+	): (T & Repopulation, boolean)
+		local nextRow = table.clone(row)
+		local dueAt = row.dueAt
+		if dueAt == nil then
+			nextRow.phase = "active"
+			return nextRow, false
+		end
+		if occupied and delayCap ~= nil and now >= dueAt + delayCap then
+			occupied = false
+		end
+		if occupied or now < dueAt - config.warningSeconds then
+			nextRow.phase = "returning"
+			nextRow.warnedAt = nil
+			return nextRow, false
+		end
+		nextRow.phase = "warned"
+		local warnedAt: number = row.warnedAt or now
+		nextRow.warnedAt = warnedAt
+		if now >= dueAt and now - warnedAt >= config.warningSeconds then
+			nextRow.phase = "active"
+			return nextRow, true
+		end
+		return nextRow, false
+	end
+
+	function cycle.occupiedRetreat(placement: { position: Point }, room: Retreat?, positions: { Point }): boolean
+		for _, position in positions do
+			if math.abs((position.y or 0) - (placement.position.y or 0)) > config.heightTolerance then
+				continue
+			end
+			local dx, dz = position.x - placement.position.x, position.z - placement.position.z
+			if dx * dx + dz * dz <= config.pocketRadius * config.pocketRadius then
+				return true
+			end
+			if room ~= nil then
+				local rx, rz = position.x - room.position.x, position.z - room.position.z
+				if rx * rx + rz * rz <= room.radius * room.radius then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	function cycle.presenceActive(lastActiveAt: number, now: number, idleSeconds: number): boolean
+		return now - lastActiveAt <= idleSeconds
+	end
+
+	function cycle.moved(from: Point, to: Point, studs: number): boolean
+		local dx, dy, dz = to.x - from.x, (to.y or 0) - (from.y or 0), to.z - from.z
+		return dx * dx + dy * dy + dz * dz >= studs * studs
+	end
+
+	return table.freeze(cycle)
+end
+
 return table.freeze(System)

@@ -1405,6 +1405,16 @@ statuses with the journal's admitted vocabulary.
 `reconcileOrdered` updates the progress map supplied by the actor projection. Call it with a draft owned
 by the authoritative reducer. Other progress operations query that state and do not reserve or install it.
 
+Use `run.encounters` to drive an encounter from authoritative mob readings. Supply the room
+projection, spawn constructors, identity functions, call limits and checkpoint radius.
+`enterRoom` starts the attempt. A missing reading keeps an enemy pending. A new successful
+cast sequence can add reinforcements. `advance` emits calls first, installs the observed tracker,
+then installs and emits any next wave or boss adds. A true return signals room completion.
+Checkpoint reach uses horizontal distance. `run.sharedCycle` supplies timed repopulation,
+presence and reinforcement rules for shared rooms. Occupied rooms get a fresh warning when
+they clear or reach the configured delay cap. The [run specification](../src/core/quest/run.verify.luau)
+exercises both encounter models.
+
 ### Runnable example
 
 From the repository root after [tool setup](validation.md#tools):
@@ -14919,10 +14929,183 @@ export type Config<P> = {
 }
 ```
 
+### `core.quest.run.Tracker`
+
+```luau
+export type Tracker = {
+	runId: string,
+	attempt: number,
+	phaseIndex: number,
+	waveIndex: number,
+	addsSpawned: boolean,
+	spawned: { [string]: string },
+	defeated: { [string]: boolean },
+	pending: { [string]: boolean },
+	calledSequences: { [string]: number },
+}
+```
+
+### `core.quest.run.WaveReading`
+
+```luau
+export type WaveReading = {
+	read hp: number,
+	read maxHp: number,
+	read resolvedAbilitySequence: number?,
+	read resolvedReinforcementCount: number?,
+}
+```
+
+### `core.quest.run.WaveRoom`
+
+```luau
+export type WaveRoom = {
+	read kind: string,
+	read position: Horizontal,
+	read waves: { read [number]: { read [number]: { read placementId: string } } },
+	read adds: { read atHealthFraction: number }?,
+}
+```
+
+### `core.quest.run.WaveConfig`
+
+```luau
+export type WaveConfig<I, R, S> = {
+	room: (I, number) -> R?,
+	describe: (R) -> WaveRoom,
+	wave: (R, Tracker, number) -> { S },
+	adds: (R, Tracker) -> { S },
+	call: (R, Tracker, string, number, number) -> S?,
+	ids: (S) -> (string, string),
+	isCall: (string) -> boolean,
+	isCallerSpawn: (string, string) -> boolean,
+	perCast: number,
+	liveCap: number,
+	checkpointRadius: number,
+}
+```
+
+### `core.quest.run.Decision`
+
+```luau
+export type Decision =
+	{ kind: "wait" }
+	| { kind: "spawn_wave", waveIndex: number }
+	| { kind: "spawn_adds" }
+	| { kind: "room_cleared" }
+```
+
+### `core.quest.run.Health`
+
+```luau
+export type Health = { hp: number, maxHp: number }
+```
+
+### `core.quest.run.Reinforcement`
+
+```luau
+export type Reinforcement = { hp: number, resolvedAbilitySequence: number?, resolvedReinforcementCount: number? }
+```
+
+### `core.quest.run.Repopulation`
+
+```luau
+export type Repopulation = { dueAt: number?, phase: string?, warnedAt: number? }
+```
+
+### `core.quest.run.Retreat`
+
+```luau
+export type Retreat = { position: Point, radius: number }
+```
+
+### `core.quest.run.CycleConfig`
+
+```luau
+export type CycleConfig = {
+	warningSeconds: number,
+	perCast: number,
+	liveCap: number,
+	pocketRadius: number,
+	heightTolerance: number,
+}
+```
+
+### `core.quest.run.encounters`
+
+```luau
+function System.encounters<I, R, S>(config: WaveConfig<I, R, S>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+waveSpawns = function encounters.waveSpawns(integration: I, tracker: Tracker, index: number): (Tracker, { S })
+addSpawns = function encounters.addSpawns(integration: I, tracker: Tracker): (Tracker, { S })
+calledSpawns = function encounters.calledSpawns(integration: I, tracker: Tracker, readings: Readings): (Tracker, { S })
+observe = function encounters.observe(integration: I, tracker: Tracker, readings: Readings): (Tracker, Decision)
+reachedCheckpoint = function encounters.reachedCheckpoint(
+		integration: I,
+		index: number,
+		positions: { read [number]: Horizontal }
+	): boolean
+enterRoom = function encounters.enterRoom(integration: I, runId: string, attempt: number, index: number): (Tracker, { S })
+advance = function encounters.advance(
+		integration: I,
+		tracker: Tracker,
+		readings: Readings,
+		spawn: ({ S }) -> (),
+		track: (Tracker) -> ()
+	): boolean
+```
+
+### `core.quest.run.newTracker`
+
+```luau
+function System.newTracker(runId: string, attempt: number, phaseIndex: number): Tracker
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+runId = runId
+attempt = attempt
+phaseIndex = phaseIndex
+waveIndex = 0
+addsSpawned = false
+spawned = {}
+defeated = {}
+pending = {}
+calledSequences = {}
+```
+
 ### `core.quest.run.run`
 
 ```luau
 function System.run<P>(config: Config<P>): Core
+```
+
+### `core.quest.run.sharedCycle`
+
+```luau
+function System.sharedCycle(config: CycleConfig)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+respawnAt = function cycle.respawnAt(defeatedAt: number, isBoss: boolean, bossSeconds: number, trashSeconds: number): number
+callDue = function cycle.callDue(alreadyCalled: boolean, mob: Health?, fraction: number): boolean
+rollCount = function cycle.rollCount(sequence: number, mob: Reinforcement, living: number, liveCap: number?): (number, number)
+repopulation = function cycle.repopulation<T>(
+		row: T & Repopulation,
+		now: number,
+		occupied: boolean,
+		delayCap: number?
+	): (T & Repopulation, boolean)
+occupiedRetreat = function cycle.occupiedRetreat(placement: { position: Point }, room: Retreat?, positions: { Point }): boolean
+presenceActive = function cycle.presenceActive(lastActiveAt: number, now: number, idleSeconds: number): boolean
+moved = function cycle.moved(from: Point, to: Point, studs: number): boolean
 ```
 
 ## `core.quest`
@@ -15335,6 +15518,66 @@ export type RunCore = Run.Core
 
 ```luau
 export type RunConfig<P> = Run.Config<P>
+```
+
+### `core.quest.RunTracker`
+
+```luau
+export type RunTracker = Run.Tracker
+```
+
+### `core.quest.RunWaveReading`
+
+```luau
+export type RunWaveReading = Run.WaveReading
+```
+
+### `core.quest.RunWaveRoom`
+
+```luau
+export type RunWaveRoom = Run.WaveRoom
+```
+
+### `core.quest.RunWaveConfig`
+
+```luau
+export type RunWaveConfig<I, R, S> = Run.WaveConfig<I, R, S>
+```
+
+### `core.quest.RunDecision`
+
+```luau
+export type RunDecision = Run.Decision
+```
+
+### `core.quest.RunHealth`
+
+```luau
+export type RunHealth = Run.Health
+```
+
+### `core.quest.RunReinforcement`
+
+```luau
+export type RunReinforcement = Run.Reinforcement
+```
+
+### `core.quest.RunRepopulation`
+
+```luau
+export type RunRepopulation = Run.Repopulation
+```
+
+### `core.quest.RunRetreat`
+
+```luau
+export type RunRetreat = Run.Retreat
+```
+
+### `core.quest.RunCycleConfig`
+
+```luau
+export type RunCycleConfig = Run.CycleConfig
 ```
 
 ### `core.quest.API`
