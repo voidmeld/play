@@ -133,6 +133,20 @@ return function(suite: Verify.Harness)
 			readings.b = { hp = 0, maxHp = 1 }
 			expect(rules.advance(rooms, installed, readings, spawn, track)):toBe(true)
 		end)
+		it("requires positive observed health and an advancing call sequence", function()
+			local tracker = rules.enterRoom(rooms, "party", 1, 1)
+			local unknown = 0 / 0
+			for _, reading in
+				{
+					{ hp = unknown, maxHp = 10, resolvedAbilitySequence = 1, resolvedReinforcementCount = 1 },
+					{ hp = 10, maxHp = 10, resolvedAbilitySequence = unknown, resolvedReinforcementCount = 1 },
+				}
+			do
+				local observed, calls = rules.calledSpawns(rooms, tracker, { a = reading })
+				expect(#calls):toBe(0)
+				expect(observed.calledSequences.a):toBeNil()
+			end
+		end)
 		it("resets attempts, checks horizontal checkpoint reach and calls boss adds once", function()
 			local fresh, empty = rules.enterRoom(rooms, "party", 2, 2)
 			expect(#empty):toBe(0)

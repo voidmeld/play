@@ -940,11 +940,11 @@ function System.encounters<I, R, S>(config: WaveConfig<I, R, S>)
 		local updated = copyTracker(tracker)
 		local spawns: { S } = {}
 		for caller, mob in readings do
-			if mob == nil or mob.hp <= 0 then
+			if mob == nil or not (mob.hp > 0) then
 				continue
 			end
 			local sequence, count = mob.resolvedAbilitySequence, mob.resolvedReinforcementCount
-			if sequence == nil or count == nil or sequence <= (tracker.calledSequences[caller] or 0) then
+			if sequence == nil or count == nil or not (sequence > (tracker.calledSequences[caller] or 0)) then
 				continue
 			end
 			updated.calledSequences[caller] = sequence
