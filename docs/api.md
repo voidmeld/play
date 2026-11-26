@@ -16,6 +16,7 @@ The hand-written sections explain how to use those declarations.
 | Select and update a target | [Threat](#threat) |
 | Admit and recover transactions | [Trade](#trade), [mail](#mail) and [market](#market) |
 | Decode requests and apply state | [Inventory](#inventory), [progression](#progression) and [quest](#quest) |
+| Divide rewards among nearby party members | [Party reward sharing](#party-reward-sharing) |
 | Select another area | [Area index](#area-index) |
 
 ## Shared setup
@@ -3557,7 +3558,7 @@ Types and configuration are exported from [src/core/social.luau](../src/core/soc
 | [notes](../src/core/social/notes.luau) | `deliver`, `emptyState`, `live`, `markRead`, `notes`, `phrases`, `projectState` | `Note`, `State`, `Result`, `Phrase`, `Catalog`, `Delivery`, `Config` |
 | [profile](../src/core/social/profile.luau) | `default`, `profile`, `project` | `FellowshipIdentity`, `State`, `Config` |
 | [rally](../src/core/social/rally.luau) | `project`, `rally` | `Row`, `Config` |
-| [roster](../src/core/social/roster.luau) | `reduce`, `roster` | `Member`, `Party`, `Actor`, `Runtime`, `Result`, `Config` |
+| [roster](../src/core/social/roster.luau) | `roster` configures snapshot reduction. `sharing` configures presence admission, eligibility, XP and contribution splits. | `Member`, `Party`, `Actor`, `Runtime`, `Result`, `Config`, `RewardParty`, `Point`, `Presence`, `XpEvent`, `ContributionEvent`, `Share`, `Contribution`, `SharingConfig`, `Sharing` |
 | [warband](../src/core/social/warband.luau) | `found`, `project`, `read`, `transition`, `warband` | `Party`, `Unit`, `Invite`, `Transfer`, `Order`, `State`, `Event`, `Parties`, `Result`, `Config` |
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
@@ -3592,6 +3593,36 @@ Run these rules directly with neutral policy:
 ```sh
 lute run tools/gate.luau --file src/core/social/membership.verify.luau
 ```
+
+### Party reward sharing
+
+Call `Social.roster.sharing(config)` with a party projector such as the configured membership's
+`projectState`, a 3D radius, coordinate, text, time and quantity limits, a contribution kind
+decoder and a pure `eventIdFor(eventId, accountId)`. The party projector supplies an ordered roster
+with unique account IDs, absence times, realm and disband time. Supply authoritative observations
+and choose an ID encoding unique to each event and recipient in your receipt store.
+
+- `projectPresence(value)` copies a map of account IDs to bounded finite `{x, y, z}` points.
+- `eligible(party, origin, presence)` returns present members with a reported position at or inside
+  the radius, in roster order. Extra observed accounts never receive a share.
+- `shareXp(party, event, presence)` takes `{eventId, at, origin, amount, groupBonus?}`. For an
+  eligible group of size N, it rounds `amount * (1 + groupBonus * (N - 1))` to the nearest integer
+  (half up), then divides the pool evenly. Earlier members receive the remainder. A missing bonus
+  means zero. The returned rows include eligible members with zero XP.
+- `splitContribution(party, event, presence)` takes `{eventId, at, origin, kind, units}` and returns
+  only positive awards with `eventId`, `kind`, `accountId`, `realmId`, `units` and `at`. Repeating the
+  same inputs yields the same rows. The game applies and deduplicates awards under its own authority.
+
+All four operations return a detached, frozen result and nil, or nil and a reason. The splits forward
+party projection errors and refuse a disbanded roster with `party_disbanded`. Malformed fields, IDs,
+timestamps, origins and presence refuse before any awards are returned. XP requires a nonnegative
+whole amount and a safely representable integer pool. Contributions require an admitted kind, positive
+whole units and bounded derived IDs. An empty eligible group returns an empty array. For a nonempty
+group the optional bonus must be finite and between zero and one inclusive.
+
+Run the [two-member example](../tools/examples/party-rewards.luau) with
+`lute run tools/examples/party-rewards.luau` or the [boundary cases](../src/core/social/sharing.verify.luau)
+with `lute run tools/gate.luau --file src/core/social/sharing.verify.luau`.
 
 ## threat
 
@@ -16560,6 +16591,10 @@ project = function(source: unknown, zone: unknown, realm: unknown, now: unknown)
 
 [Source](../src/core/social/roster.luau)
 
+```luau
+local Value = require("../../kernel/value")
+```
+
 ### `core.social.roster.Member`
 
 ```luau
@@ -16604,6 +16639,86 @@ export type Config<S, A> = {
 }
 ```
 
+### `core.social.roster.Point`
+
+```luau
+export type Point = { read x: number, read y: number, read z: number }
+```
+
+### `core.social.roster.Presence`
+
+```luau
+export type Presence = { [string]: Point }
+```
+
+### `core.social.roster.RewardParty`
+
+```luau
+export type RewardParty = {
+	read realmId: string,
+	read disbandedAt: number?,
+	read members: { read [number]: { read accountId: string, read absentSince: number? } },
+}
+```
+
+### `core.social.roster.XpEvent`
+
+```luau
+export type XpEvent = { eventId: string, at: number, origin: Point, amount: number, groupBonus: number? }
+```
+
+### `core.social.roster.ContributionEvent`
+
+```luau
+export type ContributionEvent<K> = { eventId: string, at: number, origin: Point, kind: K, units: number }
+```
+
+### `core.social.roster.Share`
+
+```luau
+export type Share = { read accountId: string, read amount: number }
+```
+
+### `core.social.roster.Contribution`
+
+```luau
+export type Contribution<K> = {
+	read eventId: string,
+	read kind: K,
+	read accountId: string,
+	read realmId: string,
+	read units: number,
+	read at: number,
+}
+```
+
+### `core.social.roster.SharingConfig`
+
+```luau
+export type SharingConfig<K> = {
+	read projectParty: (unknown) -> (RewardParty?, string?),
+	read contributionKind: (string) -> (K & string)?,
+	read eventIdFor: (eventId: string, accountId: string) -> string,
+	read radius: number,
+	read maxCoordinate: number,
+	read maxText: number,
+	read maxAt: number,
+	read maxAmount: number,
+	read maxUnits: number,
+}
+```
+
+### `core.social.roster.Sharing`
+
+```luau
+export type Sharing<K> = {
+	read projectPresence: (unknown) -> (Presence?, string?),
+	read eligible: (party: unknown, origin: unknown, presence: unknown) -> ({ string }?, string?),
+	read shareXp: (party: unknown, event: unknown, presence: unknown) -> ({ Share }?, string?),
+	read splitContribution: (party: unknown, event: unknown, presence: unknown) -> ({ Contribution<K> }?, string?),
+}
+```
+
 ### `core.social.roster.roster`
 
 ```luau
@@ -16620,6 +16735,21 @@ reduce = function reduce(
 		tick: number
 	): Result<S, A>?
 subject = config.subject
+```
+
+### `core.social.roster.sharing`
+
+```luau
+function System.sharing<K>(config: SharingConfig<K>): Sharing<K>
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+projectPresence = function projectPresence(value: unknown): (Presence?, string?)
+eligible = function eligible(partyValue: unknown, origin: unknown, presence: unknown): ({ string }?, string?)
+shareXp = function shareXp(party: unknown, value: unknown, presence: unknown): ({ Share }?, string?)
+splitContribution = function splitContribution(party: unknown, value: unknown, presence: unknown): ({ Contribution<K> }?, string?)
 ```
 
 ## `core.social.shape`
@@ -17458,6 +17588,60 @@ export type RosterResult<S, A> = Roster.Result<S, A>
 
 ```luau
 export type RosterConfig<S, A> = Roster.Config<S, A>
+```
+
+### `core.social.RosterPoint`
+
+```luau
+export type RosterPoint = Roster.Point
+```
+
+### `core.social.RosterPresence`
+
+```luau
+export type RosterPresence = Roster.Presence
+```
+
+### `core.social.RosterRewardParty`
+
+```luau
+export type RosterRewardParty = Roster.RewardParty
+```
+
+### `core.social.RosterXpEvent`
+
+```luau
+export type RosterXpEvent = Roster.XpEvent
+```
+
+### `core.social.RosterContributionEvent`
+
+```luau
+export type RosterContributionEvent<K> = Roster.ContributionEvent<K>
+```
+
+### `core.social.RosterShare`
+
+```luau
+export type RosterShare = Roster.Share
+```
+
+### `core.social.RosterContribution`
+
+```luau
+export type RosterContribution<K> = Roster.Contribution<K>
+```
+
+### `core.social.RosterSharingConfig`
+
+```luau
+export type RosterSharingConfig<K> = Roster.SharingConfig<K>
+```
+
+### `core.social.RosterSharing`
+
+```luau
+export type RosterSharing<K> = Roster.Sharing<K>
 ```
 
 ### `core.social.WarbandParty`

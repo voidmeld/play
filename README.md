@@ -37,7 +37,7 @@ For one small pure-rules fixture, follow the [quickstart](docs/quickstart.md).
 | Economy | Player trade with receipts, mail with attachments, order book market with wallets and conservation, vendors, work orders, bank vaults | [`trade`](docs/api.md#trade), [`mail`](docs/api.md#mail), [`market`](docs/api.md#market), [`vendors`](docs/api.md#vendors), [`orders`](docs/api.md#orders), [`bank`](docs/api.md#bank) |
 | Professions | Skills, gathering, harvest, fishing, crafting sessions, recipes | [`professions`](docs/api.md#professions), [`craft`](docs/api.md#craft) |
 | Combat | Threat tables and contribution, cast queues, contact resolution, timed effects, crowd control with diminishing returns | [`threat`](docs/api.md#threat), [`cast`](docs/api.md#cast), [`combat`](docs/api.md#combat), [`effects`](docs/api.md#effects), [`control`](docs/api.md#control) |
-| Social | Groups, parties, fellowships, warbands, formations, membership, guild bank, guild home, guild ledger, allies, notes, chronicle | [`social`](docs/api.md#social) |
+| Social | Groups, parties, proximity-based XP and contribution sharing, fellowships, warbands, formations, membership, guild bank, guild home, guild ledger, allies, notes, chronicle | [`social`](docs/api.md#social) |
 | Communication | Chat channels, scheduled world events with watches | [`chat`](docs/api.md#chat), [`events`](docs/api.md#events) |
 | World | Map geometry, coordinates, exploration, viewports and map updates | [`map`](docs/api.md#map) |
 | Networking | Rate limits, bounded payload graphs, aggregate remote admission with handler lanes and deduplicated refusal notices | [`net`](docs/api.md#net), [`remote-admission`](docs/api.md#roblox-remote-admission) |
