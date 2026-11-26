@@ -8,6 +8,7 @@ for _, path in
 		"tools/examples/input-bindings.luau",
 		"tools/examples/thumbstick.luau",
 		"tools/examples/character-leases.luau",
+		"tools/examples/party-rewards.luau",
 		"examples/world/run.luau",
 	}
 do

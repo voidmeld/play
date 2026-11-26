@@ -79,6 +79,7 @@ return table.freeze {
 	"src/core/social/rally.verify.luau",
 	"src/core/social/roster.verify.luau",
 	"src/core/social/shape.verify.luau",
+	"src/core/social/sharing.verify.luau",
 	"src/core/social/warband.verify.luau",
 	"src/core/threat/contribution.verify.luau",
 	"src/core/threat/table.verify.luau",

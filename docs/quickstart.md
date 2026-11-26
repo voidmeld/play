@@ -43,6 +43,11 @@ lute run tools/gate.luau --file src/core/threat/table.verify.luau
 
 ## Bind a consumer
 
+For a party example, run `lute run tools/examples/party-rewards.luau`. Two members share nine XP.
+The [complete example](../tools/examples/party-rewards.luau) also gives one member a contribution unit
+with a repeatable receipt ID. See [party sharing](api.md#party-reward-sharing)
+for the event fields and refusal behavior.
+
 Pin an exact commit and tree. Preserve relative paths between `src/kernel`, `src/core` and `src/roblox`.
 Keep `tools/fixtures` in verification only.
 Read [adoption](adoption.md) for dependency setup and [the API](api.md#host-operations) for host duties.
