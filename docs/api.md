@@ -1420,7 +1420,7 @@ projection, spawn constructors, identity functions, call limits and checkpoint r
 `enterRoom` starts the attempt. A missing reading keeps an enemy pending. A new successful
 cast sequence can add reinforcements. `advance` emits calls first, installs the observed tracker,
 then installs and emits any next wave or boss adds. A true return signals room completion.
-Checkpoint reach uses horizontal distance. `run.sharedCycle` supplies timed repopulation,
+At a checkpoint, `advance` samples member positions and uses horizontal distance. In combat, it reads each tracked mob by instance ID. `run.sharedCycle` supplies timed repopulation,
 presence and reinforcement rules for shared rooms. Occupied rooms get a fresh warning when
 they clear or reach the configured delay cap. The [run specification](../src/core/quest/run.verify.luau)
 exercises both encounter models.
@@ -15184,7 +15184,8 @@ enterRoom = function encounters.enterRoom(integration: I, runId: string, attempt
 advance = function encounters.advance(
 		integration: I,
 		tracker: Tracker,
-		readings: Readings,
+		readMob: (string) -> WaveReading?,
+		positions: (string) -> { read [number]: Horizontal },
 		spawn: ({ S }) -> (),
 		track: (Tracker) -> ()
 	): boolean

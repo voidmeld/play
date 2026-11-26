@@ -126,12 +126,18 @@ return function(suite: Verify.Harness)
 					table.insert(spawned, id)
 				end
 			end
-			expect(rules.advance(rooms, partial, readings, spawn, track)):toBe(false)
+			local function readMob(instanceId: string): Run.WaveReading?
+				return readings[string.sub(instanceId, #"spawn/" + 1)]
+			end
+			local function noPositions(): never
+				error("combat does not sample checkpoint positions")
+			end
+			expect(rules.advance(rooms, partial, readMob, noPositions, spawn, track)):toBe(false)
 			expect(spawned):toEqual({ "b" })
 			expect(installed.waveIndex):toBe(2)
 			expect(table.isfrozen(installed.pending)):toBe(true)
 			readings.b = { hp = 0, maxHp = 1 }
-			expect(rules.advance(rooms, installed, readings, spawn, track)):toBe(true)
+			expect(rules.advance(rooms, installed, readMob, noPositions, spawn, track)):toBe(true)
 		end)
 		it("requires positive observed health and an advancing call sequence", function()
 			local tracker = rules.enterRoom(rooms, "party", 1, 1)
@@ -150,6 +156,16 @@ return function(suite: Verify.Harness)
 		it("resets attempts, checks horizontal checkpoint reach and calls boss adds once", function()
 			local fresh, empty = rules.enterRoom(rooms, "party", 2, 2)
 			expect(#empty):toBe(0)
+			local function noCombat(): Run.WaveReading?
+				error("checkpoint sampled combat")
+			end
+			local function noEffects(_effect: unknown): ()
+				error("checkpoint emitted combat effects")
+			end
+			expect(rules.advance(rooms, fresh, noCombat, function(runId)
+				expect(runId):toBe("party")
+				return { { x = 3, z = 4 } }
+			end, noEffects, noEffects)):toBe(true)
 			expect(fresh.attempt):toBe(2)
 			expect(rules.reachedCheckpoint(rooms, 2, { { x = 0, z = 0 } })):toBe(true)
 			expect(rules.reachedCheckpoint(rooms, 2, { { x = -1, z = 0 } })):toBe(false)

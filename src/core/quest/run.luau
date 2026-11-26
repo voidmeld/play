@@ -1018,10 +1018,19 @@ function System.encounters<I, R, S>(config: WaveConfig<I, R, S>)
 	function encounters.advance(
 		integration: I,
 		tracker: Tracker,
-		readings: Readings,
+		readMob: (string) -> WaveReading?,
+		positions: (string) -> { read [number]: Horizontal },
 		spawn: ({ S }) -> (),
 		track: (Tracker) -> ()
 	): boolean
+		local room = config.describe(assert(config.room(integration, tracker.phaseIndex)))
+		if room.kind == "checkpoint" then
+			return encounters.reachedCheckpoint(integration, tracker.phaseIndex, positions(tracker.runId))
+		end
+		local readings: { [string]: WaveReading? } = {}
+		for placementId, instanceId in tracker.spawned do
+			readings[placementId] = readMob(instanceId)
+		end
 		local withCalls, called = encounters.calledSpawns(integration, tracker, readings)
 		spawn(called)
 		local observed, decision = encounters.observe(integration, withCalls, readings)
