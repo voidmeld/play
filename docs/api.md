@@ -1415,6 +1415,13 @@ presence and reinforcement rules for shared rooms. Occupied rooms get a fresh wa
 they clear or reach the configured delay cap. The [run specification](../src/core/quest/run.verify.luau)
 exercises both encounter models.
 
+Use `objectives.nextRoom` with the host's room order and name projection. It returns the first
+room with unfinished packs, the boss step after all required packs clear, or the return step
+after a boss defeat. `resumeRooms` copies recorded defeats for the same character and cycle.
+`absorbDefeats` merges newly observed defeat keys into that copy. `projectedRoom` selects the
+active phase or the completed run's entrance. The host supplies waypoint positions and text.
+See the [objective specification](../src/core/quest/objectives.verify.luau).
+
 ### Runnable example
 
 From the repository root after [tool setup](validation.md#tools):
@@ -14571,6 +14578,39 @@ export type Catalog = {
 }
 ```
 
+### `core.quest.objectives.RoomProgress`
+
+```luau
+export type RoomProgress = { characterId: string, cycleId: string, cleared: { [string]: boolean } }
+```
+
+### `core.quest.objectives.Placement`
+
+```luau
+export type Placement = { id: string, boss: boolean?, room: number, packId: string? }
+```
+
+### `core.quest.objectives.RoomStep`
+
+```luau
+export type RoomStep =
+	{ kind: "return" }
+	| { kind: "room", index: number, name: string, cleared: number, total: number }
+	| { kind: "boss" }
+```
+
+### `core.quest.objectives.RunProjection`
+
+```luau
+export type RunProjection = { runId: string | false | nil, status: string?, phaseIndex: number? }
+```
+
+### `core.quest.objectives.absorbDefeats`
+
+```luau
+function Objectives.absorbDefeats(cleared: { [string]: boolean }, dead: { [string]: boolean })
+```
+
 ### `core.quest.objectives.catalog`
 
 ```luau
@@ -14591,6 +14631,36 @@ binding = function binding(questId: string, objective: Objective): Binding?
 bindings = function bindings(quest: Quest): { Binding }
 matches = function matches(event: Event, candidate: Binding): boolean
 bindingsFor = function(quests: { Quest }, event: Event): { Binding }
+```
+
+### `core.quest.objectives.nextRoom`
+
+```luau
+function Objectives.nextRoom(
+	rooms: { read [number]: { read id: string } },
+	placements: { read [number]: Placement },
+	defeated: { [string]: boolean },
+	order: { string },
+	roomName: (string) -> string
+): RoomStep
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+kind = "boss"
+```
+
+### `core.quest.objectives.projectedRoom`
+
+```luau
+function Objectives.projectedRoom(projection: RunProjection?): (number?, boolean)
+```
+
+### `core.quest.objectives.resumeRooms`
+
+```luau
+function Objectives.resumeRooms(previous: RoomProgress?, characterId: string, cycleId: string): { [string]: boolean }
 ```
 
 ## `core.quest.progress`
@@ -15362,6 +15432,30 @@ export type ObjectivesAliases = Objectives.Aliases
 
 ```luau
 export type ObjectivesConfig = Objectives.Config
+```
+
+### `core.quest.ObjectivesRoomProgress`
+
+```luau
+export type ObjectivesRoomProgress = Objectives.RoomProgress
+```
+
+### `core.quest.ObjectivesPlacement`
+
+```luau
+export type ObjectivesPlacement = Objectives.Placement
+```
+
+### `core.quest.ObjectivesRoomStep`
+
+```luau
+export type ObjectivesRoomStep = Objectives.RoomStep
+```
+
+### `core.quest.ObjectivesRunProjection`
+
+```luau
+export type ObjectivesRunProjection = Objectives.RunProjection
 ```
 
 ### `core.quest.ObjectivesCatalog`
