@@ -141,11 +141,10 @@ return function(suite: Verify.Harness)
 		end)
 		it("requires positive observed health and an advancing call sequence", function()
 			local tracker = rules.enterRoom(rooms, "party", 1, 1)
-			local unknown = 0 / 0
 			for _, reading in
 				{
-					{ hp = unknown, maxHp = 10, resolvedAbilitySequence = 1, resolvedReinforcementCount = 1 },
-					{ hp = 10, maxHp = 10, resolvedAbilitySequence = unknown, resolvedReinforcementCount = 1 },
+					{ hp = math.nan, maxHp = 10, resolvedAbilitySequence = 1, resolvedReinforcementCount = 1 },
+					{ hp = 10, maxHp = 10, resolvedAbilitySequence = math.nan, resolvedReinforcementCount = 1 },
 				}
 			do
 				local observed, calls = rules.calledSpawns(rooms, tracker, { a = reading })
