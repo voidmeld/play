@@ -16,6 +16,46 @@ return function(suite: Verify.Harness)
 			expect(Selection.pickNext({ "a", "b" }, "a")):toBe("b")
 			expect(Selection.pickNext({ "a", "b" }, nil)):toBe("a")
 		end)
+		it("retains the ranked order through the idle boundary and visits newcomers before repeating", function()
+			local function initial(): { string }
+				return { "b", "a" }
+			end
+			local function cached(): { string }
+				error("a live cycle already owns its order")
+			end
+			local first = assert(Selection.nextInCycle(nil, nil, 0, 3, "ab", initial))
+			local second = assert(Selection.nextInCycle(first.cycle, first.id, 3, 3, "ab", cached))
+			local wrap = assert(Selection.nextInCycle(second.cycle, second.id, 4, 3, "ab", cached))
+			expect({ first.id, second.id, wrap.id }):toEqual({ "b", "a", "b" })
+			expect(first.cycle.visited):toEqual({ b = true })
+			local function changed(): { string }
+				return { "a", "c", "b" }
+			end
+			local added = assert(Selection.nextInCycle(wrap.cycle, wrap.id, 5, 3, "abc", changed))
+			expect(added.id):toBe("c")
+			expect(added.cycle.visited):toEqual({ a = true, b = true, c = true })
+			local exhausted = assert(Selection.nextInCycle(added.cycle, added.id, 6, 3, "ab", initial))
+			expect(exhausted.id):toBe("b")
+			expect(exhausted.cycle.visited):toEqual({ b = true })
+		end)
+		it("reranks after idle or manual selection and skips the current first choice when possible", function()
+			local function ranked(): { string }
+				return { "a", "b", "c" }
+			end
+			local first = assert(Selection.nextInCycle(nil, "a", 0, 1, "abc", ranked))
+			expect(first.id):toBe("b")
+			local idle = assert(Selection.nextInCycle(first.cycle, "b", 1.1, 1, "abc", ranked))
+			expect(idle.id):toBe("a")
+			local manual = assert(Selection.nextInCycle(first.cycle, "c", 0.5, 1, "abc", ranked))
+			expect(manual.id):toBe("a")
+			local only = assert(Selection.nextInCycle(manual.cycle, "a", 1, 1, "a", function()
+				return { "a" }
+			end))
+			expect(only.id):toBe("a")
+			expect(Selection.nextInCycle(only.cycle, only.id, 2, 1, "", function()
+				return {}
+			end)):toBeNil()
+		end)
 		it("picks the nearest screen candidate with a stable tie break and retains an exact hit", function()
 			local projected = Selection.create(function(point: { x: number, y: number }): (number, number)
 				return point.x, point.y
