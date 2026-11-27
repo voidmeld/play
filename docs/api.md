@@ -1344,6 +1344,16 @@ Exact signatures and returned operations are in the [signature appendix](#signat
 
 Supply curves, class/resource/admission policy, catalogs, numeric/time bounds and pure account/profile projectors. Standing-credit coordinates injected authority/readiness/write callbacks.
 
+Use `settlement.rewardQueue` when several participants earn a reward from one event.
+Stage every eligible member before draining. Call the supplied confirmation inside the accepted
+profile update, passing the lockout result. The queue retries unconfirmed claims and saves them in
+claim-key order. For a released profile, supply its durable release readback. `settled(eventId)`
+reports that every staged claim for the event has left the save queue. Delivery can still be pending.
+The host enumerates persisted entitlements for current members and commits each grant idempotently.
+The queue calls the reward notification only after that commit succeeds. It suppresses repeated
+failure notices for each outstanding claim or delivery, and ignores overlapping drains. See the
+[settlement specification](../src/core/progression/settlement.verify.luau).
+
 ### Runnable example
 
 From the repository root after [tool setup](validation.md#tools):
@@ -1404,6 +1414,23 @@ statuses with the journal's admitted vocabulary.
 
 `reconcileOrdered` updates the progress map supplied by the actor projection. Call it with a draft owned
 by the authoritative reducer. Other progress operations query that state and do not reserve or install it.
+
+Use `run.encounters` to drive an encounter from authoritative mob readings. Supply the room
+projection, spawn constructors, identity functions, call limits and checkpoint radius.
+`enterRoom` starts the attempt. A missing reading keeps an enemy pending. A new successful
+cast sequence can add reinforcements. `advance` emits calls first, installs the observed tracker,
+then installs and emits any next wave or boss adds. A true return signals room completion.
+At a checkpoint, `advance` samples member positions and uses horizontal distance. In combat, it reads each tracked mob by instance ID. `run.sharedCycle` supplies timed repopulation,
+presence and reinforcement rules for shared rooms. Occupied rooms get a fresh warning when
+they clear or reach the configured delay cap. The [run specification](../src/core/quest/run.verify.luau)
+exercises both encounter models.
+
+Use `objectives.nextRoom` with the host's room order and name projection. It returns the first
+room with unfinished packs, the boss step after all required packs clear, or the return step
+after a boss defeat. `resumeRooms` copies recorded defeats for the same character and cycle.
+`absorbDefeats` merges newly observed defeat keys into that copy. `projectedRoom` selects the
+active phase or the completed run's entrance. The host supplies waypoint positions and text.
+See the [objective specification](../src/core/quest/objectives.verify.luau).
 
 ### Runnable example
 
@@ -12942,6 +12969,45 @@ export type Config<P, S, C, Q> = {
 }
 ```
 
+### `core.progression.settlement.QueueNotice`
+
+```luau
+export type QueueNotice = "locked" | "save_pending" | "delivery_pending"
+```
+
+### `core.progression.settlement.QueueConfig`
+
+```luau
+export type QueueConfig<M, R, P> = {
+	claimKey: (string, M) -> string,
+	stage: (M, string, (boolean) -> ()) -> (),
+	loaded: (M) -> boolean,
+	save: (M) -> boolean,
+	saveReleased: (M) -> boolean,
+	scope: () -> P?,
+	members: () -> { M },
+	pending: (P, M) -> { R }?,
+	marker: (R) -> string,
+	deliver: (M, R) -> (boolean, string?),
+	reward: (M, R) -> (),
+	notice: (M, QueueNotice, string?) -> (),
+}
+```
+
+### `core.progression.settlement.rewardQueue`
+
+```luau
+function System.rewardQueue<M, R, P>(deps: QueueConfig<M, R, P>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+stage = function runtime.stage(eventId: string, members: { M })
+settled = function runtime.settled(eventId: string): boolean
+drain = function runtime.drain()
+```
+
 ### `core.progression.settlement.settlement`
 
 ```luau
@@ -13821,6 +13887,18 @@ export type SettlementRewardResult<S, Q> = Settlement.RewardResult<S, Q>
 export type SettlementGrantResult<S> = Settlement.GrantResult<S>
 ```
 
+### `core.progression.SettlementQueueNotice`
+
+```luau
+export type SettlementQueueNotice = Settlement.QueueNotice
+```
+
+### `core.progression.SettlementQueueConfig`
+
+```luau
+export type SettlementQueueConfig<M, R, P> = Settlement.QueueConfig<M, R, P>
+```
+
 ### `core.progression.SettlementConfig`
 
 ```luau
@@ -14572,6 +14650,39 @@ export type Catalog = {
 }
 ```
 
+### `core.quest.objectives.RoomProgress`
+
+```luau
+export type RoomProgress = { characterId: string, cycleId: string, cleared: { [string]: boolean } }
+```
+
+### `core.quest.objectives.Placement`
+
+```luau
+export type Placement = { id: string, boss: boolean?, room: number, packId: string? }
+```
+
+### `core.quest.objectives.RoomStep`
+
+```luau
+export type RoomStep =
+	{ kind: "return" }
+	| { kind: "room", index: number, name: string, cleared: number, total: number }
+	| { kind: "boss" }
+```
+
+### `core.quest.objectives.RunProjection`
+
+```luau
+export type RunProjection = { runId: string | false | nil, status: string?, phaseIndex: number? }
+```
+
+### `core.quest.objectives.absorbDefeats`
+
+```luau
+function Objectives.absorbDefeats(cleared: { [string]: boolean }, dead: { [string]: boolean })
+```
+
 ### `core.quest.objectives.catalog`
 
 ```luau
@@ -14592,6 +14703,36 @@ binding = function binding(questId: string, objective: Objective): Binding?
 bindings = function bindings(quest: Quest): { Binding }
 matches = function matches(event: Event, candidate: Binding): boolean
 bindingsFor = function(quests: { Quest }, event: Event): { Binding }
+```
+
+### `core.quest.objectives.nextRoom`
+
+```luau
+function Objectives.nextRoom(
+	rooms: { read [number]: { read id: string } },
+	placements: { read [number]: Placement },
+	defeated: { [string]: boolean },
+	order: { string },
+	roomName: (string) -> string
+): RoomStep
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+kind = "boss"
+```
+
+### `core.quest.objectives.projectedRoom`
+
+```luau
+function Objectives.projectedRoom(projection: RunProjection?): (number?, boolean)
+```
+
+### `core.quest.objectives.resumeRooms`
+
+```luau
+function Objectives.resumeRooms(previous: RoomProgress?, characterId: string, cycleId: string): { [string]: boolean }
 ```
 
 ## `core.quest.progress`
@@ -14930,10 +15071,184 @@ export type Config<P> = {
 }
 ```
 
+### `core.quest.run.Tracker`
+
+```luau
+export type Tracker = {
+	runId: string,
+	attempt: number,
+	phaseIndex: number,
+	waveIndex: number,
+	addsSpawned: boolean,
+	spawned: { [string]: string },
+	defeated: { [string]: boolean },
+	pending: { [string]: boolean },
+	calledSequences: { [string]: number },
+}
+```
+
+### `core.quest.run.WaveReading`
+
+```luau
+export type WaveReading = {
+	read hp: number,
+	read maxHp: number,
+	read resolvedAbilitySequence: number?,
+	read resolvedReinforcementCount: number?,
+}
+```
+
+### `core.quest.run.WaveRoom`
+
+```luau
+export type WaveRoom = {
+	read kind: string,
+	read position: Horizontal,
+	read waves: { read [number]: { read [number]: { read placementId: string } } },
+	read adds: { read atHealthFraction: number }?,
+}
+```
+
+### `core.quest.run.WaveConfig`
+
+```luau
+export type WaveConfig<I, R, S> = {
+	room: (I, number) -> R?,
+	describe: (R) -> WaveRoom,
+	wave: (R, Tracker, number) -> { S },
+	adds: (R, Tracker) -> { S },
+	call: (R, Tracker, string, number, number) -> S?,
+	ids: (S) -> (string, string),
+	isCall: (string) -> boolean,
+	isCallerSpawn: (string, string) -> boolean,
+	perCast: number,
+	liveCap: number,
+	checkpointRadius: number,
+}
+```
+
+### `core.quest.run.Decision`
+
+```luau
+export type Decision =
+	{ kind: "wait" }
+	| { kind: "spawn_wave", waveIndex: number }
+	| { kind: "spawn_adds" }
+	| { kind: "room_cleared" }
+```
+
+### `core.quest.run.Health`
+
+```luau
+export type Health = { hp: number, maxHp: number }
+```
+
+### `core.quest.run.Reinforcement`
+
+```luau
+export type Reinforcement = { hp: number, resolvedAbilitySequence: number?, resolvedReinforcementCount: number? }
+```
+
+### `core.quest.run.Repopulation`
+
+```luau
+export type Repopulation = { dueAt: number?, phase: string?, warnedAt: number? }
+```
+
+### `core.quest.run.Retreat`
+
+```luau
+export type Retreat = { position: Point, radius: number }
+```
+
+### `core.quest.run.CycleConfig`
+
+```luau
+export type CycleConfig = {
+	warningSeconds: number,
+	perCast: number,
+	liveCap: number,
+	pocketRadius: number,
+	heightTolerance: number,
+}
+```
+
+### `core.quest.run.encounters`
+
+```luau
+function System.encounters<I, R, S>(config: WaveConfig<I, R, S>)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+waveSpawns = function encounters.waveSpawns(integration: I, tracker: Tracker, index: number): (Tracker, { S })
+addSpawns = function encounters.addSpawns(integration: I, tracker: Tracker): (Tracker, { S })
+calledSpawns = function encounters.calledSpawns(integration: I, tracker: Tracker, readings: Readings): (Tracker, { S })
+observe = function encounters.observe(integration: I, tracker: Tracker, readings: Readings): (Tracker, Decision)
+reachedCheckpoint = function encounters.reachedCheckpoint(
+		integration: I,
+		index: number,
+		positions: { read [number]: Horizontal }
+	): boolean
+enterRoom = function encounters.enterRoom(integration: I, runId: string, attempt: number, index: number): (Tracker, { S })
+advance = function encounters.advance(
+		integration: I,
+		tracker: Tracker,
+		readMob: (string) -> WaveReading?,
+		positions: (string) -> { read [number]: Horizontal },
+		spawn: ({ S }) -> (),
+		track: (Tracker) -> ()
+	): boolean
+```
+
+### `core.quest.run.newTracker`
+
+```luau
+function System.newTracker(runId: string, attempt: number, phaseIndex: number): Tracker
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+runId = runId
+attempt = attempt
+phaseIndex = phaseIndex
+waveIndex = 0
+addsSpawned = false
+spawned = {}
+defeated = {}
+pending = {}
+calledSequences = {}
+```
+
 ### `core.quest.run.run`
 
 ```luau
 function System.run<P>(config: Config<P>): Core
+```
+
+### `core.quest.run.sharedCycle`
+
+```luau
+function System.sharedCycle(config: CycleConfig)
+```
+
+Returned operations and values (declarations; unannotated results are inferred):
+
+```luau
+respawnAt = function cycle.respawnAt(defeatedAt: number, isBoss: boolean, bossSeconds: number, trashSeconds: number): number
+callDue = function cycle.callDue(alreadyCalled: boolean, mob: Health?, fraction: number): boolean
+rollCount = function cycle.rollCount(sequence: number, mob: Reinforcement, living: number, liveCap: number?): (number, number)
+repopulation = function cycle.repopulation<T>(
+		row: T & Repopulation,
+		now: number,
+		occupied: boolean,
+		delayCap: number?
+	): (T & Repopulation, boolean)
+occupiedRetreat = function cycle.occupiedRetreat(placement: { position: Point }, room: Retreat?, positions: { Point }): boolean
+presenceActive = function cycle.presenceActive(lastActiveAt: number, now: number, idleSeconds: number): boolean
+moved = function cycle.moved(from: Point, to: Point, studs: number): boolean
 ```
 
 ## `core.quest`
@@ -15192,6 +15507,30 @@ export type ObjectivesAliases = Objectives.Aliases
 export type ObjectivesConfig = Objectives.Config
 ```
 
+### `core.quest.ObjectivesRoomProgress`
+
+```luau
+export type ObjectivesRoomProgress = Objectives.RoomProgress
+```
+
+### `core.quest.ObjectivesPlacement`
+
+```luau
+export type ObjectivesPlacement = Objectives.Placement
+```
+
+### `core.quest.ObjectivesRoomStep`
+
+```luau
+export type ObjectivesRoomStep = Objectives.RoomStep
+```
+
+### `core.quest.ObjectivesRunProjection`
+
+```luau
+export type ObjectivesRunProjection = Objectives.RunProjection
+```
+
 ### `core.quest.ObjectivesCatalog`
 
 ```luau
@@ -15346,6 +15685,66 @@ export type RunCore = Run.Core
 
 ```luau
 export type RunConfig<P> = Run.Config<P>
+```
+
+### `core.quest.RunTracker`
+
+```luau
+export type RunTracker = Run.Tracker
+```
+
+### `core.quest.RunWaveReading`
+
+```luau
+export type RunWaveReading = Run.WaveReading
+```
+
+### `core.quest.RunWaveRoom`
+
+```luau
+export type RunWaveRoom = Run.WaveRoom
+```
+
+### `core.quest.RunWaveConfig`
+
+```luau
+export type RunWaveConfig<I, R, S> = Run.WaveConfig<I, R, S>
+```
+
+### `core.quest.RunDecision`
+
+```luau
+export type RunDecision = Run.Decision
+```
+
+### `core.quest.RunHealth`
+
+```luau
+export type RunHealth = Run.Health
+```
+
+### `core.quest.RunReinforcement`
+
+```luau
+export type RunReinforcement = Run.Reinforcement
+```
+
+### `core.quest.RunRepopulation`
+
+```luau
+export type RunRepopulation = Run.Repopulation
+```
+
+### `core.quest.RunRetreat`
+
+```luau
+export type RunRetreat = Run.Retreat
+```
+
+### `core.quest.RunCycleConfig`
+
+```luau
+export type RunCycleConfig = Run.CycleConfig
 ```
 
 ### `core.quest.API`

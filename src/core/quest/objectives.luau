@@ -232,4 +232,79 @@ function Objectives.catalog(config: Config): Catalog
 	}
 end
 
+export type RoomProgress = { characterId: string, cycleId: string, cleared: { [string]: boolean } }
+export type Placement = { id: string, boss: boolean?, room: number, packId: string? }
+export type RoomStep =
+	{ kind: "return" }
+	| { kind: "room", index: number, name: string, cleared: number, total: number }
+	| { kind: "boss" }
+export type RunProjection = { runId: string | false | nil, status: string?, phaseIndex: number? }
+
+function Objectives.resumeRooms(previous: RoomProgress?, characterId: string, cycleId: string): { [string]: boolean }
+	return if previous ~= nil
+			and previous.characterId == characterId
+			and previous.cycleId == cycleId
+		then table.clone(previous.cleared)
+		else {}
+end
+
+function Objectives.absorbDefeats(cleared: { [string]: boolean }, dead: { [string]: boolean })
+	for id in dead do
+		cleared[id] = true
+	end
+end
+
+function Objectives.nextRoom(
+	rooms: { read [number]: { read id: string } },
+	placements: { read [number]: Placement },
+	defeated: { [string]: boolean },
+	order: { string },
+	roomName: (string) -> string
+): RoomStep
+	local indexByName: { [string]: number } = {}
+	for index, room in rooms do
+		indexByName[roomName(room.id)] = index
+	end
+	local packsByRoom: { [number]: { [string]: boolean } } = {}
+	for _, placement in placements do
+		if placement.boss then
+			if defeated[placement.id] == true then
+				return { kind = "return" }
+			end
+		else
+			local packs = packsByRoom[placement.room] or {}
+			local pack = placement.packId or placement.id
+			packs[pack] = packs[pack] ~= false and defeated[placement.id] == true
+			packsByRoom[placement.room] = packs
+		end
+	end
+	for _, name in order do
+		local index = indexByName[name]
+		local packs = if index ~= nil then packsByRoom[index] else nil
+		if packs ~= nil then
+			local cleared, total = 0, 0
+			for _, defeatedPack in packs do
+				total += 1
+				if defeatedPack then
+					cleared += 1
+				end
+			end
+			if cleared < total then
+				return { kind = "room", index = index, name = name, cleared = cleared, total = total }
+			end
+		end
+	end
+	return { kind = "boss" }
+end
+
+function Objectives.projectedRoom(projection: RunProjection?): (number?, boolean)
+	if projection == nil or not projection.runId then
+		return nil, false
+	end
+	if projection.status == "completed" then
+		return 1, true
+	end
+	return if projection.status == "active" then projection.phaseIndex else nil, false
+end
+
 return Objectives

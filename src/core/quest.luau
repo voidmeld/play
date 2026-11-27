@@ -46,6 +46,10 @@ export type ObjectivesProblem = Objectives.Problem
 export type ObjectivesEventContract = Objectives.EventContract
 export type ObjectivesAliases = Objectives.Aliases
 export type ObjectivesConfig = Objectives.Config
+export type ObjectivesRoomProgress = Objectives.RoomProgress
+export type ObjectivesPlacement = Objectives.Placement
+export type ObjectivesRoomStep = Objectives.RoomStep
+export type ObjectivesRunProjection = Objectives.RunProjection
 export type ObjectivesCatalog = Objectives.Catalog
 export type ProgressQuestProgress = Progress.QuestProgress
 export type ProgressRule = Progress.Rule
@@ -72,6 +76,17 @@ export type RunTransitionRejected = Run.TransitionRejected
 export type RunTransitionResult = Run.TransitionResult
 export type RunCore = Run.Core
 export type RunConfig<P> = Run.Config<P>
+
+export type RunTracker = Run.Tracker
+export type RunWaveReading = Run.WaveReading
+export type RunWaveRoom = Run.WaveRoom
+export type RunWaveConfig<I, R, S> = Run.WaveConfig<I, R, S>
+export type RunDecision = Run.Decision
+export type RunHealth = Run.Health
+export type RunReinforcement = Run.Reinforcement
+export type RunRepopulation = Run.Repopulation
+export type RunRetreat = Run.Retreat
+export type RunCycleConfig = Run.CycleConfig
 
 export type API = {
 	read claims: typeof(Claims),

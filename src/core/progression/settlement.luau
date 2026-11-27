@@ -449,4 +449,128 @@ function System.settlement<P, S, C, Q>(config: Config<P, S, C, Q>)
 
 	return table.freeze({ emptyRewardHistory = emptyRewardHistory, applyPersonalReward = applyPersonalReward })
 end
+export type QueueNotice = "locked" | "save_pending" | "delivery_pending"
+export type QueueConfig<M, R, P> = {
+	claimKey: (string, M) -> string,
+	stage: (M, string, (boolean) -> ()) -> (),
+	loaded: (M) -> boolean,
+	save: (M) -> boolean,
+	saveReleased: (M) -> boolean,
+	scope: () -> P?,
+	members: () -> { M },
+	pending: (P, M) -> { R }?,
+	marker: (R) -> string,
+	deliver: (M, R) -> (boolean, string?),
+	reward: (M, R) -> (),
+	notice: (M, QueueNotice, string?) -> (),
+}
+
+type Claim<M> = { member: M, eventId: string, staged: boolean, locked: boolean, noticed: boolean? }
+type Delivery<M, R> = { member: M, reward: R, noticed: boolean? }
+
+function System.rewardQueue<M, R, P>(deps: QueueConfig<M, R, P>)
+	local pending: { [string]: Claim<M> } = {}
+	local deliveries: { [string]: Delivery<M, R> } = {}
+	local runtime = {}
+	local draining = false
+
+	local function stage(claim: Claim<M>)
+		if not claim.staged then
+			deps.stage(claim.member, claim.eventId, function(locked)
+				claim.staged = true
+				claim.locked = locked
+			end)
+		end
+	end
+
+	function runtime.stage(eventId: string, members: { M })
+		for _, member in members do
+			local key = deps.claimKey(eventId, member)
+			local claim = pending[key]
+			if claim == nil then
+				local created: Claim<M> = { member = member, eventId = eventId, staged = false, locked = false }
+				pending[key] = created
+				claim = created
+			end
+			stage(claim)
+		end
+	end
+
+	function runtime.settled(eventId: string): boolean
+		for _, claim in pending do
+			if claim.eventId == eventId then
+				return false
+			end
+		end
+		return true
+	end
+
+	local function drain()
+		for _, claim in pending do
+			stage(claim)
+		end
+		local keys: { string } = {}
+		for key in pending do
+			table.insert(keys, key)
+		end
+		table.sort(keys)
+		for _, key in keys do
+			local claim = pending[key]
+			local loaded = deps.loaded(claim.member)
+			local saved = claim.staged and (if loaded then deps.save(claim.member) else deps.saveReleased(claim.member))
+			if saved then
+				pending[key] = nil
+				if claim.locked then
+					deps.notice(claim.member, "locked", nil)
+				end
+			elseif not claim.noticed then
+				claim.noticed = true
+				deps.notice(claim.member, "save_pending", nil)
+			end
+		end
+		local scope = deps.scope()
+		if scope == nil then
+			return
+		end
+		for _, member in deps.members() do
+			local rewards = deps.pending(scope, member)
+			if rewards ~= nil then
+				for _, reward in rewards do
+					local key = deps.marker(reward)
+					deliveries[key] = deliveries[key] or { member = member, reward = reward }
+				end
+			end
+		end
+		for key, delivery in deliveries do
+			local member, reward = delivery.member, delivery.reward
+			if not deps.loaded(member) then
+				deliveries[key] = nil
+				continue
+			end
+			local delivered, reason = deps.deliver(member, reward)
+			if delivered then
+				deliveries[key] = nil
+				deps.reward(member, reward)
+			elseif not delivery.noticed then
+				delivery.noticed = true
+				deps.notice(member, "delivery_pending", reason)
+			end
+		end
+	end
+
+	function runtime.drain()
+		if draining then
+			return
+		end
+		draining = true
+		local result = table.pack(pcall(drain))
+		draining = false
+		if result[1] ~= true then
+			error(result[2], 0)
+		end
+	end
+
+	return table.freeze(runtime)
+end
+
 return table.freeze(System)

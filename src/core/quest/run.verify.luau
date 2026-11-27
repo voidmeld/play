@@ -56,6 +56,146 @@ end
 return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
+	describe("encounter progress", function()
+		local config: Run.WaveConfig<{ Run.WaveRoom }, Run.WaveRoom, string> = {
+			room = function(rooms, index)
+				return rooms[index]
+			end,
+			describe = function(room)
+				return room
+			end,
+			wave = function(room, _, index)
+				return { room.waves[index][1].placementId }
+			end,
+			adds = function()
+				return { "add" }
+			end,
+			call = function(_, _, caller, sequence, index)
+				return caller .. "/call/" .. sequence .. "/" .. index
+			end,
+			ids = function(id)
+				return id, "spawn/" .. id
+			end,
+			isCall = function(id)
+				return string.find(id, "/call/", 1, true) ~= nil
+			end,
+			isCallerSpawn = function(id, caller)
+				return string.find(id, caller .. "/call/", 1, true) == 1
+			end,
+			perCast = 1,
+			liveCap = 2,
+			checkpointRadius = 5,
+		}
+		local rules = Run.encounters(config)
+		local rooms: { Run.WaveRoom } = {
+			{
+				kind = "encounter",
+				position = { x = 0, z = 0 },
+				waves = { { { placementId = "a" } }, { { placementId = "b" } } },
+			},
+			{ kind = "checkpoint", position = { x = 3, z = 4 }, waves = {} },
+			{
+				kind = "boss",
+				position = { x = 0, z = 0 },
+				waves = { { { placementId = "c" } } },
+				adds = { atHealthFraction = 0.4 },
+			},
+		}
+		it("advances only after the wave and its called enemies are defeated", function()
+			local initial, first = rules.enterRoom(rooms, "party", 1, 1)
+			expect(first):toEqual({ "a" })
+			local readings: { [string]: Run.WaveReading } = {
+				a = { hp = 1, maxHp = 1, resolvedAbilitySequence = 1, resolvedReinforcementCount = 3 },
+			}
+			local called, spawns = rules.calledSpawns(rooms, initial, readings)
+			expect(spawns):toEqual({ "a/call/1/1" })
+			expect(initial.calledSequences.a):toBeNil()
+			local _, replay = rules.calledSpawns(rooms, called, readings)
+			expect(#replay):toBe(0)
+			readings.a = { hp = 0, maxHp = 1 }
+			local partial, decision = rules.observe(rooms, called, readings)
+			expect(decision.kind):toBe("wait")
+			readings[spawns[1]] = { hp = 0, maxHp = 1 }
+			local installed = partial
+			local spawned: { string } = {}
+			local function track(nextTracker: Run.Tracker)
+				installed = nextTracker
+			end
+			local function spawn(rows: { string })
+				for _, id in rows do
+					table.insert(spawned, id)
+				end
+			end
+			local function readMob(instanceId: string): Run.WaveReading?
+				return readings[string.sub(instanceId, #"spawn/" + 1)]
+			end
+			local function noPositions(): never
+				error("combat does not sample checkpoint positions")
+			end
+			expect(rules.advance(rooms, partial, readMob, noPositions, spawn, track)):toBe(false)
+			expect(spawned):toEqual({ "b" })
+			expect(installed.waveIndex):toBe(2)
+			expect(table.isfrozen(installed.pending)):toBe(true)
+			readings.b = { hp = 0, maxHp = 1 }
+			expect(rules.advance(rooms, installed, readMob, noPositions, spawn, track)):toBe(true)
+		end)
+		it("requires positive observed health and an advancing call sequence", function()
+			local tracker = rules.enterRoom(rooms, "party", 1, 1)
+			for _, reading in
+				{
+					{ hp = math.nan, maxHp = 10, resolvedAbilitySequence = 1, resolvedReinforcementCount = 1 },
+					{ hp = 10, maxHp = 10, resolvedAbilitySequence = math.nan, resolvedReinforcementCount = 1 },
+				}
+			do
+				local observed, calls = rules.calledSpawns(rooms, tracker, { a = reading })
+				expect(#calls):toBe(0)
+				expect(observed.calledSequences.a):toBeNil()
+			end
+		end)
+		it("resets attempts, checks horizontal checkpoint reach and calls boss adds once", function()
+			local fresh, empty = rules.enterRoom(rooms, "party", 2, 2)
+			expect(#empty):toBe(0)
+			local function noCombat(): Run.WaveReading?
+				error("checkpoint sampled combat")
+			end
+			local function noEffects(_effect: unknown): ()
+				error("checkpoint emitted combat effects")
+			end
+			expect(rules.advance(rooms, fresh, noCombat, function(runId)
+				expect(runId):toBe("party")
+				return { { x = 3, z = 4 } }
+			end, noEffects, noEffects)):toBe(true)
+			expect(fresh.attempt):toBe(2)
+			expect(rules.reachedCheckpoint(rooms, 2, { { x = 0, z = 0 } })):toBe(true)
+			expect(rules.reachedCheckpoint(rooms, 2, { { x = -1, z = 0 } })):toBe(false)
+			expect(rules.reachedCheckpoint(rooms, 1, { rooms[1].position })):toBe(false)
+			local boss = rules.enterRoom(rooms, "party", 2, 3)
+			local observed, decision = rules.observe(rooms, boss, { c = { hp = 4, maxHp = 10 } })
+			expect(decision.kind):toBe("spawn_adds")
+			local withAdds, adds = rules.addSpawns(rooms, observed)
+			expect(adds):toEqual({ "add" })
+			local _, again = rules.addSpawns(rooms, withAdds)
+			expect(#again):toBe(0)
+			local _, cleared = rules.observe(rooms, withAdds, { c = { hp = 0, maxHp = 10 } })
+			expect(cleared.kind):toBe("room_cleared")
+		end)
+		it("starts a fresh warning after occupancy lifts or reaches its delay cap", function()
+			local cycle =
+				Run.sharedCycle({ warningSeconds = 3, perCast = 2, liveCap = 3, pocketRadius = 5, heightTolerance = 2 })
+			local row: Run.Repopulation = { dueAt = 10 }
+			local waiting = cycle.repopulation(row, 14, true, 5)
+			local warned, early = cycle.repopulation(waiting, 15, true, 5)
+			expect(early):toBe(false)
+			expect(warned.warnedAt):toBe(15)
+			local _, ready = cycle.repopulation(warned, 18, true, 5)
+			expect(ready):toBe(true)
+			expect(row.warnedAt):toBeNil()
+			local count, sequence =
+				cycle.rollCount(1, { hp = 3, resolvedAbilitySequence = 2, resolvedReinforcementCount = 4 }, 2)
+			expect(count):toBe(1)
+			expect(sequence):toBe(2)
+		end)
+	end)
 	describe("run progress and claims", function()
 		it("replays accepted phases and refuses conflicts without progressing the caller", function()
 			local state = start()

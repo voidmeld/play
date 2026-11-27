@@ -22,6 +22,38 @@ return function(suite: Verify.Harness)
 	local test = Bdd.create(suite)
 	local describe, it, expect = test.describe, test.it, test.expect
 
+	describe("room objectives", function()
+		it("resumes the same character and cycle and counts whole packs in authored order", function()
+			local prior: Objectives.RoomProgress = { characterId = "c", cycleId = "one", cleared = { x = true } }
+			local cleared = Objectives.resumeRooms(prior, "c", "one")
+			expect(Objectives.resumeRooms(prior, "c", "two")):toEqual({})
+			expect(Objectives.resumeRooms(prior, "b", "one")):toEqual({})
+			local rooms = { { id = "west" }, { id = "east" } }
+			local order = { "east", "west" }
+			local placements: { Objectives.Placement } = {
+				{ id = "x", room = 2, packId = "p" },
+				{ id = "y", room = 2, packId = "p" },
+				{ id = "z", room = 2 },
+				{ id = "w", room = 1 },
+				{ id = "b", room = 1, boss = true },
+			}
+			local function step()
+				return Objectives.nextRoom(rooms, placements, cleared, order, function(id)
+					return id
+				end)
+			end
+			expect(step()):toEqual({ kind = "room", name = "east", index = 2, total = 2, cleared = 0 })
+			Objectives.absorbDefeats(cleared, { y = true })
+			expect(step()):toEqual({ kind = "room", name = "east", index = 2, total = 2, cleared = 1 })
+			expect(prior.cleared.y):toBeNil()
+			Objectives.absorbDefeats(cleared, { z = true })
+			expect(step()):toEqual({ kind = "room", name = "west", index = 1, cleared = 0, total = 1 })
+			Objectives.absorbDefeats(cleared, { w = true })
+			expect(step().kind):toBe("boss")
+			Objectives.absorbDefeats(cleared, { b = true })
+			expect(step().kind):toBe("return")
+		end)
+	end)
 	describe("objectives", function()
 		it("lists kinds in authored order and events once", function()
 			expect(catalog.kinds()):toEqual({ "kill", "collect", "train" })
