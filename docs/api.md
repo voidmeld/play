@@ -3343,13 +3343,24 @@ Cycle ordered candidates, select pointer hits and release distant targets.
 
 `Candidate<P>` carries stable identity/point; `Release` retains out-of-range timing.
 
+`nextInCycle` returns a `Pick` with the selected ID and a `Cycle` to pass to the next press.
+Supply the current selection, a clock in seconds, an idle timeout, a signature for the eligible
+targets and a function returning their ranked IDs. Change the signature when membership or an
+interrupting priority changes. Keep it stable when movement alone should preserve the cycle.
+The cycle retains the ranked array. Supply an array whose contents stay stable for its lifetime.
+
+Presses through the idle deadline reuse the saved order while the selection and signature match.
+When the signature changes, the first unvisited target in the new order wins. When all have been
+visited, the timeout elapses or the selection changes externally, a fresh cycle skips the selected
+first choice if another target exists. An empty ranking returns nil.
+
 Types and configuration are exported from [src/roblox/target-selection.luau](../src/roblox/target-selection.luau).
 
 ### Operations
 
 | Component | Operations | Exported types |
 | --- | --- | --- |
-| [target-selection](../src/roblox/target-selection.luau) | `create`, `observe`, `pickNearestToTap`, `pickNext`, `release`, `reset`, `tapSelection` | `Candidate`, `Release` |
+| [target-selection](../src/roblox/target-selection.luau) | `create`, `nextInCycle`, `observe`, `pickNearestToTap`, `pickNext`, `release`, `reset`, `tapSelection` | `Candidate`, `Cycle`, `Pick`, `Release` |
 
 Exact signatures and returned operations are in the [signature appendix](#signature-appendix).
 
@@ -24414,6 +24425,24 @@ create = function create(deps: Dependencies, memberNameFor: (number) -> string?)
 export type Candidate<P> = { npcId: string, screenPos: P }
 ```
 
+### `roblox.target-selection.Cycle`
+
+```luau
+export type Cycle = {
+	signature: string,
+	ids: { string },
+	index: number,
+	at: number,
+	visited: { [string]: boolean },
+}
+```
+
+### `roblox.target-selection.Pick`
+
+```luau
+export type Pick = { id: string, cycle: Cycle }
+```
+
 ### `roblox.target-selection.Release`
 
 ```luau
@@ -24431,6 +24460,19 @@ Returned operations and values (declarations; unannotated results are inferred):
 ```luau
 pickNearestToTap = function Projected.pickNearestToTap(tap: P, candidates: { Candidate<P> }, radius: number): string?
 tapSelection = function Projected.tapSelection(resolved: string?, tap: P, candidates: { Candidate<P> }, radius: number): string?
+```
+
+### `roblox.target-selection.nextInCycle`
+
+```luau
+function Selection.nextInCycle(
+	previous: Cycle?,
+	selectedId: string?,
+	now: number,
+	idleResetSec: number,
+	signature: string,
+	rankedIds: () -> { string }
+): Pick?
 ```
 
 ### `roblox.target-selection.pickNext`
